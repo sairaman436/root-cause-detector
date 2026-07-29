@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -64,6 +65,14 @@ public class SecurityConfiguration {
                         .hasAuthority("ROLE_MANAGE")
                         .requestMatchers("/api/v1/admin/permissions", "/api/v1/admin/permissions/**")
                         .hasAuthority("PERMISSION_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/surveys", "/api/v1/surveys/**", "/api/v1/survey-templates", "/api/v1/survey-templates/**", "/api/v1/question-types")
+                        .hasAuthority("SURVEY_READ")
+                        .requestMatchers("/api/v1/surveys/*/assignments", "/api/v1/surveys/*/assignments/**")
+                        .hasAuthority("SURVEY_ASSIGN")
+                        .requestMatchers("/api/v1/surveys/*/workflow", "/api/v1/surveys/*/archive")
+                        .hasAuthority("SURVEY_PUBLISH")
+                        .requestMatchers("/api/v1/surveys", "/api/v1/surveys/**", "/api/v1/survey-templates", "/api/v1/survey-templates/**")
+                        .hasAuthority("SURVEY_MANAGE")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex

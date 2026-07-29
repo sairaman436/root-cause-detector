@@ -10,7 +10,7 @@ The approved architecture assigns transactional platform responsibilities to a J
 
 ## Architecture Fit
 
-This module owns transactional platform responsibilities that belong in the Java backend. Milestone 2 adds the Identity & Access Management boundary while surveys, evidence metadata, recommendations, reports, AI, RAG, and agent workflows remain intentionally deferred.
+This module owns transactional platform responsibilities that belong in the Java backend. Milestone 2 added the Identity & Access Management boundary. Milestone 3 adds the Enterprise Survey Management boundary while evidence metadata, recommendations, reports, AI, RAG, and agent workflows remain intentionally deferred.
 
 ## Current Scope
 
@@ -22,10 +22,11 @@ This module owns transactional platform responsibilities that belong in the Java
 - JWT access tokens and hashed refresh-token persistence
 - Organization, user, role, permission, and audit persistence through Flyway-managed PostgreSQL schemas
 - Unit and integration tests for token behavior, authentication flows, RBAC, and schema startup
+- Survey template, survey, version, section, question, option, validation rule, assignment, status history, and tag persistence
+- Survey workflow validation, dynamic question-type registry, questionnaire definition APIs, survey search, and survey audit events
 
 ## Explicit Non-Scope
 
-- Survey modules
 - AI, RAG, and agent orchestration
 - Kafka workflows
-- Reporting and notification business features
+- Evidence upload, reporting, analytics, and notification business features
