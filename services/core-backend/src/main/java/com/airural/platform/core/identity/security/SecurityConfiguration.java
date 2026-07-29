@@ -83,6 +83,12 @@ public class SecurityConfiguration {
                         .hasAuthority("GEO_READ")
                         .requestMatchers("/api/v1/geospatial", "/api/v1/geospatial/**")
                         .hasAuthority("GEO_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/geography", "/api/v1/geography/**")
+                        .hasAnyAuthority("GEO_VIEWER", "GEO_READ", "GEO_EDITOR", "GEO_ADMIN")
+                        .requestMatchers("/api/v1/geography/infrastructure", "/api/v1/geography/infrastructure/**")
+                        .hasAnyAuthority("INFRASTRUCTURE_MANAGE", "GEO_ADMIN", "GEO_MANAGE")
+                        .requestMatchers("/api/v1/geography", "/api/v1/geography/**")
+                        .hasAnyAuthority("GEO_EDITOR", "GEO_ADMIN", "GEO_MANAGE")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex

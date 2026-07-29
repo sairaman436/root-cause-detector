@@ -145,6 +145,22 @@ class GeospatialIntegrationTests {
                 }
                 """.formatted(villageId)));
         assertThat(boundary.at("/data/entityType").asText()).isEqualTo("VILLAGE");
+        UUID boundaryId = UUID.fromString(boundary.at("/data/id").asText());
+
+        JsonNode geographySearch = json(getJson("/api/v1/geography/search?query=Sample", token));
+        assertThat(geographySearch.at("/data/content").size()).isEqualTo(1);
+
+        JsonNode geographyNearby = json(getJson("/api/v1/geography/nearby?latitude=17.4200&longitude=78.5200&assetType=PHC&radiusKm=5&limit=5", token));
+        assertThat(geographyNearby.at("/data/0/name").asText()).isEqualTo("Primary Health Center");
+
+        JsonNode geographyBoundary = json(getJson("/api/v1/geography/boundary/" + boundaryId, token));
+        assertThat(geographyBoundary.at("/data/entityId").asText()).isEqualTo(villageId.toString());
+
+        JsonNode geographyHierarchy = json(getJson("/api/v1/geography/hierarchy?householdId=" + householdId, token));
+        assertThat(geographyHierarchy.at("/data/pathName").asText()).contains("Sample Village");
+
+        JsonNode geographyInfrastructure = json(getJson("/api/v1/geography/infrastructure?villageId=" + villageId, token));
+        assertThat(geographyInfrastructure.at("/data/content/0/id").asText()).isEqualTo(assetId.toString());
 
         JsonNode distance = json(getJson("/api/v1/geospatial/search/distance?fromLatitude=17.4200&fromLongitude=78.5200&toLatitude=17.4230&toLongitude=78.5230", token));
         assertThat(distance.at("/data/distanceKm").asDouble()).isGreaterThan(0);
@@ -162,10 +178,20 @@ class GeospatialIntegrationTests {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(get("/api/v1/geography/search?query=none")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
         mockMvc.perform(post("/api/v1/geospatial/admin/countries")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"NPL\",\"name\":\"Nepal\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/geography/countries")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"BTN\",\"name\":\"Bhutan\"}"))
                 .andExpect(status().isForbidden());
     }
 

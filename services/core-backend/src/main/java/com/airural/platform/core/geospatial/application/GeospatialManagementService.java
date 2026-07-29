@@ -37,6 +37,7 @@ public class GeospatialManagementService {
     private final HamletRepository hamlets;
     private final HouseholdRepository households;
     private final GeoBoundaryRepository boundaries;
+    private final GeoAuditRepository geoAuditRepository;
     private final InfrastructureAssetRepository assets;
     private final AdministrativeHierarchyRepository hierarchy;
     private final SurveyRepository surveyRepository;
@@ -58,6 +59,7 @@ public class GeospatialManagementService {
             HamletRepository hamlets,
             HouseholdRepository households,
             GeoBoundaryRepository boundaries,
+            GeoAuditRepository geoAuditRepository,
             InfrastructureAssetRepository assets,
             AdministrativeHierarchyRepository hierarchy,
             SurveyRepository surveyRepository,
@@ -77,6 +79,7 @@ public class GeospatialManagementService {
         this.hamlets = hamlets;
         this.households = households;
         this.boundaries = boundaries;
+        this.geoAuditRepository = geoAuditRepository;
         this.assets = assets;
         this.hierarchy = hierarchy;
         this.surveyRepository = surveyRepository;
@@ -290,6 +293,13 @@ public class GeospatialManagementService {
     }
 
     @Transactional(readOnly = true)
+    public GeoBoundaryResponse boundary(UUID boundaryId) {
+        return mapper.boundary(boundaries.findById(boundaryId)
+                .filter(GeoBoundaryEntity::isActive)
+                .orElseThrow(() -> notFound("BOUNDARY_NOT_FOUND", "Boundary was not found")));
+    }
+
+    @Transactional(readOnly = true)
     public DistanceResponse distance(BigDecimal fromLatitude, BigDecimal fromLongitude, BigDecimal toLatitude, BigDecimal toLongitude) {
         validation.requiredPoint(fromLatitude, fromLongitude);
         validation.requiredPoint(toLatitude, toLongitude);
@@ -347,7 +357,28 @@ public class GeospatialManagementService {
     }
 
     private void audit(UUID actorUserId, String eventType, UUID entityId) {
+        geoAuditRepository.save(new GeoAuditEntity(entityType(eventType), entityId, geoAuditAction(eventType), actorUserId, eventType));
         auditService.record(actorUserId, eventType, AuditOutcome.SUCCESS, null, null, "geospatialEntityId=" + entityId);
+    }
+
+    private String entityType(String eventType) {
+        if (eventType.contains("INFRASTRUCTURE")) {
+            return "INFRASTRUCTURE_ASSET";
+        }
+        if (eventType.contains("BOUNDARY")) {
+            return "GEO_BOUNDARY";
+        }
+        return eventType.replace("GEO_", "").replace("_CREATED", "");
+    }
+
+    private GeoAuditAction geoAuditAction(String eventType) {
+        if (eventType.contains("INFRASTRUCTURE")) {
+            return GeoAuditAction.INFRASTRUCTURE_CREATED;
+        }
+        if (eventType.contains("BOUNDARY")) {
+            return GeoAuditAction.BOUNDARY_CREATED;
+        }
+        return GeoAuditAction.CREATED;
     }
 
     private void ensure(boolean condition, String code, String message) {
