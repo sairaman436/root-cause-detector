@@ -24,7 +24,7 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
-    schemas: identity,audit,survey,evidence,geospatial,eventing
+    schemas: identity,audit,survey,evidence,geospatial,eventing,ai
     default-schema: identity
     create-schemas: true
 
@@ -72,6 +72,18 @@ airural:
       poll-ms: ${OUTBOX_POLL_MS:5000}
       batch-size: ${OUTBOX_BATCH_SIZE:50}
       max-attempts: ${OUTBOX_MAX_ATTEMPTS:5}
+  ai:
+    gateway:
+      default-model: ${AI_DEFAULT_MODEL:qwen2.5-local}
+      ollama-url: ${OLLAMA_URL:http://localhost:11434}
+      vllm-url: ${VLLM_URL:http://localhost:8000}
+    qdrant:
+      url: ${QDRANT_URL:http://localhost:6333}
+    embedding:
+      chunk-chars: ${AI_EMBEDDING_CHUNK_CHARS:900}
+      vector-size: ${AI_EMBEDDING_VECTOR_SIZE:16}
+    safety:
+      max-prompt-chars: ${AI_MAX_PROMPT_CHARS:12000}
 
 springdoc:
   api-docs:

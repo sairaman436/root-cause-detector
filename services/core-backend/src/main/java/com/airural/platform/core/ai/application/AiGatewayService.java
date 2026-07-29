@@ -1,0 +1,86 @@
+/*
+ * Purpose: Implements the unified AI gateway.
+ * Why it exists: Model routing, safety, fallback behavior, token accounting, latency monitoring, and logs must be centralized.
+ * Architecture fit: Application service fronting local LLM providers and future GPU clusters.
+ */
+package com.airural.platform.core.ai.application;
+
+import com.airural.platform.core.ai.domain.*;
+import com.airural.platform.core.ai.infrastructure.*;
+import com.airural.platform.core.ai.web.dto.AiDtos.*;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.*;
+import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** Unified AI gateway service. */
+@Service
+public class AiGatewayService {
+    private final AiSafetyService safetyService;
+    private final AIModelRepository modelRepository;
+    private final InferenceLogRepository inferenceLogRepository;
+    private final TokenUsageRepository usageRepository;
+    private final String defaultModel;
+
+    public AiGatewayService(AiSafetyService safetyService, AIModelRepository modelRepository, InferenceLogRepository inferenceLogRepository, TokenUsageRepository usageRepository, @Value("${airural.ai.gateway.default-model:qwen2.5-local}") String defaultModel) {
+        this.safetyService = safetyService;
+        this.modelRepository = modelRepository;
+        this.inferenceLogRepository = inferenceLogRepository;
+        this.usageRepository = usageRepository;
+        this.defaultModel = defaultModel;
+    }
+
+    /** Routes a chat request through validation, fallback response generation, and telemetry persistence. */
+    @Transactional
+    public ChatResponse chat(ChatRequest request, UUID userId) {
+        Instant started = Instant.now();
+        String modelId = routeModel(request.modelId());
+        String safePrompt = safetyService.validateAndMask(request.message());
+        int promptTokens = tokens(safePrompt);
+        String response = "AI foundation response from " + modelId + ": " + summarize(safePrompt);
+        int completionTokens = tokens(response);
+        long latency = Duration.between(started, Instant.now()).toMillis();
+        InferenceLogEntity log = inferenceLogRepository.save(new InferenceLogEntity(userId, modelId, "CHAT", "SUCCEEDED", promptTokens, completionTokens, latency, false, hash(safePrompt), response));
+        usageRepository.save(new TokenUsageEntity(userId, modelId, promptTokens, completionTokens, (promptTokens + completionTokens) * 0.000001));
+        return new ChatResponse(log.id(), modelId, response, promptTokens, completionTokens, latency, true, List.of(new CitationResponse("AI_GATEWAY", log.id().toString(), "Deterministic local fallback response; external model serving is provider-configured.", 1.0)));
+    }
+
+    /** Records an inference log for a RAG response. */
+    @Transactional
+    public InferenceLogEntity recordRagInference(UUID userId, String modelId, String prompt, String response, long latencyMs) {
+        int promptTokens = tokens(prompt);
+        int completionTokens = tokens(response);
+        InferenceLogEntity log = inferenceLogRepository.save(new InferenceLogEntity(userId, modelId, "RAG", "SUCCEEDED", promptTokens, completionTokens, latencyMs, false, hash(prompt), response));
+        usageRepository.save(new TokenUsageEntity(userId, modelId, promptTokens, completionTokens, (promptTokens + completionTokens) * 0.000001));
+        return log;
+    }
+
+    private String routeModel(String requested) {
+        String candidate = requested == null || requested.isBlank() ? defaultModel : requested;
+        return modelRepository.findByModelId(candidate).map(AIModelEntity::modelId).orElse(defaultModel);
+    }
+
+    private int tokens(String text) {
+        return Math.max(1, text.split("\\s+").length);
+    }
+
+    private String summarize(String text) {
+        return text.length() <= 220 ? text : text.substring(0, 220);
+    }
+
+    private String hash(String text) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+            StringBuilder out = new StringBuilder();
+            for (byte b : digest) {
+                out.append(String.format("%02x", b));
+            }
+            return out.toString();
+        } catch (Exception ex) {
+            return "unavailable";
+        }
+    }
+}
