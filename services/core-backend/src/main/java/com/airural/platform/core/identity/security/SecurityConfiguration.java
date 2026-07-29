@@ -79,6 +79,10 @@ public class SecurityConfiguration {
                         .hasAuthority("EVIDENCE_READ")
                         .requestMatchers("/api/v1/evidence", "/api/v1/evidence/**")
                         .hasAuthority("EVIDENCE_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/geospatial", "/api/v1/geospatial/**")
+                        .hasAuthority("GEO_READ")
+                        .requestMatchers("/api/v1/geospatial", "/api/v1/geospatial/**")
+                        .hasAuthority("GEO_MANAGE")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex
