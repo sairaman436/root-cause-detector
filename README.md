@@ -110,11 +110,11 @@ All documents across this repository comply with international standards:
 
 # Implementation Monorepo Bootstrap
 
-> **Milestone:** 3 - Enterprise Survey Management Platform
-> **Status:** Identity and survey foundations implemented
+> **Milestone:** 4 - Enterprise Evidence & Asset Management Platform
+> **Status:** Identity, survey, and evidence foundations implemented
 > **Purpose:** Establish the production-ready engineering foundation around the approved documentation repository.  
 > **Why it exists:** The project is transitioning from architecture and planning into implementation. The existing documentation remains source-of-truth, and the monorepo now includes the runtime, tooling, CI/CD, configuration, testing, deployment foundation, and identity platform boundary.  
-> **Architecture fit:** This implements the approved Monorepo Blueprint, the Milestone 2 Identity Platform, and the Milestone 3 Enterprise Survey Management Platform without adding AI workflows, RAG, Kafka business flows, or reporting.
+> **Architecture fit:** This implements the approved Monorepo Blueprint, the Milestone 2 Identity Platform, the Milestone 3 Enterprise Survey Management Platform, and the Milestone 4 Evidence and Asset Management Platform without adding AI workflows, RAG, Kafka business flows, or reporting.
 
 ## Canonical Implementation Structure
 
@@ -151,13 +151,17 @@ config/               # Non-secret env templates and secrets strategy docs
 - Survey REST API foundation
 - PostgreSQL/Flyway survey schema for templates, surveys, versions, sections, questions, options, validation rules, assignments, status history, and tags
 - Dynamic question-type registry, survey workflow validation, survey search, survey assignment, questionnaire structure management, and survey audit integration
+- Evidence REST API foundation
+- PostgreSQL/Flyway evidence schema for evidence, metadata, versions, tags, and evidence audit events
+- Local filesystem storage adapter behind a cloud-ready storage interface
+- Evidence upload validation, checksum duplicate detection, filename sanitization, metadata lifecycle, search, download authorization, soft delete, restore, version history, and audit integration
 
 ## Explicitly Out of Scope
 
 - AI inference logic
 - RAG implementation
 - Agent workflows
-- Evidence upload and survey response collection
+- OCR, image analysis, embedding generation, and survey response collection
 - Analytics and recommendation workflows
 - Reporting workflows
 

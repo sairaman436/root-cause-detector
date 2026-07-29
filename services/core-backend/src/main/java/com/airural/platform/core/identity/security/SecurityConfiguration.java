@@ -73,6 +73,12 @@ public class SecurityConfiguration {
                         .hasAuthority("SURVEY_PUBLISH")
                         .requestMatchers("/api/v1/surveys", "/api/v1/surveys/**", "/api/v1/survey-templates", "/api/v1/survey-templates/**")
                         .hasAuthority("SURVEY_MANAGE")
+                        .requestMatchers("/api/v1/evidence/*/download", "/api/v1/evidence/*/signed-url")
+                        .hasAuthority("EVIDENCE_DOWNLOAD")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/evidence", "/api/v1/evidence/**")
+                        .hasAuthority("EVIDENCE_READ")
+                        .requestMatchers("/api/v1/evidence", "/api/v1/evidence/**")
+                        .hasAuthority("EVIDENCE_MANAGE")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex

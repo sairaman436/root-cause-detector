@@ -6,6 +6,7 @@
 package com.airural.platform.core.common;
 
 import com.airural.platform.core.identity.application.IdentityException;
+import com.airural.platform.core.evidence.application.EvidenceException;
 import com.airural.platform.core.survey.application.SurveyException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -31,6 +32,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level survey errors. */
     @ExceptionHandler(SurveyException.class)
     public ResponseEntity<ErrorResponse> handleSurvey(SurveyException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level evidence errors. */
+    @ExceptionHandler(EvidenceException.class)
+    public ResponseEntity<ErrorResponse> handleEvidence(EvidenceException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 

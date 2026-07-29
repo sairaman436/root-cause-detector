@@ -10,7 +10,7 @@ The approved architecture assigns transactional platform responsibilities to a J
 
 ## Architecture Fit
 
-This module owns transactional platform responsibilities that belong in the Java backend. Milestone 2 added the Identity & Access Management boundary. Milestone 3 adds the Enterprise Survey Management boundary while evidence metadata, recommendations, reports, AI, RAG, and agent workflows remain intentionally deferred.
+This module owns transactional platform responsibilities that belong in the Java backend. Milestone 2 added the Identity & Access Management boundary, Milestone 3 added the Enterprise Survey Management boundary, and Milestone 4 adds the Enterprise Evidence and Asset Management boundary while recommendations, reports, AI, RAG, and agent workflows remain intentionally deferred.
 
 ## Current Scope
 
@@ -24,9 +24,11 @@ This module owns transactional platform responsibilities that belong in the Java
 - Unit and integration tests for token behavior, authentication flows, RBAC, and schema startup
 - Survey template, survey, version, section, question, option, validation rule, assignment, status history, and tag persistence
 - Survey workflow validation, dynamic question-type registry, questionnaire definition APIs, survey search, and survey audit events
+- Evidence upload, metadata update, soft delete, restore, download, future-ready signed URL, search, version history, and audit APIs
+- Evidence, evidence version, metadata, tag, and module-local audit persistence with checksum duplicate detection and local filesystem storage abstraction
 
 ## Explicit Non-Scope
 
 - AI, RAG, and agent orchestration
 - Kafka workflows
-- Evidence upload, reporting, analytics, and notification business features
+- OCR, image analysis, embeddings, reporting, analytics, and notification business features
