@@ -1,0 +1,11 @@
+# Purpose: Provides a local Prometheus scrape configuration for development.
+# Why it exists: Allows Docker Compose to start observability infrastructure before services expose production metrics.
+# Architecture fit: Supports the approved observability architecture and local development workflow.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

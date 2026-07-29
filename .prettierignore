@@ -1,0 +1,21 @@
+# Purpose: Defines files Prettier must not rewrite.
+# Why it exists: Prevents formatting tools from touching generated dependencies, build outputs, runtime artifacts, and legacy approved documentation encodings.
+# Architecture fit: Allows repository-wide formatting checks while preserving external/generated artifacts.
+node_modules/
+.next/
+target/
+.venv/
+.terraform/
+logs/
+tmp/
+07_Deployment/
+08_Operations/
+09_AI_Documentation/
+10_User_Documentation/
+Architecture/
+Implementation Structure/
+Requirements/
+System_Design/
+Testing/
+governance/
+

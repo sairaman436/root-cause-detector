@@ -1,0 +1,15 @@
+# Purpose: Normalizes repository line endings across developer workstations and CI runners.
+# Why it exists: Windows and Linux tooling both edit this monorepo, so Git must preserve predictable text file endings.
+# Architecture fit: Supports reproducible builds, clean diffs, and cross-platform developer workflow standards.
+
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary

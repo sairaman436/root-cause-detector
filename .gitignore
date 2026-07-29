@@ -1,0 +1,62 @@
+# Purpose: Excludes generated, local, secret, and build artifacts from version control.
+# Why it exists: Prevents accidental commits of dependencies, build outputs, credentials, local state, and runtime data.
+# Architecture fit: Enforces the approved secrets strategy and keeps the monorepo focused on source, contracts, configuration templates, and documentation.
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Secrets and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+config/secrets/*.local.*
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Java
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Runtime data
+.local-data/
+logs/
+tmp/

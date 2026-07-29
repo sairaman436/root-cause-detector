@@ -1,0 +1,22 @@
+# Purpose: Configures local pre-commit quality checks.
+# Why it exists: Catches formatting, merge-conflict markers, YAML errors, and large accidental commits before CI.
+# Architecture fit: Implements the approved engineering quality gate at developer-workstation level.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.5
+    hooks:
+      - id: ruff
+        args: ['--config=pyproject.toml']
+      - id: ruff-format
+        args: ['--config=pyproject.toml']

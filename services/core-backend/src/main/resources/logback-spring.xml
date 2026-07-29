@@ -1,0 +1,19 @@
+<!--
+Purpose: Provides structured JSON logging configuration for the core backend.
+Why it exists: Ensures logs can carry trace, request, and service metadata into centralized observability tooling.
+Architecture fit: Implements the approved logging and auditability foundation without adding business code.
+-->
+<configuration>
+    <springProperty scope="context" name="serviceName" source="spring.application.name" defaultValue="core-backend"/>
+
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"${serviceName}","platform":"ai-rural-root-cause"}</customFields>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE_JSON"/>
+    </root>
+</configuration>
+

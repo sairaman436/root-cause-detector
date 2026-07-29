@@ -1,0 +1,64 @@
+# Purpose: Builds every service container image.
+# Why it exists: Verifies that deployable service artifacts remain buildable across backend, frontend, and Python service boundaries.
+# Architecture fit: Supports the approved containerized CI/CD foundation before feature development begins.
+name: Service Images
+
+on:
+  pull_request:
+    paths:
+      - 'docker-compose.yml'
+      - 'services/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'pom.xml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.mvn/**'
+      - 'mvnw'
+      - '.github/workflows/service-images.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  docker-build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: core-backend
+            context: .
+            dockerfile: services/core-backend/Dockerfile
+          - service: web-portal
+            context: .
+            dockerfile: apps/web-portal/Dockerfile
+          - service: admin-portal
+            context: .
+            dockerfile: apps/admin-portal/Dockerfile
+          - service: ai-inference-service
+            context: services/ai-inference-service
+            dockerfile: services/ai-inference-service/Dockerfile
+          - service: rag-service
+            context: services/rag-service
+            dockerfile: services/rag-service/Dockerfile
+          - service: agent-orchestrator
+            context: services/agent-orchestrator
+            dockerfile: services/agent-orchestrator/Dockerfile
+          - service: reporting-service
+            context: services/reporting-service
+            dockerfile: services/reporting-service/Dockerfile
+          - service: notification-service
+            context: services/notification-service
+            dockerfile: services/notification-service/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: airural/${{ matrix.service }}:ci

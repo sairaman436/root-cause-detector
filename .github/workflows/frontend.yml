@@ -1,0 +1,37 @@
+# Purpose: Validates Node and Next.js frontend workspaces.
+# Why it exists: Ensures frontend dependency, lint, typecheck, and test scaffolding remains healthy.
+# Architecture fit: Supports the approved React/TypeScript frontend boundary.
+name: Frontend
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'apps/**'
+      - 'packages/ui-components/**'
+      - 'packages/typescript-client/**'
+      - '.github/workflows/frontend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  node-workspaces:
+    name: Node Workspaces
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm run test
+      - name: Build frontends
+        run: npm run build:frontends

@@ -1,0 +1,31 @@
+# Purpose: Validates Java backend and shared Java package configuration.
+# Why it exists: Ensures Spring Boot backend foundations remain buildable as implementation begins.
+# Architecture fit: Supports the approved Java 21/Spring Boot core backend boundary.
+name: Backend
+
+on:
+  pull_request:
+    paths:
+      - 'pom.xml'
+      - 'services/core-backend/**'
+      - 'packages/java-shared/**'
+      - '.github/workflows/backend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  maven-verify:
+    name: Maven Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Verify Java modules
+        run: sh ./mvnw -B -DskipTests=false verify

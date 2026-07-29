@@ -1,0 +1,111 @@
+/*
+ * Purpose: Configures backend authentication and RBAC enforcement.
+ * Why it exists: Identity endpoints need public auth routes, protected user routes, and admin-only management routes.
+ * Architecture fit: Implements the approved Spring Security and RBAC foundation.
+ */
+package com.airural.platform.core.identity.security;
+
+import com.airural.platform.core.common.ErrorResponse;
+import com.airural.platform.core.common.RequestIds;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+/** Spring Security configuration for the core backend. */
+@Configuration
+@EnableMethodSecurity
+public class SecurityConfiguration {
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ObjectMapper objectMapper;
+
+    public SecurityConfiguration(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.objectMapper = objectMapper;
+    }
+
+    /** Configures stateless HTTP security. */
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.csrf(csrf -> csrf.disable())
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/actuator/**",
+                                "/api/v1/openapi/**",
+                                "/api/v1/docs/**",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/refresh")
+                        .permitAll()
+                        .requestMatchers("/api/v1/auth/logout", "/api/v1/users/me")
+                        .authenticated()
+                        .requestMatchers("/api/v1/admin/users", "/api/v1/admin/users/**")
+                        .hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/admin/organizations", "/api/v1/admin/organizations/**")
+                        .hasAuthority("ORGANIZATION_MANAGE")
+                        .requestMatchers("/api/v1/admin/roles", "/api/v1/admin/roles/**")
+                        .hasAuthority("ROLE_MANAGE")
+                        .requestMatchers("/api/v1/admin/permissions", "/api/v1/admin/permissions/**")
+                        .hasAuthority("PERMISSION_READ")
+                        .anyRequest()
+                        .authenticated())
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, exception) -> writeError(
+                                response,
+                                ErrorResponse.of(
+                                        "AUTHENTICATION_REQUIRED",
+                                        "Authentication is required",
+                                        List.of(),
+                                        RequestIds.from(request),
+                                        RequestIds.from(request)),
+                                HttpServletResponse.SC_UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, exception) -> writeError(
+                                response,
+                                ErrorResponse.of(
+                                        "ACCESS_DENIED",
+                                        "Access denied",
+                                        List.of(),
+                                        RequestIds.from(request),
+                                        RequestIds.from(request)),
+                                HttpServletResponse.SC_FORBIDDEN)))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    /** Provides BCrypt password hashing. */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
+    }
+
+    /** Prevents Spring Boot from provisioning an unused generated development user. */
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return username -> {
+            throw new UsernameNotFoundException("Username/password authentication is disabled");
+        };
+    }
+
+    private void writeError(HttpServletResponse response, ErrorResponse error, int status) throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        objectMapper.writeValue(response.getOutputStream(), error);
+    }
+}

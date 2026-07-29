@@ -1,0 +1,22 @@
+# Purpose: Defines the future production release workflow boundary.
+# Why it exists: Documents release gates for signed artifacts, SBOMs, scans, and production approval before deployable services exist.
+# Architecture fit: Supports the approved CI/CD release governance model.
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  release-boundary:
+    name: Release Boundary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Explain current scope
+        run: echo "Milestone 1 defines release workflow boundaries; artifact publishing starts after services are implemented."

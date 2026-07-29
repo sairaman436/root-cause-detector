@@ -1,0 +1,26 @@
+# Purpose: Validates infrastructure-as-code layout and formatting.
+# Why it exists: Prevents malformed Terraform and deployment configuration from reaching shared branches.
+# Architecture fit: Supports the approved Terraform, Kubernetes, and environment overlay strategy.
+name: Infrastructure Validate
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - 'deploy/**'
+      - '.github/workflows/infra-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-format:
+    name: Terraform Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform format check
+        run: terraform fmt -check -recursive infra/terraform

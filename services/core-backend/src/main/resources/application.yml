@@ -1,0 +1,65 @@
+# Purpose: Defines baseline Spring Boot runtime configuration for the core backend.
+# Why it exists: Establishes environment-driven configuration, actuator exposure, and structured logging conventions before feature modules exist.
+# Architecture fit: Supports the approved backend service design, observability architecture, and configuration management strategy.
+spring:
+  application:
+    name: core-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  main:
+    banner-mode: 'off'
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:airural}
+    username: ${POSTGRES_USER:airural}
+    password: ${POSTGRES_PASSWORD:airural_local_only}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    schemas: identity,audit
+    default-schema: identity
+    create-schemas: true
+
+management:
+  server:
+    port: ${CORE_BACKEND_MANAGEMENT_PORT:${CORE_BACKEND_PORT:8080}}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.airural: INFO
+  pattern:
+    correlation: ${CORRELATION_ID_PATTERN:%X{traceId:-}}
+
+server:
+  port: ${CORE_BACKEND_PORT:8080}
+
+airural:
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:airural-platform}
+      secret: ${JWT_SIGNING_SECRET:local-development-secret-must-be-rotated-before-production-32-bytes-minimum}
+      access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:15}
+      refresh-token-days: ${JWT_REFRESH_TOKEN_DAYS:7}
+
+springdoc:
+  api-docs:
+    path: /api/v1/openapi
+  swagger-ui:
+    path: /api/v1/docs

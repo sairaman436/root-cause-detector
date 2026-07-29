@@ -1,0 +1,31 @@
+# Purpose: Excludes local-only and generated files from Docker build contexts.
+# Why it exists: Keeps service images reproducible, smaller, and free of local secrets or build artifacts.
+# Architecture fit: Supports the approved containerized development and deployment foundation.
+
+.git
+.github
+.idea
+.vscode
+node_modules
+**/node_modules
+.next
+**/.next
+target
+**/target
+__pycache__
+**/__pycache__
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.venv
+venv
+.env
+.env.*
+!.env.example
+logs
+tmp
+.local-data
+*.pem
+*.key
+*.p12
+*.jks

@@ -1,0 +1,41 @@
+{
+  "name": "@airural/admin-portal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Purpose: admin portal boundary. Why it exists: reserves the administration frontend module for future platform operations. Architecture fit: separates administrator workflows from the general web portal.",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "cross-env NEXT_IGNORE_INCORRECT_LOCKFILE=true next build",
+    "start": "next start -p 3001",
+    "lint": "oxlint . --deny-warnings",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^20.14.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "cross-env": "^10.1.0",
+    "jsdom": "^24.1.1",
+    "oxlint": "^1.28.0",
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.10"
+  },
+  "optionalDependencies": {
+    "@next/swc-darwin-arm64": "14.2.35",
+    "@next/swc-darwin-x64": "14.2.35",
+    "@next/swc-linux-arm64-gnu": "14.2.35",
+    "@next/swc-linux-arm64-musl": "14.2.35",
+    "@next/swc-linux-x64-gnu": "14.2.35",
+    "@next/swc-linux-x64-musl": "14.2.35",
+    "@next/swc-win32-arm64-msvc": "14.2.35",
+    "@next/swc-win32-ia32-msvc": "14.2.35",
+    "@next/swc-win32-x64-msvc": "14.2.35"
+  }
+}

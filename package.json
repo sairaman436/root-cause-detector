@@ -1,0 +1,38 @@
+{
+  "name": "ai-rural-root-cause-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Purpose: root Node workspace for the AI Rural Root Cause Discovery Platform. Why it exists: centralizes frontend, shared TypeScript packages, formatting, linting, and repository scripts. Architecture fit: supports the approved monorepo blueprint without implementing business features.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:web": "npm --workspace apps/web-portal run dev",
+    "dev:admin": "npm --workspace apps/admin-portal run dev",
+    "build:web": "npm --workspace apps/web-portal run build",
+    "build:admin": "npm --workspace apps/admin-portal run build",
+    "build:frontends": "npm run build:web && npm run build:admin"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,md,yml,yaml}": [
+      "prettier --check"
+    ]
+  }
+}

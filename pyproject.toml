@@ -1,0 +1,34 @@
+# Purpose: Provides root Python tooling configuration for AI services, data platform utilities, and repository checks.
+# Why it exists: Centralizes Python linting, formatting, typing, and test conventions without implementing AI or business logic.
+# Architecture fit: Supports Python FastAPI AI services, RAG services, MLOps utilities, and data engineering components in the approved monorepo.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+  "07_Deployment",
+  "08_Operations",
+  "09_AI_Documentation",
+  "10_User_Documentation",
+  "Architecture",
+  "Implementation Structure",
+  "Requirements",
+  "System_Design",
+  "Testing",
+  "governance"
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = [
+  "tests/foundation"
+]
+addopts = "-ra"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true

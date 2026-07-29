@@ -1,0 +1,31 @@
+{
+  "name": "AI Rural Root Cause Platform",
+  "x-purpose": "Defines a consistent developer container entry point.",
+  "x-why-it-exists": "Helps developers use the same Java, Node, Python, Docker, and IaC tooling expectations.",
+  "x-architecture-fit": "Supports the approved developer workflow and monorepo bootstrap.",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "21"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "postCreateCommand": "npm install && python -m pip install --upgrade pip pre-commit ruff pytest mypy",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "ms-python.python",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "hashicorp.terraform"
+      ]
+    }
+  }
+}

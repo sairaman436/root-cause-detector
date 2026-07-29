@@ -1,0 +1,35 @@
+# Purpose: Defines Python dependency and tooling configuration for the agent orchestrator service.
+# Why it exists: Establishes the governed multi-agent runtime boundary before specialized agents are implemented.
+# Architecture fit: Supports the approved Multi-Agent AI Architecture with controlled tools, shared context, auditability, and human approval.
+
+[project]
+name = "agent-orchestrator"
+version = "0.1.0"
+description = "Agent orchestrator foundation; no agent workflows are implemented in Milestone 1."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.111.0",
+  "uvicorn[standard]>=0.30.0",
+  "pydantic>=2.8.0",
+  "structlog>=24.2.0"
+]
+
+[build-system]
+requires = ["setuptools>=70.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "pytest-cov>=5.0.0",
+  "mypy>=1.10.0",
+  "ruff>=0.5.5"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"

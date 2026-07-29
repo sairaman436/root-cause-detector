@@ -1,0 +1,6 @@
+{
+  "x-purpose": "Defines commit message rules for the production monorepo.",
+  "x-why-it-exists": "Creates a predictable change history for release notes, audits, and regulated delivery.",
+  "x-architecture-fit": "Supports governance and CI/CD standards before feature development starts.",
+  "extends": ["@commitlint/config-conventional"]
+}

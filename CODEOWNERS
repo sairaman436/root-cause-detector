@@ -1,0 +1,21 @@
+# Purpose: Defines mandatory ownership review boundaries for the monorepo.
+# Why it exists: Prevents unreviewed changes to architecture-critical areas such as contracts, infrastructure, governance, and AI controls.
+# Architecture fit: Implements module ownership from the approved monorepo blueprint.
+
+/apps/web-portal/ @frontend-team
+/apps/admin-portal/ @platform-admin-team
+/services/core-backend/ @backend-platform-team
+/services/ai-inference-service/ @ai-platform-team
+/services/rag-service/ @knowledge-ai-team
+/services/agent-orchestrator/ @agent-platform-team
+/services/reporting-service/ @reporting-team
+/services/notification-service/ @platform-services-team
+/data-platform/ @data-engineering-team
+/ml-platform/ @mlops-team @ai-science-team
+/infra/ @sre-team @devsecops-team
+/deploy/ @sre-team
+/packages/api-contracts/ @architecture-board
+/packages/event-contracts/ @architecture-board
+/docs/architecture/adr/ @architecture-board
+/docs/governance/ @governance-board
+

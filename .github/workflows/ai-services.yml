@@ -1,0 +1,67 @@
+# Purpose: Validates Python AI, RAG, agent, reporting, and notification service foundations.
+# Why it exists: Keeps every Python service independently installable, testable, and ready for containerized operation.
+# Architecture fit: Supports the approved Python service boundaries and MLOps-ready development workflow.
+name: AI Services
+
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'services/ai-inference-service/**'
+      - 'services/rag-service/**'
+      - 'services/agent-orchestrator/**'
+      - 'services/reporting-service/**'
+      - 'services/notification-service/**'
+      - 'packages/python-sdk/**'
+      - 'data-platform/**'
+      - 'ml-platform/**'
+      - '.github/workflows/ai-services.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  python-service:
+    name: ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/ai-inference-service
+          - services/rag-service
+          - services/agent-orchestrator
+          - services/reporting-service
+          - services/notification-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install service
+        working-directory: ${{ matrix.service }}
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Test service
+        working-directory: ${{ matrix.service }}
+        run: python -m pytest
+
+  python-repository-quality:
+    name: Python Repository Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install tooling
+        run: python -m pip install --upgrade pip ruff pytest mypy
+      - name: Lint Python files
+        run: ruff check .
+      - name: Check Python formatting
+        run: ruff format --check .
+      - name: Run foundation tests
+        run: pytest tests/foundation
