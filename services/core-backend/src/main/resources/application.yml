@@ -24,7 +24,7 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
-    schemas: identity,audit,survey,evidence,geospatial
+    schemas: identity,audit,survey,evidence,geospatial,eventing
     default-schema: identity
     create-schemas: true
 
@@ -61,6 +61,17 @@ airural:
     local-storage-path: ${EVIDENCE_LOCAL_STORAGE_PATH:./var/evidence}
     max-file-size-bytes: ${EVIDENCE_MAX_FILE_SIZE_BYTES:52428800}
     allowed-mime-types: ${EVIDENCE_ALLOWED_MIME_TYPES:image/jpeg,image/png,image/webp,video/mp4,audio/mpeg,audio/wav,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/gpx+xml,application/geo+json,text/plain,application/octet-stream}
+  events:
+    kafka:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+      client-id: ${KAFKA_CLIENT_ID:core-backend}
+      consumer-group: ${KAFKA_CONSUMER_GROUP:core-backend-event-consumers}
+      enabled: ${EVENT_PUBLISHING_ENABLED:false}
+      consumers-enabled: ${EVENT_CONSUMERS_ENABLED:false}
+    outbox:
+      poll-ms: ${OUTBOX_POLL_MS:5000}
+      batch-size: ${OUTBOX_BATCH_SIZE:50}
+      max-attempts: ${OUTBOX_MAX_ATTEMPTS:5}
 
 springdoc:
   api-docs:

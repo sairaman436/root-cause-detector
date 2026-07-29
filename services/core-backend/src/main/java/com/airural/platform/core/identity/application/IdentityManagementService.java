@@ -5,9 +5,12 @@
  */
 package com.airural.platform.core.identity.application;
 
+import com.airural.platform.core.events.application.OutboxService;
 import com.airural.platform.core.identity.domain.*;
 import com.airural.platform.core.identity.infrastructure.*;
 import com.airural.platform.core.identity.web.dto.IdentityDtos.*;
+import com.airural.platform.shared.events.*;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -23,18 +26,21 @@ public class IdentityManagementService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final IdentityMapper mapper;
+    private final OutboxService outboxService;
 
     public IdentityManagementService(
             UserAccountRepository userRepository,
             OrganizationRepository organizationRepository,
             RoleRepository roleRepository,
             PermissionRepository permissionRepository,
-            IdentityMapper mapper) {
+            IdentityMapper mapper,
+            OutboxService outboxService) {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.mapper = mapper;
+        this.outboxService = outboxService;
     }
 
     /** Returns the authenticated user's profile and authorities. */
@@ -61,6 +67,7 @@ public class IdentityManagementService {
                 .findWithRolesById(userId)
                 .orElseThrow(() -> new IdentityException("USER_NOT_FOUND", "User was not found", HttpStatus.NOT_FOUND));
         user.deactivate();
+        publishUser(EventTopic.USER_UPDATED, user);
         return mapper.toUser(user);
     }
 
@@ -91,7 +98,15 @@ public class IdentityManagementService {
             throw new IdentityException("PERMISSION_NOT_FOUND", "One or more permissions were not found", HttpStatus.BAD_REQUEST);
         }
         RoleEntity role = new RoleEntity(request.name(), request.description(), new HashSet<>(permissions));
-        return mapper.toRole(roleRepository.save(role));
+        RoleEntity saved = roleRepository.save(role);
+        outboxService.enqueue(
+                EventTopic.AUDIT_CREATED,
+                "ROLE",
+                saved.id(),
+                null,
+                null,
+                new EventPayloads.AuditPayload(saved.id(), null, "PERMISSION_CHANGE", AuditOutcome.SUCCESS.name(), Instant.now()));
+        return mapper.toRole(saved);
     }
 
     /** Lists roles. */
@@ -104,5 +119,15 @@ public class IdentityManagementService {
     @Transactional(readOnly = true)
     public List<PermissionResponse> listPermissions() {
         return permissionRepository.findAll().stream().map(mapper::toPermission).toList();
+    }
+
+    private void publishUser(EventTopic topic, UserAccountEntity user) {
+        outboxService.enqueue(
+                topic,
+                "USER",
+                user.id(),
+                user.organization().id(),
+                user.id(),
+                new EventPayloads.UserPayload(user.id(), user.organization().id(), user.username(), user.email(), user.status().name(), Instant.now()));
     }
 }

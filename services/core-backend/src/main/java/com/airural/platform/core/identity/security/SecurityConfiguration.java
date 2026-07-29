@@ -89,6 +89,12 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("INFRASTRUCTURE_MANAGE", "GEO_ADMIN", "GEO_MANAGE")
                         .requestMatchers("/api/v1/geography", "/api/v1/geography/**")
                         .hasAnyAuthority("GEO_EDITOR", "GEO_ADMIN", "GEO_MANAGE")
+                        .requestMatchers("/api/v1/events/replay")
+                        .hasAuthority("EVENT_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/audit")
+                        .hasAnyAuthority("AUDIT_VIEWER", "EVENT_ADMIN", "AUDIT_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events", "/api/v1/events/**")
+                        .hasAnyAuthority("EVENT_VIEWER", "EVENT_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex

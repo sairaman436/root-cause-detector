@@ -7,6 +7,7 @@ package com.airural.platform.core.evidence.application;
 
 import static com.airural.platform.core.evidence.infrastructure.EvidenceSpecifications.*;
 
+import com.airural.platform.core.events.application.OutboxService;
 import com.airural.platform.core.evidence.domain.*;
 import com.airural.platform.core.evidence.infrastructure.*;
 import com.airural.platform.core.evidence.web.dto.EvidenceDtos.*;
@@ -18,6 +19,7 @@ import com.airural.platform.core.survey.domain.SurveyEntity;
 import com.airural.platform.core.survey.domain.SurveyQuestionEntity;
 import com.airural.platform.core.survey.infrastructure.SurveyQuestionRepository;
 import com.airural.platform.core.survey.infrastructure.SurveyRepository;
+import com.airural.platform.shared.events.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.*;
@@ -44,6 +46,7 @@ public class EvidenceManagementService {
     private final EvidenceMapper mapper;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
+    private final OutboxService outboxService;
 
     public EvidenceManagementService(
             EvidenceRepository evidenceRepository,
@@ -57,7 +60,8 @@ public class EvidenceManagementService {
             EvidenceStorageService storageService,
             EvidenceMapper mapper,
             AuditService auditService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            OutboxService outboxService) {
         this.evidenceRepository = evidenceRepository;
         this.versionRepository = versionRepository;
         this.auditRepository = auditRepository;
@@ -70,6 +74,7 @@ public class EvidenceManagementService {
         this.mapper = mapper;
         this.auditService = auditService;
         this.objectMapper = objectMapper;
+        this.outboxService = outboxService;
     }
 
     /** Uploads an evidence asset and creates initial version and audit records. */
@@ -109,6 +114,7 @@ public class EvidenceManagementService {
                 tags));
         createVersion(evidence, actorUserId);
         audit(evidence, actorUserId, EvidenceAuditAction.UPLOADED, "Evidence uploaded");
+        publishEvidence(EventTopic.EVIDENCE_UPLOADED, evidence, actorUserId);
         return mapper.evidence(evidence);
     }
 
@@ -119,6 +125,7 @@ public class EvidenceManagementService {
         evidence.updateMetadata(request.title(), request.description(), request.customMetadataJson(), request.tags());
         createVersion(evidence, actorUserId);
         audit(evidence, actorUserId, EvidenceAuditAction.METADATA_UPDATED, "Evidence metadata updated");
+        publishEvidence(EventTopic.EVIDENCE_VALIDATED, evidence, actorUserId);
         return mapper.evidence(evidence);
     }
 
@@ -269,5 +276,24 @@ public class EvidenceManagementService {
     private void audit(EvidenceEntity evidence, UUID actorUserId, EvidenceAuditAction action, String details) {
         auditRepository.save(new EvidenceAuditEntity(evidence, actorUserId, action, AuditOutcome.SUCCESS, details));
         auditService.record(actorUserId, "EVIDENCE_" + action.name(), AuditOutcome.SUCCESS, null, null, evidence.id() + ": " + details);
+    }
+
+    private void publishEvidence(EventTopic topic, EvidenceEntity evidence, UUID actorUserId) {
+        outboxService.enqueue(
+                topic,
+                "EVIDENCE",
+                evidence.id(),
+                evidence.organizationId(),
+                actorUserId,
+                new EventPayloads.EvidencePayload(
+                        evidence.id(),
+                        evidence.organizationId(),
+                        evidence.surveyId(),
+                        evidence.questionId(),
+                        evidence.evidenceType().name(),
+                        evidence.mimeType(),
+                        evidence.sizeBytes(),
+                        evidence.sha256Checksum(),
+                        evidence.updatedAt()));
     }
 }

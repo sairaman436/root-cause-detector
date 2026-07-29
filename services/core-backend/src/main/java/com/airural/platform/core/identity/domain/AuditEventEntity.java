@@ -51,4 +51,10 @@ public class AuditEventEntity {
         this.details = details;
         this.createdAt = Instant.now();
     }
+
+    public UUID id() { return id; }
+    public UUID actorUserId() { return actorUserId; }
+    public String eventType() { return eventType; }
+    public AuditOutcome outcome() { return outcome; }
+    public Instant createdAt() { return createdAt; }
 }

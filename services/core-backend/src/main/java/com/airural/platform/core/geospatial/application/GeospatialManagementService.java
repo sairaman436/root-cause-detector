@@ -8,12 +8,14 @@ package com.airural.platform.core.geospatial.application;
 import static com.airural.platform.core.geospatial.infrastructure.GeospatialSpecifications.*;
 
 import com.airural.platform.core.evidence.infrastructure.EvidenceRepository;
+import com.airural.platform.core.events.application.OutboxService;
 import com.airural.platform.core.geospatial.domain.*;
 import com.airural.platform.core.geospatial.infrastructure.*;
 import com.airural.platform.core.geospatial.web.dto.GeospatialDtos.*;
 import com.airural.platform.core.identity.application.AuditService;
 import com.airural.platform.core.identity.domain.AuditOutcome;
 import com.airural.platform.core.survey.infrastructure.SurveyRepository;
+import com.airural.platform.shared.events.*;
 import java.math.*;
 import java.util.*;
 import java.util.function.Function;
@@ -46,6 +48,7 @@ public class GeospatialManagementService {
     private final SpatialCalculationService spatial;
     private final GeospatialMapper mapper;
     private final AuditService auditService;
+    private final OutboxService outboxService;
 
     public GeospatialManagementService(
             CountryRepository countries,
@@ -67,7 +70,8 @@ public class GeospatialManagementService {
             GeospatialValidationService validation,
             SpatialCalculationService spatial,
             GeospatialMapper mapper,
-            AuditService auditService) {
+            AuditService auditService,
+            OutboxService outboxService) {
         this.countries = countries;
         this.states = states;
         this.districts = districts;
@@ -88,6 +92,7 @@ public class GeospatialManagementService {
         this.spatial = spatial;
         this.mapper = mapper;
         this.auditService = auditService;
+        this.outboxService = outboxService;
     }
 
     @Transactional
@@ -201,6 +206,13 @@ public class GeospatialManagementService {
         HouseholdEntity entity = households.save(new HouseholdEntity(hamlet.id(), request.householdCode(), request.headOfHousehold(), request.address(), request.latitude(), request.longitude(), request.surveyId(), request.evidenceId(), request.iotMetadataJson()));
         createHierarchyProjection(entity, hamlet);
         audit(actorUserId, "GEO_HOUSEHOLD_CREATED", entity.id());
+        outboxService.enqueue(
+                EventTopic.GEO_HOUSEHOLD_CREATED,
+                "HOUSEHOLD",
+                entity.id(),
+                null,
+                actorUserId,
+                new EventPayloads.GeographyPayload(entity.id(), null, "HOUSEHOLD", entity.address(), entity.householdCode(), entity.updatedAt()));
         return mapper.household(entity);
     }
 
@@ -213,6 +225,13 @@ public class GeospatialManagementService {
         ensure(!assets.existsByAssetTypeAndCode(request.assetType(), request.code()), "INFRASTRUCTURE_ASSET_CODE_EXISTS", "Infrastructure asset code already exists for this type");
         InfrastructureAssetEntity entity = assets.save(new InfrastructureAssetEntity(request.villageId(), request.assetType(), request.code(), request.name(), request.description(), request.latitude(), request.longitude(), request.metadataJson()));
         audit(actorUserId, "GEO_INFRASTRUCTURE_ASSET_CREATED", entity.id());
+        outboxService.enqueue(
+                EventTopic.GEO_INFRASTRUCTURE_UPDATED,
+                "INFRASTRUCTURE_ASSET",
+                entity.id(),
+                null,
+                actorUserId,
+                new EventPayloads.GeographyPayload(entity.id(), null, "INFRASTRUCTURE_ASSET", entity.name(), entity.code(), entity.updatedAt()));
         return mapper.asset(entity);
     }
 

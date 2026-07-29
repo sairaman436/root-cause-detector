@@ -6,8 +6,10 @@
 package com.airural.platform.core.identity.application;
 
 import com.airural.platform.core.identity.domain.*;
+import com.airural.platform.core.events.application.OutboxService;
 import com.airural.platform.core.identity.infrastructure.*;
 import com.airural.platform.core.identity.web.dto.AuthDtos.*;
+import com.airural.platform.shared.events.*;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
@@ -30,6 +32,7 @@ public class AuthenticationService {
     private final JwtTokenService jwtTokenService;
     private final TokenHashingService tokenHashingService;
     private final AuditService auditService;
+    private final OutboxService outboxService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final long refreshTokenDays;
 
@@ -42,6 +45,7 @@ public class AuthenticationService {
             JwtTokenService jwtTokenService,
             TokenHashingService tokenHashingService,
             AuditService auditService,
+            OutboxService outboxService,
             @Value("${airural.security.jwt.refresh-token-days}") long refreshTokenDays) {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
@@ -51,6 +55,7 @@ public class AuthenticationService {
         this.jwtTokenService = jwtTokenService;
         this.tokenHashingService = tokenHashingService;
         this.auditService = auditService;
+        this.outboxService = outboxService;
         this.refreshTokenDays = refreshTokenDays;
     }
 
@@ -80,6 +85,7 @@ public class AuthenticationService {
                 passwordEncoder.encode(request.password()),
                 Set.of(role)));
         auditService.record(user.id(), "USER_REGISTERED", AuditOutcome.SUCCESS, ipAddress, userAgent, user.email());
+        publishUser(EventTopic.USER_CREATED, user);
         return issueTokens(user);
     }
 
@@ -95,6 +101,7 @@ public class AuthenticationService {
         }
         user.markLogin();
         auditService.record(user.id(), "LOGIN_SUCCEEDED", AuditOutcome.SUCCESS, ipAddress, userAgent, user.email());
+        publishUser(EventTopic.USER_LOGGED_IN, user);
         return issueTokens(user);
     }
 
@@ -134,5 +141,15 @@ public class AuthenticationService {
         byte[] bytes = new byte[48];
         secureRandom.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private void publishUser(EventTopic topic, UserAccountEntity user) {
+        outboxService.enqueue(
+                topic,
+                "USER",
+                user.id(),
+                user.organization().id(),
+                user.id(),
+                new EventPayloads.UserPayload(user.id(), user.organization().id(), user.username(), user.email(), user.status().name(), Instant.now()));
     }
 }

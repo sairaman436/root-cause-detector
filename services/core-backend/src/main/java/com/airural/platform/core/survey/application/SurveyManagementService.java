@@ -7,6 +7,7 @@ package com.airural.platform.core.survey.application;
 
 import static com.airural.platform.core.survey.infrastructure.SurveySpecifications.*;
 
+import com.airural.platform.core.events.application.OutboxService;
 import com.airural.platform.core.identity.application.AuditService;
 import com.airural.platform.core.identity.domain.AuditOutcome;
 import com.airural.platform.core.identity.infrastructure.OrganizationRepository;
@@ -14,6 +15,7 @@ import com.airural.platform.core.identity.infrastructure.UserAccountRepository;
 import com.airural.platform.core.survey.domain.*;
 import com.airural.platform.core.survey.infrastructure.*;
 import com.airural.platform.core.survey.web.dto.SurveyDtos.*;
+import com.airural.platform.shared.events.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -43,6 +45,7 @@ public class SurveyManagementService {
     private final SurveyValidationService validationService;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
+    private final OutboxService outboxService;
 
     public SurveyManagementService(
             SurveyRepository surveyRepository,
@@ -60,7 +63,8 @@ public class SurveyManagementService {
             QuestionTypeRegistry questionTypeRegistry,
             SurveyValidationService validationService,
             AuditService auditService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            OutboxService outboxService) {
         this.surveyRepository = surveyRepository;
         this.templateRepository = templateRepository;
         this.sectionRepository = sectionRepository;
@@ -77,6 +81,7 @@ public class SurveyManagementService {
         this.validationService = validationService;
         this.auditService = auditService;
         this.objectMapper = objectMapper;
+        this.outboxService = outboxService;
     }
 
     /** Creates a reusable survey template. */
@@ -118,6 +123,7 @@ public class SurveyManagementService {
                 template, request.organizationId(), actorUserId, request.name(), request.description(), request.tags()));
         createVersion(survey, actorUserId);
         audit(actorUserId, "SURVEY_CREATED", survey.id().toString());
+        publishSurvey(EventTopic.SURVEY_CREATED, survey, actorUserId);
         return mapper.survey(survey);
     }
 
@@ -132,6 +138,7 @@ public class SurveyManagementService {
         }
         createVersion(survey, actorUserId);
         audit(actorUserId, "SURVEY_UPDATED", survey.id().toString());
+        publishSurvey(EventTopic.SURVEY_UPDATED, survey, actorUserId);
         return mapper.survey(survey);
     }
 
@@ -158,6 +165,9 @@ public class SurveyManagementService {
             throw new SurveyException("SURVEY_TRANSITION_INVALID", ex.getMessage(), HttpStatus.CONFLICT);
         }
         audit(actorUserId, "SURVEY_STATUS_CHANGED", survey.id() + " -> " + request.status());
+        if (request.status() == SurveyStatus.COMPLETED) {
+            publishSurvey(EventTopic.SURVEY_COMPLETED, survey, actorUserId);
+        }
         return mapper.survey(survey);
     }
 
@@ -395,5 +405,15 @@ public class SurveyManagementService {
 
     private void audit(UUID actorUserId, String eventType, String details) {
         auditService.record(actorUserId, eventType, AuditOutcome.SUCCESS, null, null, details);
+    }
+
+    private void publishSurvey(EventTopic topic, SurveyEntity survey, UUID actorUserId) {
+        outboxService.enqueue(
+                topic,
+                "SURVEY",
+                survey.id(),
+                survey.organizationId(),
+                actorUserId,
+                new EventPayloads.SurveyPayload(survey.id(), survey.organizationId(), survey.name(), survey.status().name(), survey.currentVersion(), survey.updatedAt()));
     }
 }
