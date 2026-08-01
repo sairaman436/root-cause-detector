@@ -163,6 +163,12 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("LEARNING_REJECT", "DATASET_APPROVAL", "AI_GOVERNANCE_REVIEW", "AI_ADMIN")
                         .requestMatchers("/api/v1/learning", "/api/v1/learning/**", "/learning", "/learning/**")
                         .hasAnyAuthority("LEARNING_CAPTURE", "LEARNING_REVIEW", "DATASET_APPROVAL", "AI_GOVERNANCE_REVIEW", "AI_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/governance", "/api/v1/governance/**", "/governance", "/governance/**")
+                        .hasAnyAuthority("GOVERNANCE_READ", "AI_AUDITOR", "COMPLIANCE_REVIEW", "AI_GOVERNANCE_REVIEW", "AI_ADMIN")
+                        .requestMatchers("/api/v1/governance/approve", "/api/v1/governance/reject", "/governance/approve", "/governance/reject")
+                        .hasAnyAuthority("GOVERNANCE_APPROVE", "COMPLIANCE_REVIEW", "AI_GOVERNANCE_REVIEW", "RELEASE_REVIEW", "AI_ADMIN")
+                        .requestMatchers("/api/v1/governance", "/api/v1/governance/**", "/governance", "/governance/**")
+                        .hasAnyAuthority("GOVERNANCE_MANAGE", "AI_GOVERNANCE_REVIEW", "AI_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex

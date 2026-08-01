@@ -13,6 +13,7 @@ import com.airural.platform.core.evidence.application.EvidenceException;
 import com.airural.platform.core.evaluation.application.EvaluationException;
 import com.airural.platform.core.finetuning.application.FineTuningException;
 import com.airural.platform.core.geospatial.application.GeospatialException;
+import com.airural.platform.core.governance.application.GovernanceException;
 import com.airural.platform.core.datasets.application.DatasetException;
 import com.airural.platform.core.knowledge.application.KnowledgeException;
 import com.airural.platform.core.learning.application.LearningException;
@@ -122,6 +123,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level AI serving errors. */
     @ExceptionHandler(ServingException.class)
     public ResponseEntity<ErrorResponse> handleServing(ServingException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level AI governance errors. */
+    @ExceptionHandler(GovernanceException.class)
+    public ResponseEntity<ErrorResponse> handleGovernance(GovernanceException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 
