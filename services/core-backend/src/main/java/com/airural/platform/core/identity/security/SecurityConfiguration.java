@@ -173,6 +173,10 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("RELEASE_READ", "RELEASE_REVIEW", "AI_AUDITOR", "AI_ADMIN")
                         .requestMatchers("/api/v1/release/promote", "/api/v1/release/rollback", "/release/promote", "/release/rollback")
                         .hasAnyAuthority("RELEASE_PROMOTE", "RELEASE_ROLLBACK", "RELEASE_REVIEW", "AI_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/research", "/api/v1/research/**", "/research", "/research/**")
+                        .hasAnyAuthority("RESEARCH_READ", "RESEARCHER", "AI_SCIENTIST", "AI_ADMIN")
+                        .requestMatchers("/api/v1/research", "/api/v1/research/**", "/research", "/research/**")
+                        .hasAnyAuthority("RESEARCH_MANAGE", "RESEARCHER", "AI_SCIENTIST", "AI_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex
