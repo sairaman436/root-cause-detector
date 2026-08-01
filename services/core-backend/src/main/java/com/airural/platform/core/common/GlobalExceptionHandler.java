@@ -17,6 +17,7 @@ import com.airural.platform.core.datasets.application.DatasetException;
 import com.airural.platform.core.knowledge.application.KnowledgeException;
 import com.airural.platform.core.learning.application.LearningException;
 import com.airural.platform.core.optimization.application.OptimizationException;
+import com.airural.platform.core.serving.application.ServingException;
 import com.airural.platform.core.survey.application.SurveyException;
 import com.airural.platform.core.training.application.TrainingException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -115,6 +116,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level continuous learning errors. */
     @ExceptionHandler(LearningException.class)
     public ResponseEntity<ErrorResponse> handleLearning(LearningException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level AI serving errors. */
+    @ExceptionHandler(ServingException.class)
+    public ResponseEntity<ErrorResponse> handleServing(ServingException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 

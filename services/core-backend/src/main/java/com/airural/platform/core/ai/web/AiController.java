@@ -9,6 +9,7 @@ import com.airural.platform.core.ai.application.AiFoundationService;
 import com.airural.platform.core.ai.web.dto.AiDtos.*;
 import com.airural.platform.core.common.*;
 import com.airural.platform.core.identity.security.AuthenticatedUser;
+import com.airural.platform.core.serving.application.ServingGatewayService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -23,15 +24,17 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/ai")
 public class AiController {
     private final AiFoundationService service;
+    private final ServingGatewayService servingGateway;
 
-    public AiController(AiFoundationService service) {
+    public AiController(AiFoundationService service, ServingGatewayService servingGateway) {
         this.service = service;
+        this.servingGateway = servingGateway;
     }
 
     @Operation(summary = "Chat through AI gateway", description = "Routes a prompt through safety validation, model routing, accounting, and fallback-aware response generation.")
     @PostMapping("/chat")
     public ResponseEntity<ApiResponse<ChatResponse>> chat(@Valid @RequestBody ChatRequest body, @AuthenticationPrincipal AuthenticatedUser user, HttpServletRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(service.chat(body, userId(user)), RequestIds.from(request)));
+        return ResponseEntity.ok(ApiResponse.success(servingGateway.chat(body, userId(user)), RequestIds.from(request)));
     }
 
     @Operation(summary = "Embed text", description = "Chunks text, creates embedding metadata, and prepares vector search records.")
