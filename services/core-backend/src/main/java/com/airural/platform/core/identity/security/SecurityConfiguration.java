@@ -111,6 +111,10 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("AGENT_EXECUTE", "AGENT_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/agents", "/api/v1/agents/**")
                         .hasAnyAuthority("AGENT_READ", "AGENT_EXECUTE", "AGENT_ADMIN", "AI_AUDITOR", "AI_ADMIN")
+                        .requestMatchers("/api/v1/decision/analyze", "/api/v1/decision/root-cause", "/api/v1/decision/recommend")
+                        .hasAnyAuthority("DECISION_ANALYZE", "DECISION_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/decision", "/api/v1/decision/**")
+                        .hasAnyAuthority("DECISION_READ", "DECISION_REVIEW", "DECISION_ADMIN", "AI_AUDITOR", "AI_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex
