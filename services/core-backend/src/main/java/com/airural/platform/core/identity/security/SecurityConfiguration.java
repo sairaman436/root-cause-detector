@@ -105,6 +105,12 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("AI_READ", "AI_OPERATOR", "PROMPT_ENGINEER", "AI_AUDITOR", "AI_ADMIN")
                         .requestMatchers("/api/v1/ai/chat", "/api/v1/ai/embed", "/api/v1/ai/rag/query")
                         .hasAnyAuthority("AI_OPERATOR", "AI_ADMIN")
+                        .requestMatchers("/api/v1/agents/feedback")
+                        .hasAnyAuthority("AGENT_EXECUTE", "AGENT_ADMIN", "POLICY_REVIEWER")
+                        .requestMatchers("/api/v1/agents/chat", "/api/v1/agents/execute")
+                        .hasAnyAuthority("AGENT_EXECUTE", "AGENT_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agents", "/api/v1/agents/**")
+                        .hasAnyAuthority("AGENT_READ", "AGENT_EXECUTE", "AGENT_ADMIN", "AI_AUDITOR", "AI_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex
