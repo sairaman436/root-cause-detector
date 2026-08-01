@@ -15,6 +15,7 @@ import com.airural.platform.core.finetuning.application.FineTuningException;
 import com.airural.platform.core.geospatial.application.GeospatialException;
 import com.airural.platform.core.datasets.application.DatasetException;
 import com.airural.platform.core.knowledge.application.KnowledgeException;
+import com.airural.platform.core.optimization.application.OptimizationException;
 import com.airural.platform.core.survey.application.SurveyException;
 import com.airural.platform.core.training.application.TrainingException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -101,6 +102,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level model evaluation errors. */
     @ExceptionHandler(EvaluationException.class)
     public ResponseEntity<ErrorResponse> handleEvaluation(EvaluationException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level model optimization errors. */
+    @ExceptionHandler(OptimizationException.class)
+    public ResponseEntity<ErrorResponse> handleOptimization(OptimizationException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 

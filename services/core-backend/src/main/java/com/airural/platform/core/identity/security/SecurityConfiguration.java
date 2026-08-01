@@ -145,6 +145,12 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("EVALUATION_REJECT", "RELEASE_REVIEW", "AI_ADMIN")
                         .requestMatchers("/api/v1/evaluation", "/api/v1/evaluation/**", "/evaluation", "/evaluation/**")
                         .hasAnyAuthority("EVALUATION_RUN", "AI_SAFETY_REVIEW", "RED_TEAM_REVIEW", "AI_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/optimization", "/api/v1/optimization/**", "/optimization", "/optimization/**")
+                        .hasAnyAuthority("OPTIMIZATION_READ", "OPTIMIZATION_RUN", "MODEL_PACKAGE_REVIEW", "PERFORMANCE_REVIEW", "AI_ADMIN")
+                        .requestMatchers("/api/v1/optimization/promote", "/optimization/promote")
+                        .hasAnyAuthority("OPTIMIZATION_PROMOTE", "AI_RELEASE_REVIEW", "AI_ADMIN")
+                        .requestMatchers("/api/v1/optimization", "/api/v1/optimization/**", "/optimization", "/optimization/**")
+                        .hasAnyAuthority("OPTIMIZATION_RUN", "MODEL_PACKAGE_REVIEW", "PERFORMANCE_REVIEW", "MODEL_SECURITY_REVIEW", "AI_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex
