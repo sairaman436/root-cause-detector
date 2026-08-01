@@ -131,6 +131,12 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("CHECKPOINT_RESTORE", "TRAINING_ENGINEER", "MLOPS_ADMIN", "AI_ADMIN")
                         .requestMatchers("/api/v1/training", "/api/v1/training/**", "/training", "/training/**")
                         .hasAnyAuthority("TRAINING_ENGINEER", "TRAINING_ADMIN", "MLOPS_ADMIN", "AI_SCIENTIST", "AI_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/finetuning", "/api/v1/finetuning/**", "/finetuning", "/finetuning/**")
+                        .hasAnyAuthority("FINETUNING_READ", "FINETUNING_ENGINEER", "AI_RESEARCH_REVIEW", "MLOPS_ADMIN", "AI_SCIENTIST", "AI_ADMIN")
+                        .requestMatchers("/api/v1/finetuning/rollback", "/finetuning/rollback")
+                        .hasAnyAuthority("FINETUNING_ROLLBACK", "MLOPS_ADMIN", "AI_ADMIN")
+                        .requestMatchers("/api/v1/finetuning", "/api/v1/finetuning/**", "/finetuning", "/finetuning/**")
+                        .hasAnyAuthority("FINETUNING_ENGINEER", "AI_RESEARCH_REVIEW", "MLOPS_ADMIN", "AI_SCIENTIST", "AI_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex
