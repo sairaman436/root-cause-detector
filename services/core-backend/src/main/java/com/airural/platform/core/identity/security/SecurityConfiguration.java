@@ -125,6 +125,12 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("KNOWLEDGE_READ", "KNOWLEDGE_ENGINEER", "KNOWLEDGE_ADMIN", "AI_SCIENTIST", "AI_ADMIN")
                         .requestMatchers("/api/v1/knowledge", "/api/v1/knowledge/**", "/knowledge", "/knowledge/**")
                         .hasAnyAuthority("KNOWLEDGE_ENGINEER", "KNOWLEDGE_ADMIN", "AI_SCIENTIST", "AI_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/training", "/api/v1/training/**", "/training", "/training/**")
+                        .hasAnyAuthority("TRAINING_READ", "TRAINING_ENGINEER", "MODEL_REGISTRY_READ", "MLOPS_ADMIN", "AI_SCIENTIST", "AI_ADMIN")
+                        .requestMatchers("/api/v1/training/checkpoints/restore", "/training/checkpoints/restore")
+                        .hasAnyAuthority("CHECKPOINT_RESTORE", "TRAINING_ENGINEER", "MLOPS_ADMIN", "AI_ADMIN")
+                        .requestMatchers("/api/v1/training", "/api/v1/training/**", "/training", "/training/**")
+                        .hasAnyAuthority("TRAINING_ENGINEER", "TRAINING_ADMIN", "MLOPS_ADMIN", "AI_SCIENTIST", "AI_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex
