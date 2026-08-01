@@ -1,0 +1,27 @@
+# Purpose: Defines operational jobs for migration validation and release smoke checks.
+# Why it exists: Provides repeatable production gates that run outside long-lived service containers.
+# Architecture fit: Supports Milestone 11 migration validation, deployment status APIs, and release verification.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migration-validation
+  namespace: airural-platform
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migration-validation
+          image: ghcr.io/sairaman436/root-cause-detector/core-backend:latest
+          command:
+            [
+              'sh',
+              '-c',
+              'java -jar /app/app.jar --spring.flyway.enabled=true --spring.main.web-application-type=none',
+            ]
+          envFrom:
+            - configMapRef:
+                name: airural-platform-config
+            - secretRef:
+                name: airural-platform-secrets
+  backoffLimit: 1

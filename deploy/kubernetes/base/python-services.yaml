@@ -1,0 +1,170 @@
+# Purpose: Runs AI, RAG, agent, reporting, and notification services with uniform production controls.
+# Why it exists: Establishes scalable worker and service boundaries for future intelligence workloads.
+# Architecture fit: Supports Milestone 11 containerization, worker topology, and high availability requirements.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-inference-service
+  namespace: airural-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-inference-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-inference-service
+        app.kubernetes.io/part-of: airural-platform
+    spec:
+      containers:
+        - name: ai-inference-service
+          image: ghcr.io/sairaman436/root-cause-detector/ai-inference-service:latest
+          ports:
+            - containerPort: 8101
+              name: http
+          envFrom:
+            - configMapRef:
+                name: airural-platform-config
+            - secretRef:
+                name: airural-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: '1'
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-inference-service
+  namespace: airural-platform
+spec:
+  selector:
+    app.kubernetes.io/name: ai-inference-service
+  ports:
+    - name: http
+      port: 8101
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-service
+  namespace: airural-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rag-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rag-service
+        app.kubernetes.io/part-of: airural-platform
+    spec:
+      containers:
+        - name: rag-service
+          image: ghcr.io/sairaman436/root-cause-detector/rag-service:latest
+          ports:
+            - containerPort: 8102
+              name: http
+          envFrom:
+            - configMapRef:
+                name: airural-platform-config
+            - secretRef:
+                name: airural-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: '1'
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-service
+  namespace: airural-platform
+spec:
+  selector:
+    app.kubernetes.io/name: rag-service
+  ports:
+    - name: http
+      port: 8102
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-orchestrator
+  namespace: airural-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agent-orchestrator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agent-orchestrator
+        app.kubernetes.io/part-of: airural-platform
+    spec:
+      containers:
+        - name: agent-orchestrator
+          image: ghcr.io/sairaman436/root-cause-detector/agent-orchestrator:latest
+          ports:
+            - containerPort: 8103
+              name: http
+          envFrom:
+            - configMapRef:
+                name: airural-platform-config
+            - secretRef:
+                name: airural-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: '1'
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-orchestrator
+  namespace: airural-platform
+spec:
+  selector:
+    app.kubernetes.io/name: agent-orchestrator
+  ports:
+    - name: http
+      port: 8103
+      targetPort: http

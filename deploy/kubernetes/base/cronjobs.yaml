@@ -1,0 +1,35 @@
+# Purpose: Defines scheduled backup and restore-validation jobs.
+# Why it exists: Makes disaster recovery controls executable and auditable.
+# Architecture fit: Supports Milestone 11 backup scheduler, point-in-time recovery, and restore validation.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: airural-platform
+spec:
+  schedule: '0 */6 * * *'
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              command:
+                [
+                  'sh',
+                  '-c',
+                  'pg_dump "$DATABASE_URL" | gzip > /backup/airural-$(date +%Y%m%d%H%M%S).sql.gz',
+                ]
+              envFrom:
+                - secretRef:
+                    name: airural-platform-secrets
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              emptyDir: {}

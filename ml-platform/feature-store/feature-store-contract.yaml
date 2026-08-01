@@ -1,0 +1,23 @@
+# Purpose: Defines feature store governance for online and offline features.
+# Why it exists: Keeps training, inference, and analytics features consistent and auditable.
+# Architecture fit: Supports Milestone 11 feature store, compliance, monitoring, and retraining controls.
+featureStore:
+  offlineStore: s3://airural-platform-feature-store/offline
+  onlineStore: redis://airural-platform-redis
+  entityKeys:
+    - organization_id
+    - survey_id
+    - village_id
+    - household_id
+    - decision_id
+  requiredMetadata:
+    - featureName
+    - ownerTeam
+    - dataClassification
+    - lineageSource
+    - freshnessSlaMinutes
+    - retentionPolicy
+  monitoring:
+    freshnessAlertMinutes: 60
+    nullRateThreshold: 0.05
+    distributionDriftThreshold: 0.1

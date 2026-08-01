@@ -1,0 +1,27 @@
+# Purpose: Defines the governed model registry contract for deployable AI models.
+# Why it exists: Standardizes metadata required for promotion, rollback, monitoring, and compliance.
+# Architecture fit: Supports Milestone 11 MLOps model registry, approval workflow, and model security.
+registry:
+  name: airural-model-registry
+  storageUri: s3://airural-platform-models/registry
+  requiredMetadata:
+    - modelName
+    - modelVersion
+    - trainingDatasetVersion
+    - evaluationReportUri
+    - riskTier
+    - ownerTeam
+    - approvalStatus
+    - rollbackVersion
+  stages:
+    - CANDIDATE
+    - VALIDATED
+    - APPROVED
+    - CANARY
+    - PRODUCTION
+    - RETIRED
+  controls:
+    humanApprovalRequired: true
+    securityScanRequired: true
+    biasEvaluationRequired: true
+    rollbackRequired: true

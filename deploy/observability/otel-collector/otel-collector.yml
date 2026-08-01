@@ -1,0 +1,38 @@
+# Purpose: Defines OpenTelemetry collection, enrichment, and export pipelines.
+# Why it exists: Standardizes trace, metric, and log telemetry ingestion across services.
+# Architecture fit: Supports Milestone 11 distributed tracing and structured observability.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+processors:
+  batch:
+  resource:
+    attributes:
+      - key: platform
+        value: airural
+        action: upsert
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:9464
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  logging:
+    verbosity: basic
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [logging]

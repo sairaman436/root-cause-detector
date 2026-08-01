@@ -1,0 +1,35 @@
+# Purpose: Defines production alerting rules for service availability, latency, and error budgets.
+# Why it exists: Converts raw metrics into actionable SRE signals.
+# Architecture fit: Supports Milestone 11 AlertManager, SLO, and incident response requirements.
+groups:
+  - name: platform-availability
+    rules:
+      - alert: CoreBackendDown
+        expr: up{service="core-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: Core backend is unavailable
+          runbook: docs/operations/RUNBOOKS.md#core-backend-down
+
+      - alert: HighHttpErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count[5m])) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: HTTP 5xx error rate is above 2 percent
+          runbook: docs/operations/RUNBOOKS.md#high-error-rate
+
+      - alert: DecisionConfidenceDrop
+        expr: avg(decision_confidence_score) < 0.65
+        for: 15m
+        labels:
+          severity: warning
+          team: decision-intelligence
+        annotations:
+          summary: Average decision confidence dropped below threshold
+          runbook: docs/operations/RUNBOOKS.md#decision-confidence-drop

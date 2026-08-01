@@ -1,0 +1,21 @@
+# Purpose: Defines the production Kubernetes overlay for image tags, namespace, and replicas.
+# Why it exists: Keeps promotion-specific changes outside reusable base manifests.
+# Architecture fit: Supports Milestone 11 global deployment and release management.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: airural-platform
+resources:
+  - ../../base
+images:
+  - name: ghcr.io/sairaman436/root-cause-detector/core-backend
+    newTag: stable
+  - name: ghcr.io/sairaman436/root-cause-detector/web-portal
+    newTag: stable
+  - name: ghcr.io/sairaman436/root-cause-detector/admin-portal
+    newTag: stable
+  - name: ghcr.io/sairaman436/root-cause-detector/ai-inference-service
+    newTag: stable
+  - name: ghcr.io/sairaman436/root-cause-detector/rag-service
+    newTag: stable
+  - name: ghcr.io/sairaman436/root-cause-detector/agent-orchestrator
+    newTag: stable

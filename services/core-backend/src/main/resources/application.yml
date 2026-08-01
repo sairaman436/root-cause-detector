@@ -24,7 +24,7 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
-    schemas: identity,audit,survey,evidence,geospatial,eventing,ai,agents,decision
+    schemas: identity,audit,survey,evidence,geospatial,eventing,ai,agents,decision,operations
     default-schema: identity
     create-schemas: true
 
@@ -34,11 +34,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${airural.platform.environment:local}
+      region: ${airural.platform.region:local}
 
 logging:
   level:
@@ -49,8 +55,16 @@ logging:
 
 server:
   port: ${CORE_BACKEND_PORT:8080}
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json,text/plain,text/css,application/javascript
+    min-response-size: 1024
 
 airural:
+  platform:
+    environment: ${APP_ENV:local}
+    region: ${DEPLOYMENT_REGION:local}
   security:
     jwt:
       issuer: ${JWT_ISSUER:airural-platform}

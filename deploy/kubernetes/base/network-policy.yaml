@@ -1,0 +1,44 @@
+# Purpose: Restricts pod-to-pod and ingress communication to approved paths.
+# Why it exists: Provides a default-deny posture and explicit service communication for production clusters.
+# Architecture fit: Supports Milestone 11 zero-trust networking, mTLS readiness, and API gateway security.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: airural-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-service-traffic
+  namespace: airural-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: airural-platform
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+  egress:
+    - to:
+        - namespaceSelector: {}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 9092

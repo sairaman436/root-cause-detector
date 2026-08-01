@@ -115,6 +115,8 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("DECISION_ANALYZE", "DECISION_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/decision", "/api/v1/decision/**")
                         .hasAnyAuthority("DECISION_READ", "DECISION_REVIEW", "DECISION_ADMIN", "AI_AUDITOR", "AI_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/platform", "/api/v1/platform/**")
+                        .hasAnyAuthority("PLATFORM_READ", "PLATFORM_ADMIN", "ADMIN")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(ex -> ex

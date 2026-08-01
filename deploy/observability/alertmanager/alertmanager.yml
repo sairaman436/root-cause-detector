@@ -1,0 +1,25 @@
+# Purpose: Defines alert routing and inhibition for production incidents.
+# Why it exists: Keeps SRE, security, MLOps, and product alerts routed to accountable owners.
+# Architecture fit: Supports Milestone 11 alerting, incident response, and operational governance.
+route:
+  receiver: default
+  group_by:
+    - alertname
+    - service
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: sre-critical
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url: http://notification-worker:8105/internal/alerts
+        send_resolved: true
+  - name: sre-critical
+    webhook_configs:
+      - url: http://notification-worker:8105/internal/alerts/critical
+        send_resolved: true

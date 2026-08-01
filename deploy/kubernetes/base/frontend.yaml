@@ -1,0 +1,104 @@
+# Purpose: Runs user and admin frontend workloads behind Kubernetes services.
+# Why it exists: Separates public portal and administrative portal scaling and rollout behavior.
+# Architecture fit: Supports Milestone 11 frontend containerization and global deployment requirements.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-portal
+  namespace: airural-platform
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web-portal
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web-portal
+        app.kubernetes.io/part-of: airural-platform
+    spec:
+      containers:
+        - name: web-portal
+          image: ghcr.io/sairaman436/root-cause-detector/web-portal:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-portal
+  namespace: airural-platform
+spec:
+  selector:
+    app.kubernetes.io/name: web-portal
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-portal
+  namespace: airural-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: admin-portal
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: admin-portal
+        app.kubernetes.io/part-of: airural-platform
+    spec:
+      containers:
+        - name: admin-portal
+          image: ghcr.io/sairaman436/root-cause-detector/admin-portal:latest
+          ports:
+            - containerPort: 3001
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-portal
+  namespace: airural-platform
+spec:
+  selector:
+    app.kubernetes.io/name: admin-portal
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http

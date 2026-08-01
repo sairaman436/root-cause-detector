@@ -1,0 +1,18 @@
+# Purpose: Collects the base Kubernetes manifests for platform production deployment.
+# Why it exists: Gives GitOps, CI validation, and environment overlays a single entry point.
+# Architecture fit: Supports Milestone 11 Kubernetes architecture and global deployment.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret-template.yaml
+  - core-backend.yaml
+  - python-services.yaml
+  - frontend.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - network-policy.yaml
+  - persistent-volumes.yaml
+  - jobs.yaml
+  - cronjobs.yaml

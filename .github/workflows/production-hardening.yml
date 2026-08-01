@@ -1,0 +1,117 @@
+# Purpose: Runs enterprise production hardening gates across source, IaC, containers, SBOMs, and deployment manifests.
+# Why it exists: Centralizes Milestone 11 DevSecOps controls required before global deployment.
+# Architecture fit: Supports CI/CD, supply chain security, artifact governance, and release readiness.
+name: Production Hardening
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  security-events: write
+
+jobs:
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Format check
+        run: npm run format:check
+      - name: Backend verify
+        run: sh ./mvnw -B verify
+      - name: Frontend checks
+        run: npm run typecheck && npm run test
+
+  sbom-and-license:
+    name: SBOM and License
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Generate repository SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: airural-platform.spdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: airural-platform-sbom
+          path: airural-platform.spdx.json
+      - name: License policy scan
+        uses: anchore/scan-action@v5
+        with:
+          path: .
+          fail-build: false
+
+  image-release:
+    name: Image Build and Attestation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: core-backend
+            context: .
+            dockerfile: services/core-backend/Dockerfile
+          - image: web-portal
+            context: .
+            dockerfile: apps/web-portal/Dockerfile
+          - image: admin-portal
+            context: .
+            dockerfile: apps/admin-portal/Dockerfile
+          - image: ai-inference-service
+            context: services/ai-inference-service
+            dockerfile: services/ai-inference-service/Dockerfile
+          - image: rag-service
+            context: services/rag-service
+            dockerfile: services/rag-service/Dockerfile
+          - image: agent-orchestrator
+            context: services/agent-orchestrator
+            dockerfile: services/agent-orchestrator/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/${{ matrix.image }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
+      - name: Generate signed provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}

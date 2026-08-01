@@ -1,0 +1,24 @@
+# Purpose: Defines AI evaluation suites for production promotion and regression testing.
+# Why it exists: Gives MLOps repeatable checks for quality, safety, explainability, and groundedness.
+# Architecture fit: Supports Milestone 11 evaluation pipeline and AI governance.
+evaluationFramework:
+  suites:
+    - name: rag_groundedness
+      metrics:
+        - citation_precision
+        - citation_recall
+        - hallucination_rate
+    - name: decision_quality
+      metrics:
+        - confidence_calibration
+        - recommendation_acceptance
+        - rule_violation_rate
+    - name: safety
+      metrics:
+        - prompt_injection_resistance
+        - sensitive_data_leakage
+        - unsafe_recommendation_rate
+  gates:
+    maxHallucinationRate: 0.02
+    minCitationPrecision: 0.9
+    minDecisionConfidenceCalibration: 0.8

@@ -26,3 +26,60 @@ jobs:
           path: ./
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
+
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install Node dependencies
+        run: npm ci
+      - name: NPM audit
+        run: npm audit --audit-level=high
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Maven dependency tree
+        run: sh ./mvnw -B -DskipTests dependency:tree
+
+  container-scan:
+    name: Container Scan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: core-backend
+            context: .
+            dockerfile: services/core-backend/Dockerfile
+          - image: web-portal
+            context: .
+            dockerfile: apps/web-portal/Dockerfile
+          - image: admin-portal
+            context: .
+            dockerfile: apps/admin-portal/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t airural/${{ matrix.image }}:scan -f ${{ matrix.dockerfile }} ${{ matrix.context }}
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: airural/${{ matrix.image }}:scan
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: HIGH,CRITICAL
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif

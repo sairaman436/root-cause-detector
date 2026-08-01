@@ -1,0 +1,12 @@
+# Purpose: Creates the isolated runtime namespace for the AI Rural platform.
+# Why it exists: Keeps workload, network policy, secrets, and quota boundaries explicit in Kubernetes.
+# Architecture fit: Supports Milestone 11 high availability and governance controls.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: airural-platform
+  labels:
+    app.kubernetes.io/part-of: airural-platform
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

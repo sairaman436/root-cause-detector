@@ -1,0 +1,26 @@
+# Purpose: Defines persistent storage claims for stateful platform dependencies when managed services are unavailable.
+# Why it exists: Supports backup, restore, and development-cluster parity for storage-backed services.
+# Architecture fit: Supports Milestone 11 high availability and disaster recovery planning.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qdrant-data
+  namespace: airural-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache
+  namespace: airural-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi

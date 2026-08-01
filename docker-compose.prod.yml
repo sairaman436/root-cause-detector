@@ -1,0 +1,140 @@
+# Purpose: Defines a production-like compose topology for release rehearsals and disaster recovery drills.
+# Why it exists: Lets operators validate image wiring, reverse proxy routing, health checks, and monitoring before Kubernetes promotion.
+# Architecture fit: Complements local docker-compose.yml with Milestone 11 production hardening boundaries.
+name: ai-rural-root-cause-platform-prod
+
+x-runtime-env: &runtime-env
+  env_file:
+    - ./config/env/production.example.env
+  networks:
+    - platform
+  restart: unless-stopped
+
+services:
+  reverse-proxy:
+    image: caddy:2.8-alpine
+    volumes:
+      - ./deploy/reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - '80:80'
+      - '443:443'
+    depends_on:
+      - core-backend
+      - web-portal
+      - admin-portal
+    networks:
+      - platform
+
+  core-backend:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/core-backend:${IMAGE_TAG:-latest}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      CORE_BACKEND_PORT: 8080
+      CORE_BACKEND_MANAGEMENT_PORT: 8081
+    expose:
+      - '8080'
+      - '8081'
+
+  web-portal:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/web-portal:${IMAGE_TAG:-latest}
+    expose:
+      - '3000'
+
+  admin-portal:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/admin-portal:${IMAGE_TAG:-latest}
+    expose:
+      - '3001'
+
+  ai-inference-service:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/ai-inference-service:${IMAGE_TAG:-latest}
+    expose:
+      - '8101'
+
+  rag-service:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/rag-service:${IMAGE_TAG:-latest}
+    expose:
+      - '8102'
+
+  agent-orchestrator:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/agent-orchestrator:${IMAGE_TAG:-latest}
+    expose:
+      - '8103'
+
+  reporting-worker:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/reporting-service:${IMAGE_TAG:-latest}
+    command: ['python', '-m', 'reporting_service.main']
+    expose:
+      - '8104'
+
+  notification-worker:
+    <<: *runtime-env
+    image: ghcr.io/sairaman436/root-cause-detector/notification-service:${IMAGE_TAG:-latest}
+    command: ['python', '-m', 'notification_service.main']
+    expose:
+      - '8105'
+
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    volumes:
+      - ./deploy/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    expose:
+      - '9090'
+    networks:
+      - platform
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-through-vault}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    expose:
+      - '3000'
+    networks:
+      - platform
+
+  loki:
+    image: grafana/loki:3.1.0
+    command: ['-config.file=/etc/loki/loki.yml']
+    volumes:
+      - ./deploy/observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    expose:
+      - '3100'
+    networks:
+      - platform
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    command: ['-config.file=/etc/tempo/tempo.yml']
+    volumes:
+      - ./deploy/observability/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo-data:/tmp/tempo
+    expose:
+      - '3200'
+    networks:
+      - platform
+
+networks:
+  platform:
+    driver: bridge
+
+volumes:
+  caddy-data:
+  caddy-config:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  tempo-data:

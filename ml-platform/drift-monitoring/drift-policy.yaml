@@ -1,0 +1,22 @@
+# Purpose: Defines production drift detection controls for models, embeddings, prompts, and decision outputs.
+# Why it exists: Detects degradation before AI decisions become unreliable.
+# Architecture fit: Supports Milestone 11 model monitoring, drift detection, retraining, and compliance.
+driftPolicy:
+  signals:
+    - input_schema_drift
+    - feature_distribution_drift
+    - embedding_distribution_drift
+    - prompt_version_regression
+    - output_confidence_drift
+    - recommendation_acceptance_drift
+  thresholds:
+    warning: 0.08
+    critical: 0.15
+  actions:
+    warning:
+      - notify_mlops
+      - create_investigation_ticket
+    critical:
+      - freeze_promotion
+      - route_to_human_review
+      - evaluate_rollback

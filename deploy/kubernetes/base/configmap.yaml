@@ -1,0 +1,17 @@
+# Purpose: Defines non-secret runtime configuration shared by production workloads.
+# Why it exists: Separates environment-specific configuration from container images.
+# Architecture fit: Implements Milestone 11 centralized configuration management for Kubernetes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airural-platform-config
+  namespace: airural-platform
+data:
+  APP_ENV: production
+  DEPLOYMENT_REGION: primary
+  CORE_BACKEND_PORT: '8080'
+  CORE_BACKEND_MANAGEMENT_PORT: '8081'
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  QDRANT_URL: http://qdrant:6333
+  OLLAMA_URL: http://ollama:11434
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317

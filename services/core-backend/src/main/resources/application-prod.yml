@@ -1,0 +1,43 @@
+# Purpose: Defines production-specific backend hardening knobs.
+# Why it exists: Separates secure runtime defaults from local development convenience settings.
+# Architecture fit: Supports Milestone 11 production deployment, observability, performance, and resilience requirements.
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: ${SPRING_SHUTDOWN_TIMEOUT:30s}
+  datasource:
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:30}
+      minimum-idle: ${DATABASE_MIN_IDLE:5}
+      connection-timeout: ${DATABASE_CONNECTION_TIMEOUT_MS:30000}
+      validation-timeout: ${DATABASE_VALIDATION_TIMEOUT_MS:5000}
+      max-lifetime: ${DATABASE_MAX_LIFETIME_MS:1800000}
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: ${HIBERNATE_BATCH_SIZE:50}
+        order_inserts: true
+        order_updates: true
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.airural: ${LOG_LEVEL_APP:INFO}
+
+server:
+  tomcat:
+    threads:
+      max: ${SERVER_MAX_THREADS:200}
+      min-spare: ${SERVER_MIN_SPARE_THREADS:20}
+    accept-count: ${SERVER_ACCEPT_COUNT:100}
+
+airural:
+  events:
+    kafka:
+      enabled: ${EVENT_PUBLISHING_ENABLED:true}
+      consumers-enabled: ${EVENT_CONSUMERS_ENABLED:true}

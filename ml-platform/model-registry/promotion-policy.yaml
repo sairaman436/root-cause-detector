@@ -1,0 +1,22 @@
+# Purpose: Defines model promotion gates from candidate to production.
+# Why it exists: Prevents unreviewed model artifacts from serving consequential recommendations.
+# Architecture fit: Supports Milestone 11 model approval, canary, shadow deployment, and rollback.
+promotionPolicy:
+  candidateToValidated:
+    requiredChecks:
+      - dataset_lineage_verified
+      - evaluation_passed
+      - security_scan_passed
+  validatedToApproved:
+    requiredApprovals:
+      - mlops_reviewer
+      - ai_governance_reviewer
+      - security_reviewer
+  approvedToCanary:
+    trafficPercent: 5
+    maxErrorRate: 0.02
+    minDecisionConfidence: 0.65
+  canaryToProduction:
+    observationWindowHours: 24
+    maxDriftScore: 0.1
+    rollbackOnViolation: true

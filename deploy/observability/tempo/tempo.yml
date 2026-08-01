@@ -1,0 +1,16 @@
+# Purpose: Configures Tempo for distributed tracing storage.
+# Why it exists: Enables correlation of user, API, AI, RAG, agent, and data pipeline requests.
+# Architecture fit: Supports Milestone 11 OpenTelemetry and distributed tracing requirements.
+server:
+  http_listen_port: 3200
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+        http:
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tmp/tempo/traces

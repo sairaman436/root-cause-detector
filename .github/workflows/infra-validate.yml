@@ -24,3 +24,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
       - name: Terraform format check
         run: terraform fmt -check -recursive infra/terraform
+      - name: Validate Kubernetes manifests render
+        uses: imranismail/setup-kustomize@v2
+      - name: Kustomize build production
+        run: kustomize build deploy/kubernetes/overlays/production >/tmp/airural-production.yaml

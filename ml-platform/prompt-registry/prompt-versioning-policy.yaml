@@ -1,0 +1,17 @@
+# Purpose: Defines prompt versioning, evaluation, and rollback controls.
+# Why it exists: Treats prompts as governed production artifacts with traceable risk.
+# Architecture fit: Supports Milestone 11 prompt security, prompt versioning, and AI governance.
+promptRegistry:
+  requiredFields:
+    - promptKey
+    - semanticVersion
+    - ownerTeam
+    - intendedUse
+    - safetyReview
+    - evaluationSuite
+    - rollbackVersion
+  releaseControls:
+    promptInjectionTestsRequired: true
+    citationFaithfulnessRequired: true
+    humanApprovalRequired: true
+    productionTraceRequired: true

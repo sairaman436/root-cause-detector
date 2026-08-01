@@ -1,0 +1,42 @@
+# Purpose: Defines external HTTPS routing for web, admin, API, and observability endpoints.
+# Why it exists: Centralizes public routing, TLS binding, and path ownership.
+# Architecture fit: Supports Milestone 11 API gateway security, TLS everywhere, and global deployment.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: airural-platform
+  namespace: airural-platform
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/proxy-body-size: '64m'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - platform.example.gov
+      secretName: airural-platform-tls
+  rules:
+    - host: platform.example.gov
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: core-backend
+                port:
+                  name: http
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-portal
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-portal
+                port:
+                  name: http

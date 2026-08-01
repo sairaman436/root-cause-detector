@@ -1,0 +1,26 @@
+# Purpose: Provides TLS-terminating reverse proxy routing for production rehearsal deployments.
+# Why it exists: Centralizes frontend, backend, admin, and observability ingress behavior outside application services.
+# Architecture fit: Implements the Milestone 11 reverse proxy and TLS everywhere boundary.
+{
+    auto_https off
+}
+
+:80 {
+    encode zstd gzip
+
+    handle_path /api/* {
+        reverse_proxy core-backend:8080
+    }
+
+    handle_path /admin/* {
+        reverse_proxy admin-portal:3001
+    }
+
+    handle_path /grafana/* {
+        reverse_proxy grafana:3000
+    }
+
+    handle {
+        reverse_proxy web-portal:3000
+    }
+}

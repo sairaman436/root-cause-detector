@@ -1,0 +1,13 @@
+# Purpose: Provisions platform dashboards from source-controlled JSON definitions.
+# Why it exists: Keeps operational dashboards versioned with infrastructure changes.
+# Architecture fit: Supports Milestone 11 health, business, AI, and MLOps dashboards.
+apiVersion: 1
+providers:
+  - name: airural-platform
+    orgId: 1
+    folder: AI Rural Platform
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

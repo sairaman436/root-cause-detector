@@ -1,0 +1,37 @@
+# Purpose: Defines Prometheus scrape targets and alert rules for production monitoring.
+# Why it exists: Centralizes infrastructure, application, AI, and dependency metrics collection.
+# Architecture fit: Supports Milestone 11 observability, SLOs, and production readiness.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+  external_labels:
+    platform: airural
+    environment: production
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: core-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - core-backend:8081
+        labels:
+          service: core-backend
+
+  - job_name: python-services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - ai-inference-service:8101
+          - rag-service:8102
+          - agent-orchestrator:8103
+          - reporting-worker:8104
+          - notification-worker:8105
+
+  - job_name: platform-dependencies
+    static_configs:
+      - targets:
+          - qdrant:6333
+          - kafka:9644
