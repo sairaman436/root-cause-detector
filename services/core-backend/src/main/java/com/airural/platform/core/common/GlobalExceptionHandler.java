@@ -15,6 +15,7 @@ import com.airural.platform.core.finetuning.application.FineTuningException;
 import com.airural.platform.core.geospatial.application.GeospatialException;
 import com.airural.platform.core.datasets.application.DatasetException;
 import com.airural.platform.core.knowledge.application.KnowledgeException;
+import com.airural.platform.core.learning.application.LearningException;
 import com.airural.platform.core.optimization.application.OptimizationException;
 import com.airural.platform.core.survey.application.SurveyException;
 import com.airural.platform.core.training.application.TrainingException;
@@ -108,6 +109,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level model optimization errors. */
     @ExceptionHandler(OptimizationException.class)
     public ResponseEntity<ErrorResponse> handleOptimization(OptimizationException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level continuous learning errors. */
+    @ExceptionHandler(LearningException.class)
+    public ResponseEntity<ErrorResponse> handleLearning(LearningException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 
