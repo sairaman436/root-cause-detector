@@ -18,6 +18,7 @@ import com.airural.platform.core.datasets.application.DatasetException;
 import com.airural.platform.core.knowledge.application.KnowledgeException;
 import com.airural.platform.core.learning.application.LearningException;
 import com.airural.platform.core.optimization.application.OptimizationException;
+import com.airural.platform.core.release.application.ReleaseException;
 import com.airural.platform.core.serving.application.ServingException;
 import com.airural.platform.core.survey.application.SurveyException;
 import com.airural.platform.core.training.application.TrainingException;
@@ -129,6 +130,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level AI governance errors. */
     @ExceptionHandler(GovernanceException.class)
     public ResponseEntity<ErrorResponse> handleGovernance(GovernanceException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level AI release engineering errors. */
+    @ExceptionHandler(ReleaseException.class)
+    public ResponseEntity<ErrorResponse> handleRelease(ReleaseException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 
