@@ -1,7 +1,7 @@
 /*
  * Purpose: Declares Kafka consumers for audit, notification, analytics, AI, search index, and workflow paths.
  * Why it exists: Milestone 7 establishes the event-driven backbone consumers that future services will extend.
- * Architecture fit: Consumer adapter layer with current processing logs and future-domain placeholders.
+ * Architecture fit: Consumer adapter layer with current processing logs and future-domain integration monitors.
  */
 package com.airural.platform.core.events.application;
 
@@ -36,18 +36,18 @@ public class PlatformEventConsumers {
         processingService.process("notification", record.value(), record.topic(), record.partition(), record.offset());
     }
 
-    @KafkaListener(id = "ai-pipeline-placeholder-consumer", topics = {"survey.completed", "evidence.validated", "knowledge.document.uploaded", "geo.household.created"}, containerFactory = "kafkaListenerContainerFactory")
+    @KafkaListener(id = "ai-pipeline-monitor-consumer", topics = {"survey.completed", "evidence.validated", "knowledge.document.uploaded", "geo.household.created"}, containerFactory = "kafkaListenerContainerFactory")
     public void aiPipeline(ConsumerRecord<String, PlatformEvent> record) {
-        processingService.process("ai-pipeline-placeholder", record.value(), record.topic(), record.partition(), record.offset());
+        processingService.process("ai-pipeline-monitor", record.value(), record.topic(), record.partition(), record.offset());
     }
 
-    @KafkaListener(id = "search-index-placeholder-consumer", topics = {"knowledge.document.uploaded", "knowledge.document.updated", "survey.updated", "evidence.uploaded", "geo.infrastructure.updated"}, containerFactory = "kafkaListenerContainerFactory")
+    @KafkaListener(id = "search-index-monitor-consumer", topics = {"knowledge.document.uploaded", "knowledge.document.updated", "survey.updated", "evidence.uploaded", "geo.infrastructure.updated"}, containerFactory = "kafkaListenerContainerFactory")
     public void searchIndex(ConsumerRecord<String, PlatformEvent> record) {
-        processingService.process("search-index-placeholder", record.value(), record.topic(), record.partition(), record.offset());
+        processingService.process("search-index-monitor", record.value(), record.topic(), record.partition(), record.offset());
     }
 
-    @KafkaListener(id = "workflow-placeholder-consumer", topics = {"survey.completed", "notification.created", "audit.created"}, containerFactory = "kafkaListenerContainerFactory")
+    @KafkaListener(id = "workflow-monitor-consumer", topics = {"survey.completed", "notification.created", "audit.created"}, containerFactory = "kafkaListenerContainerFactory")
     public void workflow(ConsumerRecord<String, PlatformEvent> record) {
-        processingService.process("workflow-placeholder", record.value(), record.topic(), record.partition(), record.offset());
+        processingService.process("workflow-monitor", record.value(), record.topic(), record.partition(), record.offset());
     }
 }

@@ -13,3 +13,15 @@ def test_health_endpoint() -> None:
 
     assert response.status_code == 200
     assert response.json()["service"] == "agent-orchestrator"
+
+
+def test_orchestrate_returns_agent_steps() -> None:
+    response = TestClient(app).post(
+        "/v1/orchestrate",
+        json={"survey_id": "survey-1", "evidence_ids": ["evidence-1"], "objective": "Find water root causes"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "orchestrated"
+    assert len(body["steps"]) == 5

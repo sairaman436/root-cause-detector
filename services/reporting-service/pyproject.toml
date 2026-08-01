@@ -5,7 +5,7 @@
 [project]
 name = "reporting-service"
 version = "0.1.0"
-description = "Reporting service foundation; no report generation logic is included."
+description = "Sprint 1 reporting service with CSV and PDF rendering."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.111.0",

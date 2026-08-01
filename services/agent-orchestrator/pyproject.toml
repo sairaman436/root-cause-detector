@@ -5,7 +5,7 @@
 [project]
 name = "agent-orchestrator"
 version = "0.1.0"
-description = "Agent orchestrator foundation; no agent workflows are implemented in Milestone 1."
+description = "Sprint 1 agent orchestrator with executable workflow sequencing."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.111.0",

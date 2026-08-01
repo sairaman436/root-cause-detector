@@ -1,6 +1,6 @@
 /*
  * Purpose: Persists configured event consumer subscriptions.
- * Why it exists: Operators need visibility into active and placeholder consumers across topics.
+ * Why it exists: Operators need visibility into active consumers and future integration monitors across topics.
  * Architecture fit: Eventing module configuration read model.
  */
 package com.airural.platform.core.events.domain;

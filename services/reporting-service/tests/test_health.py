@@ -13,3 +13,19 @@ def test_health_endpoint() -> None:
 
     assert response.status_code == 200
     assert response.json()["service"] == "reporting-service"
+
+
+def test_render_returns_csv_and_pdf() -> None:
+    response = TestClient(app).post(
+        "/v1/render",
+        json={
+            "title": "Village Report",
+            "summary": "Root cause summary",
+            "rows": [{"section": "root_cause", "title": "Water", "value": 1}],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "section" in body["csv"]
+    assert body["pdfBase64"]

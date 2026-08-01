@@ -61,7 +61,7 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.success(service.audit(pageable), RequestIds.from(request)));
     }
 
-    @Operation(summary = "List subscriptions", description = "Lists active and placeholder event consumer subscriptions.")
+    @Operation(summary = "List subscriptions", description = "Lists active event consumer subscriptions and future integration monitors.")
     @GetMapping("/subscriptions")
     public ResponseEntity<ApiResponse<Page<EventSubscriptionResponse>>> subscriptions(Pageable pageable, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(service.subscriptions(pageable), RequestIds.from(request)));

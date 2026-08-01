@@ -1,0 +1,253 @@
+/*
+ * Purpose: Defines Sprint 1 MVP dashboard styling.
+ * Why it exists: The user-facing workflow needs a dense, usable operational interface.
+ * Architecture fit: Local CSS for the Next.js web portal boundary.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #f4f7f6;
+  color: #17211d;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  background: #176b5b;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+button:disabled {
+  background: #9aaba5;
+  cursor: not-allowed;
+}
+
+.appShell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #13231f;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  padding: 28px;
+}
+
+.sidebar h1,
+.topbar h2 {
+  margin: 6px 0 0;
+}
+
+.eyebrow {
+  color: #6fb9a7;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+nav button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #dce8e4;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+nav button.active {
+  background: #f1b84b;
+  color: #17211d;
+}
+
+.workspace {
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+}
+
+.topbar,
+.notice,
+.panel,
+.metric {
+  background: #fff;
+  border: 1px solid #dae4e0;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(20, 35, 31, 0.06);
+}
+
+.topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+.status {
+  background: #eef3f1;
+  border-radius: 999px;
+  color: #5d6f68;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.status.ok {
+  background: #dff5ea;
+  color: #176b5b;
+}
+
+.notice {
+  display: grid;
+  gap: 8px;
+  padding: 14px 18px;
+}
+
+.notice strong {
+  color: #a13d2d;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metric {
+  display: grid;
+  gap: 10px;
+  min-height: 116px;
+  padding: 18px;
+}
+
+.metric span {
+  color: #62746e;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.metric strong {
+  font-size: 22px;
+}
+
+.panel {
+  padding: 20px;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+  max-width: 980px;
+}
+
+label {
+  color: #31453e;
+  display: grid;
+  font-weight: 800;
+  gap: 8px;
+}
+
+input,
+textarea {
+  border: 1px solid #c9d8d3;
+  border-radius: 6px;
+  color: #17211d;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+pre {
+  background: #10201c;
+  border-radius: 8px;
+  color: #e6f4ef;
+  max-height: 360px;
+  overflow: auto;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.report {
+  display: grid;
+  gap: 10px;
+}
+
+.report a {
+  color: #176b5b;
+  font-weight: 800;
+}
+
+.steps {
+  line-height: 1.8;
+}
+
+dt {
+  color: #62746e;
+  font-weight: 800;
+}
+
+dd {
+  margin: 0 0 12px;
+}
+
+@media (max-width: 900px) {
+  .appShell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    gap: 18px;
+  }
+
+  nav,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

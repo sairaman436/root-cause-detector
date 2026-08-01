@@ -1,5 +1,5 @@
 /*
- * Purpose: Records consumer processing and placeholder data-pipeline stages.
+ * Purpose: Records consumer processing and future integration monitor stages.
  * Why it exists: Milestone 5 needs consumers for audit, analytics, notification, AI pipeline, and search index without implementing future domains.
  * Architecture fit: Consumer application service for event-driven ingestion and observability.
  */

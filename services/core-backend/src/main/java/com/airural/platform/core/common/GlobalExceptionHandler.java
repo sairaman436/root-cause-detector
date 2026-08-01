@@ -19,6 +19,7 @@ import com.airural.platform.core.knowledge.application.KnowledgeException;
 import com.airural.platform.core.learning.application.LearningException;
 import com.airural.platform.core.optimization.application.OptimizationException;
 import com.airural.platform.core.release.application.ReleaseException;
+import com.airural.platform.core.reports.application.ReportException;
 import com.airural.platform.core.research.application.ResearchException;
 import com.airural.platform.core.serving.application.ServingException;
 import com.airural.platform.core.survey.application.SurveyException;
@@ -138,6 +139,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ReleaseException.class)
     public ResponseEntity<ErrorResponse> handleRelease(ReleaseException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level report errors. */
+    @ExceptionHandler(ReportException.class)
+    public ResponseEntity<ErrorResponse> handleReport(ReportException ex, HttpServletRequest request) {
+        return error(HttpStatus.valueOf(ex.getStatusCode().value()), ex.code(), ex.getReason(), List.of(), request);
     }
 
     /** Handles domain-level research laboratory errors. */

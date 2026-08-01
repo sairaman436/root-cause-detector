@@ -8,7 +8,8 @@ import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'AI Rural Admin Portal',
-  description: 'Operational shell for the administration portal.',
+  description:
+    'Sprint 1 administration overview for platform services and production-readiness gates.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

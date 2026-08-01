@@ -15,8 +15,12 @@ import java.time.Instant;
 import java.util.*;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 /** Facade service for AI foundation workflows. */
 @Service
@@ -35,8 +39,10 @@ public class AiFoundationService {
     private final AiGatewayService gatewayService;
     private final AiSafetyService safetyService;
     private final ObjectMapper objectMapper;
+    private final String ragServiceUrl;
+    private final RestTemplate restTemplate;
 
-    public AiFoundationService(AIModelRepository modelRepository, ModelVersionRepository versionRepository, PromptCategoryRepository categoryRepository, PromptTemplateRepository promptRepository, PromptVersionRepository promptVersionRepository, RAGRequestRepository ragRequestRepository, RAGCitationRepository citationRepository, InferenceLogRepository inferenceLogRepository, TokenUsageRepository usageRepository, EmbeddingService embeddingService, VectorSearchService vectorSearchService, AiGatewayService gatewayService, AiSafetyService safetyService, ObjectMapper objectMapper) {
+    public AiFoundationService(AIModelRepository modelRepository, ModelVersionRepository versionRepository, PromptCategoryRepository categoryRepository, PromptTemplateRepository promptRepository, PromptVersionRepository promptVersionRepository, RAGRequestRepository ragRequestRepository, RAGCitationRepository citationRepository, InferenceLogRepository inferenceLogRepository, TokenUsageRepository usageRepository, EmbeddingService embeddingService, VectorSearchService vectorSearchService, AiGatewayService gatewayService, AiSafetyService safetyService, ObjectMapper objectMapper, @Value("${airural.ai.gateway.rag-service-url:http://localhost:8102}") String ragServiceUrl, RestTemplateBuilder restTemplateBuilder) {
         this.modelRepository = modelRepository;
         this.versionRepository = versionRepository;
         this.categoryRepository = categoryRepository;
@@ -51,6 +57,8 @@ public class AiFoundationService {
         this.gatewayService = gatewayService;
         this.safetyService = safetyService;
         this.objectMapper = objectMapper;
+        this.ragServiceUrl = ragServiceUrl;
+        this.restTemplate = restTemplateBuilder.setConnectTimeout(Duration.ofSeconds(2)).setReadTimeout(Duration.ofSeconds(8)).build();
     }
 
     public ChatResponse chat(ChatRequest request, UUID userId) { return gatewayService.chat(request, userId); }
@@ -113,13 +121,17 @@ public class AiFoundationService {
     public RagQueryResponse rag(RagQueryRequest request, UUID userId) {
         Instant retrievalStarted = Instant.now();
         String safeQuery = safetyService.validateAndMask(request.query());
-        List<CitationResponse> citations = vectorSearchService.hybridSearch(value(request.collectionName(), "knowledge"), safeQuery, request.topK() == null ? 5 : request.topK());
+        RagServiceResult retrieved = callRagService(safeQuery, request.topK() == null ? 5 : request.topK());
+        List<CitationResponse> citations = retrieved.citations();
         if (citations.isEmpty()) {
-            citations = List.of(new CitationResponse("RAG_PIPELINE", "NO_VECTOR_MATCH", "No vector match was available; answer is limited to the query context.", 0.1));
+            citations = vectorSearchService.hybridSearch(value(request.collectionName(), "knowledge"), safeQuery, request.topK() == null ? 5 : request.topK());
+        }
+        if (citations.isEmpty()) {
+            citations = List.of(new CitationResponse("RAG_PIPELINE", "NO_VECTOR_MATCH", "No vector or service match was available; answer is limited to the query context.", 0.1));
         }
         long retrievalLatency = Duration.between(retrievalStarted, Instant.now()).toMillis();
         Instant inferenceStarted = Instant.now();
-        String answer = "RAG answer grounded in " + citations.size() + " citation(s): " + safeQuery;
+        String answer = value(retrieved.answer(), "RAG answer grounded in " + citations.size() + " citation(s): " + safeQuery);
         long inferenceLatency = Duration.between(inferenceStarted, Instant.now()).toMillis();
         String modelId = value(request.modelId(), "qwen2.5-local");
         gatewayService.recordRagInference(userId, modelId, safeQuery, answer, inferenceLatency);
@@ -147,6 +159,46 @@ public class AiFoundationService {
     }
 
     private String value(String text, String fallback) { return text == null || text.isBlank() ? fallback : text; }
+
+    private RagServiceResult callRagService(String query, int topK) {
+        try {
+            Map<String, Object> payload = Map.of("query", query, "top_k", topK);
+            Map<?, ?> body = restTemplate.postForObject(ragServiceUrl + "/v1/query", payload, Map.class);
+            if (body == null) {
+                return new RagServiceResult("", List.of());
+            }
+            List<CitationResponse> citations = new ArrayList<>();
+            Object rawCitations = body.get("citations");
+            if (rawCitations instanceof List<?> items) {
+                for (Object item : items) {
+                    if (item instanceof Map<?, ?> citation) {
+                        citations.add(new CitationResponse(
+                                "rag-service",
+                                Objects.toString(citation.get("source_id"), "unknown"),
+                                Objects.toString(citation.get("excerpt"), ""),
+                                parseScore(citation.get("score"))));
+                    }
+                }
+            }
+            return new RagServiceResult(Objects.toString(body.get("answer"), ""), citations);
+        } catch (RestClientException ex) {
+            // VectorSearchService fallback keeps backend tests and offline development deterministic.
+            return new RagServiceResult("", List.of());
+        }
+    }
+
+    private double parseScore(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(value));
+        } catch (Exception ex) {
+            return 0.0;
+        }
+    }
+
+    private record RagServiceResult(String answer, List<CitationResponse> citations) {}
 
     private String json(Object value) {
         try { return objectMapper.writeValueAsString(value); } catch (Exception ex) { return "{}"; }

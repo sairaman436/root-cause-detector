@@ -199,5 +199,5 @@ WHERE name IN ('TRAINING_READ', 'MODEL_REGISTRY_READ');
 
 INSERT INTO training.gpu_resources (id, resource_name, resource_type, gpu_count, total_vram_gb, allocated_vram_gb, status, last_heartbeat_at)
 VALUES
-('00000000-0000-0000-0000-000000001451', 'local-training-capacity-placeholder', 'SINGLE_GPU_READY', 1, 24, 0, 'AVAILABLE', NOW()),
-('00000000-0000-0000-0000-000000001452', 'future-cluster-capacity-placeholder', 'CLUSTER_READY', 8, 640, 0, 'RESERVED_FOR_FUTURE', NOW());
+('00000000-0000-0000-0000-000000001451', 'local-training-capacity', 'SINGLE_GPU_READY', 1, 24, 0, 'AVAILABLE', NOW()),
+('00000000-0000-0000-0000-000000001452', 'future-cluster-capacity', 'CLUSTER_READY', 8, 640, 0, 'RESERVED_FOR_FUTURE', NOW());

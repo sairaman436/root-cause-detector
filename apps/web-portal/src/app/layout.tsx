@@ -5,10 +5,11 @@
  */
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AI Rural Root Cause Platform',
-  description: 'Operational shell for the user-facing web portal.',
+  title: 'Enterprise Rural Intelligence Platform',
+  description: 'Sprint 1 MVP for survey, evidence, AI analysis, RAG, recommendations, and reports.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

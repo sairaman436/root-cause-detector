@@ -5,7 +5,7 @@
 [project]
 name = "notification-service"
 version = "0.1.0"
-description = "Notification service foundation; no delivery logic is included."
+description = "Sprint 1 notification service with local auditable delivery."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.111.0",
