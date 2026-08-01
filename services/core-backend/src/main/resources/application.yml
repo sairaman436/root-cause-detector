@@ -24,7 +24,7 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
-    schemas: identity,audit,survey,evidence,geospatial,eventing,ai,agents,decision,operations
+    schemas: identity,audit,survey,evidence,geospatial,eventing,ai,agents,decision,operations,datasets,knowledge
     default-schema: identity
     create-schemas: true
 

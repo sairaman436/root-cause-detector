@@ -14,7 +14,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    schemas: identity,audit,survey,evidence,geospatial,eventing,ai,agents,decision,operations
+    schemas: identity,audit,survey,evidence,geospatial,eventing,ai,agents,decision,operations,datasets,knowledge
     default-schema: identity
     create-schemas: true
 

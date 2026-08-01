@@ -11,6 +11,8 @@ import com.airural.platform.core.ai.application.AiException;
 import com.airural.platform.core.decision.application.DecisionException;
 import com.airural.platform.core.evidence.application.EvidenceException;
 import com.airural.platform.core.geospatial.application.GeospatialException;
+import com.airural.platform.core.datasets.application.DatasetException;
+import com.airural.platform.core.knowledge.application.KnowledgeException;
 import com.airural.platform.core.survey.application.SurveyException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -66,6 +68,18 @@ public class GlobalExceptionHandler {
     /** Handles domain-level decision intelligence errors. */
     @ExceptionHandler(DecisionException.class)
     public ResponseEntity<ErrorResponse> handleDecision(DecisionException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level dataset engineering errors. */
+    @ExceptionHandler(DatasetException.class)
+    public ResponseEntity<ErrorResponse> handleDataset(DatasetException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level knowledge acquisition errors. */
+    @ExceptionHandler(KnowledgeException.class)
+    public ResponseEntity<ErrorResponse> handleKnowledge(KnowledgeException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 
