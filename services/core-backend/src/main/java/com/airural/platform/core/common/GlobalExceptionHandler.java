@@ -10,6 +10,7 @@ import com.airural.platform.core.agents.application.AgentException;
 import com.airural.platform.core.ai.application.AiException;
 import com.airural.platform.core.decision.application.DecisionException;
 import com.airural.platform.core.evidence.application.EvidenceException;
+import com.airural.platform.core.evaluation.application.EvaluationException;
 import com.airural.platform.core.finetuning.application.FineTuningException;
 import com.airural.platform.core.geospatial.application.GeospatialException;
 import com.airural.platform.core.datasets.application.DatasetException;
@@ -94,6 +95,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level fine-tuning lifecycle errors. */
     @ExceptionHandler(FineTuningException.class)
     public ResponseEntity<ErrorResponse> handleFineTuning(FineTuningException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles domain-level model evaluation errors. */
+    @ExceptionHandler(EvaluationException.class)
+    public ResponseEntity<ErrorResponse> handleEvaluation(EvaluationException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 
