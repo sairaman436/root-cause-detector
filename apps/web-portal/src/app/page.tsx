@@ -149,6 +149,89 @@ type RootCauseAnalysisResponse = {
   causalGraph: Array<{ from: string; to: string; relationshipType: string; confidence: number }>;
 };
 
+type RecommendationSetResponse = {
+  recommendationSetId: string;
+  rootCauseAnalysisId?: string;
+  status: string;
+  options: Array<{
+    recommendationId: string;
+    title: string;
+    description: string;
+    targetRootCause: string;
+    targetPopulation?: number;
+    domain: string;
+    interventionType: string;
+    priority: number;
+    expectedOutcomes: string[];
+    requiredResources: string[];
+    estimatedEffort: string;
+    estimatedTimeframe: string;
+    feasibility: {
+      rating: string;
+      supportingFactors: string[];
+      constraints: string[];
+      resourceStatus: string;
+    };
+    risks: Array<{
+      riskType: string;
+      description: string;
+      severity: string;
+      likelihood: string;
+      mitigation: string;
+      evidenceOrAssumption: string;
+    }>;
+    dependencies: string[];
+    evidence: string[];
+    confidence: {
+      evidenceStrength: number;
+      recommendationConfidence: number;
+      implementationFeasibility: number;
+      interpretation: string;
+    };
+    assumptions: string[];
+    limitations: string[];
+    implementationPlan: Array<{
+      phase: string;
+      actions: string[];
+      responsibleRole: string;
+      requiredInputs: string[];
+      dependencies: string[];
+      successIndicators: string[];
+    }>;
+    successIndicators: Array<{
+      name: string;
+      baseline: string;
+      target: string;
+      measurementMethod: string;
+      measurementFrequency: string;
+      dataGap: string;
+    }>;
+    status: string;
+  }>;
+  comparison: Array<{
+    recommendationId: string;
+    priorityScore: number;
+    advantages: string[];
+    disadvantages: string[];
+    effortCategory: string;
+    complexity: string;
+    unintendedConsequences: string[];
+  }>;
+  schemeMatches: Array<{
+    schemeName: string;
+    source: string;
+    eligibilityEvidence: string[];
+    applicablePopulation: string;
+    relevantBenefit: string;
+    limitations: string[];
+    status: string;
+  }>;
+  model: string;
+  promptVersion: string;
+  knowledgeSnapshot: string;
+  evidenceSnapshot: string;
+};
+
 type ReportResponse = {
   id: string;
   title: string;
@@ -180,6 +263,7 @@ type WorkflowState = {
   rag?: RagResponse;
   llmAnalysis?: LlmAnalysisResponse;
   rootCauseAnalysis?: RootCauseAnalysisResponse;
+  recommendations?: RecommendationSetResponse;
   decision?: DecisionResponse;
   report?: ReportResponse;
 };
@@ -191,6 +275,7 @@ const navItems = [
   'Evidence Upload',
   'AI Assistant',
   'Root Cause Analysis',
+  'Recommendations',
   'Reports',
   'User Profile',
   'Settings',
@@ -463,7 +548,60 @@ export default function WebPortalSprintOnePage() {
           }),
         },
       );
-      setState((current) => ({ ...current, rag, llmAnalysis, decision, rootCauseAnalysis }));
+      const recommendations = await api<RecommendationSetResponse>(
+        '/api/v1/recommendations/generate',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            rootCauseAnalysisId: rootCauseAnalysis.analysisId,
+            villageContext: {
+              village: rootCauseAnalysis.problem.village,
+              domain: rootCauseAnalysis.problem.domain,
+              problem: rootCauseAnalysis.problem.description,
+              severity: rootCauseAnalysis.problem.severity,
+            },
+            evidence: [
+              ...rootCauseAnalysis.observedFacts.slice(0, 5).map((fact) => ({
+                statement: fact.statement,
+                sourceType: fact.sourceType,
+                category: fact.category,
+                confidence: fact.confidence,
+              })),
+              ...(state.evidence
+                ? [
+                    {
+                      id: state.evidence.id,
+                      fileName: state.evidence.originalFileName,
+                      checksum: state.evidence.sha256Checksum,
+                    },
+                  ]
+                : []),
+            ],
+            availableResources: {
+              fieldTeam: 'Requires confirmation during human review',
+              monitoringCapacity: 'Monthly review capacity requested',
+            },
+            constraints: {
+              humanApprovalRequired: true,
+              noAutomaticExecution: true,
+              implementationAuthority: 'Human reviewer',
+            },
+            domain: rootCauseAnalysis.problem.domain,
+            targetPopulation: 120,
+            knowledgeSnapshot: 'rag-service:latest',
+            evidenceSnapshot: state.evidence?.sha256Checksum ?? 'dashboard-current-evidence',
+            requireHumanApproval: true,
+          }),
+        },
+      );
+      setState((current) => ({
+        ...current,
+        rag,
+        llmAnalysis,
+        decision,
+        rootCauseAnalysis,
+        recommendations,
+      }));
     });
   }
 
@@ -656,6 +794,7 @@ export default function WebPortalSprintOnePage() {
             <Result title="RAG" value={state.rag} />
             <Result title="Local Qwen Analysis" value={state.llmAnalysis} />
             <Result title="Structured Root Cause Engine" value={state.rootCauseAnalysis} />
+            <Result title="Recommendation Intelligence" value={state.recommendations} />
             <Result title="Decision" value={state.decision} />
           </section>
         ) : null}
@@ -734,6 +873,89 @@ export default function WebPortalSprintOnePage() {
               </article>
             ) : (
               <p>Run AI analysis to generate structured root-cause intelligence.</p>
+            )}
+          </section>
+        ) : null}
+
+        {active === 'Recommendations' ? (
+          <section className="panel form">
+            {state.recommendations ? (
+              <article className="analysis">
+                <h3>Recommendation Set {state.recommendations.recommendationSetId}</h3>
+                <dl>
+                  <dt>Status</dt>
+                  <dd>{state.recommendations.status}</dd>
+                  <dt>Model</dt>
+                  <dd>{state.recommendations.model}</dd>
+                  <dt>Prompt</dt>
+                  <dd>{state.recommendations.promptVersion}</dd>
+                </dl>
+                <h4>Prioritized Options</h4>
+                <ul>
+                  {state.recommendations.options
+                    .slice()
+                    .sort((left, right) => left.priority - right.priority)
+                    .map((option) => (
+                      <li key={option.recommendationId}>
+                        <strong>
+                          P{option.priority} {option.title}
+                        </strong>
+                        <span>{option.description}</span>
+                        <span>
+                          Evidence {Math.round(option.confidence.evidenceStrength * 100)}%,
+                          recommendation{' '}
+                          {Math.round(option.confidence.recommendationConfidence * 100)}
+                          %, feasibility{' '}
+                          {Math.round(option.confidence.implementationFeasibility * 100)}%
+                        </span>
+                        <span>
+                          Resources: {option.requiredResources.join(', ')}. Feasibility:{' '}
+                          {option.feasibility.rating} ({option.feasibility.resourceStatus})
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+                <h4>Trade-offs</h4>
+                <ul>
+                  {state.recommendations.comparison.map((comparison) => (
+                    <li key={comparison.recommendationId}>
+                      {comparison.recommendationId}: score{' '}
+                      {Math.round(comparison.priorityScore * 100)}%, effort{' '}
+                      {comparison.effortCategory}, complexity {comparison.complexity}
+                    </li>
+                  ))}
+                </ul>
+                <h4>Scheme Matches</h4>
+                <ul>
+                  {state.recommendations.schemeMatches.map((scheme) => (
+                    <li key={`${scheme.schemeName}-${scheme.source}`}>
+                      {scheme.schemeName}: {scheme.status}. Source {scheme.source}.{' '}
+                      {scheme.relevantBenefit}
+                    </li>
+                  ))}
+                </ul>
+                <h4>Risks</h4>
+                <ul>
+                  {state.recommendations.options.flatMap((option) =>
+                    option.risks.map((risk) => (
+                      <li key={`${option.recommendationId}-${risk.riskType}`}>
+                        {option.recommendationId} {risk.severity}: {risk.description} Mitigation:{' '}
+                        {risk.mitigation}
+                      </li>
+                    )),
+                  )}
+                </ul>
+                <h4>Implementation Plan</h4>
+                <ul>
+                  {state.recommendations.options[0]?.implementationPlan.map((phase) => (
+                    <li key={phase.phase}>
+                      {phase.phase}: {phase.actions.join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ) : (
+              <p>Run AI analysis to generate recommendation intelligence.</p>
             )}
           </section>
         ) : null}
