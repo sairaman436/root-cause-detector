@@ -19,7 +19,11 @@ spring:
     create-schemas: true
 
 airural:
+  platform:
+    environment: test
   security:
+    rate-limit:
+      enabled: false
     jwt:
       issuer: airural-platform-test
       secret: test-development-secret-must-be-rotated-before-production-32-bytes-minimum

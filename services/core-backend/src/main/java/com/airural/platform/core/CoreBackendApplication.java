@@ -1,7 +1,7 @@
 /*
- * Purpose: Starts the Spring Boot core backend service shell.
- * Why it exists: Provides an independently runnable backend foundation with actuator health endpoints before business modules are implemented.
- * Architecture fit: Anchors the approved modular Spring Boot backend boundary for future enterprise workflows.
+ * Purpose: Starts the Spring Boot core backend service.
+ * Why it exists: Provides the independently runnable backend for identity, survey, evidence, AI, decision, reporting, audit, and operations workflows.
+ * Architecture fit: Anchors the approved modular Spring Boot backend boundary for enterprise workflows.
  */
 package com.airural.platform.core;
 

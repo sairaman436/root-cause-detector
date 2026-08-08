@@ -119,11 +119,11 @@ Strengths:
 - Kafka/Redpanda is present in local Compose.
 - Java shared event contracts exist.
 - Outbox and event processing tables exist.
-- Consumers include audit, analytics, notification, and future AI/search/workflow placeholders.
+- Consumers include audit, analytics, notification, and future AI/search/workflow integration monitors.
 
 Issues:
 
-- Placeholder consumers should be explicitly labeled in runtime health and docs.
+- Integration monitors should be explicitly labeled in runtime health and docs.
 - Event schema compatibility is Java-centered; cross-language schema publication is incomplete.
 - Consumer lag, retry, and dead-letter behavior need CI-backed integration evidence.
 

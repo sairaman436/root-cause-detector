@@ -163,7 +163,7 @@ Objectives:
 
 Scope:
 
-- Label AI endpoints as control-plane, deterministic-local, integration-placeholder, or production-runtime.
+- Label AI endpoints as control-plane, deterministic-local, deferred-integration, or production-runtime.
 - Add runtime response metadata indicating model source and validation status.
 - Add prompt injection middleware and guardrail enforcement tests.
 - Add model artifact integration gates before any production inference route is promoted.
@@ -227,7 +227,7 @@ Scope:
 
 - Add implementation-state labels to architecture, AI, security, MLOps, and release docs.
 - Rename or alias `Architecture/templetes` to `Architecture/templates`.
-- Add ADRs for implementation deviations and temporary placeholders.
+- Add ADRs for implementation deviations and deferred integrations.
 - Create a document index that maps each milestone to code, schema, tests, and validation evidence.
 
 Dependencies:

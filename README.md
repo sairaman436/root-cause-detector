@@ -165,6 +165,33 @@ config/               # Non-secret env templates and secrets strategy docs
 - Analytics and recommendation workflows
 - Reporting workflows
 
+## Production Release Candidate RC1
+
+> **Release:** 1.0.0-rc.1
+> **Purpose:** Captures the hardening baseline for the Sprint 1 MVP before enterprise production certification.
+> **Why it exists:** RC1 separates runnable MVP capability from production release governance, security review, performance evidence, and operational acceptance.
+> **Architecture fit:** RC1 preserves the approved modular monorepo and adds release controls, runtime safeguards, validation reports, and operator checklists without adding new business functionality.
+
+RC1 documentation is maintained in `docs/operations`:
+
+- `RC1_RELEASE_CANDIDATE_REPORT.md`
+- `RC1_ARCHITECTURE_REVIEW_REPORT.md`
+- `RC1_SECURITY_REPORT.md`
+- `RC1_PERFORMANCE_REPORT.md`
+- `RC1_TESTING_REPORT.md`
+- `RC1_AI_READINESS_REPORT.md`
+- `RC1_PRODUCTION_READINESS_REPORT.md`
+- `RC1_TECHNICAL_DEBT_REPORT.md`
+- `RC1_KNOWN_LIMITATIONS.md`
+- `RC1_REMAINING_BACKLOG.md`
+- `RC1_RELEASE_NOTES.md`
+- `RC1_MIGRATION_GUIDE.md`
+- `RC1_ROLLBACK_GUIDE.md`
+- `RC1_DEPLOYMENT_CHECKLIST.md`
+- `RC1_PRODUCTION_CHECKLIST.md`
+
+RC1 does not certify internet-facing production use. It certifies that the MVP is structured, buildable, documented, and ready for controlled release-candidate validation.
+
 ## Local Development
 
 Start local infrastructure dependencies:

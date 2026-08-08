@@ -66,6 +66,10 @@ airural:
     environment: ${APP_ENV:local}
     region: ${DEPLOYMENT_REGION:local}
   security:
+    rate-limit:
+      enabled: ${RATE_LIMIT_ENABLED:true}
+      max-requests: ${RATE_LIMIT_MAX_REQUESTS:240}
+      window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
     jwt:
       issuer: ${JWT_ISSUER:airural-platform}
       secret: ${JWT_SIGNING_SECRET:local-development-secret-must-be-rotated-before-production-32-bytes-minimum}

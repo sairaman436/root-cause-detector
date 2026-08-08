@@ -33,13 +33,13 @@ Status legend:
 
 ## Architecture Checklist
 
-| Item                                                  | Status  | Evidence Required                                                      | Owner                |
-| ----------------------------------------------------- | ------- | ---------------------------------------------------------------------- | -------------------- |
-| Bounded contexts match approved architecture.         | Done    | Package map and controller inventory.                                  | Architecture Board   |
-| No cross-module dependency cycles.                    | Partial | Automated dependency rule check.                                       | Architecture Board   |
-| Public APIs are versioned consistently.               | Partial | `/api/v1` contract inventory and alias policy.                         | API Board            |
-| ADRs exist for significant implementation deviations. | Partial | ADR index updated for placeholders, aliases, and production hardening. | Architecture Board   |
-| Shared contracts are authoritative.                   | Partial | OpenAPI and event schema generation in CI.                             | Platform Engineering |
+| Item                                                  | Status  | Evidence Required                                                               | Owner                |
+| ----------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | -------------------- |
+| Bounded contexts match approved architecture.         | Done    | Package map and controller inventory.                                           | Architecture Board   |
+| No cross-module dependency cycles.                    | Partial | Automated dependency rule check.                                                | Architecture Board   |
+| Public APIs are versioned consistently.               | Partial | `/api/v1` contract inventory and alias policy.                                  | API Board            |
+| ADRs exist for significant implementation deviations. | Partial | ADR index updated for deferred integrations, aliases, and production hardening. | Architecture Board   |
+| Shared contracts are authoritative.                   | Partial | OpenAPI and event schema generation in CI.                                      | Platform Engineering |
 
 ## Backend Checklist
 
@@ -74,24 +74,24 @@ Status legend:
 
 ## Event Checklist
 
-| Item                                  | Status  | Evidence Required                                         | Owner                |
-| ------------------------------------- | ------- | --------------------------------------------------------- | -------------------- |
-| Outbox pattern exists.                | Done    | Schema and service tests.                                 | Platform Engineering |
-| Kafka local topology exists.          | Done    | Docker Compose validation.                                | Platform Engineering |
-| Event schema compatibility is tested. | Partial | Versioned schema registry checks.                         | Platform Engineering |
-| Dead-letter replay is operator-safe.  | Partial | Replay tests and authorization review.                    | Platform Engineering |
-| Placeholder consumers are labeled.    | Partial | Runtime health and docs explicitly identify placeholders. | Platform Engineering |
+| Item                                       | Status  | Evidence Required                                                             | Owner                |
+| ------------------------------------------ | ------- | ----------------------------------------------------------------------------- | -------------------- |
+| Outbox pattern exists.                     | Done    | Schema and service tests.                                                     | Platform Engineering |
+| Kafka local topology exists.               | Done    | Docker Compose validation.                                                    | Platform Engineering |
+| Event schema compatibility is tested.      | Partial | Versioned schema registry checks.                                             | Platform Engineering |
+| Dead-letter replay is operator-safe.       | Partial | Replay tests and authorization review.                                        | Platform Engineering |
+| Integration monitor consumers are labeled. | Partial | Runtime health and docs explicitly identify deferred downstream integrations. | Platform Engineering |
 
 ## AI Checklist
 
-| Item                                                                                                                                     | Status      | Evidence Required                                                                                | Owner            |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------ | ---------------- |
-| Dataset, knowledge, training, fine-tuning, evaluation, optimization, learning, serving, governance, release, and research modules exist. | Done        | Module and schema inventory.                                                                     | AI Platform Lead |
-| AI endpoints identify runtime classification.                                                                                            | Not Started | Response metadata and docs: control-plane, deterministic-local, placeholder, production-runtime. | AI Platform Lead |
-| Production model artifacts are signed and registered.                                                                                    | Blocked     | Real model artifacts and registry records.                                                       | MLOps Lead       |
-| Prompt injection tests run in CI.                                                                                                        | Partial     | Guardrail test suite.                                                                            | AI Security Lead |
-| Hallucination/citation validation is enforced.                                                                                           | Partial     | Evaluation and serving integration tests.                                                        | AI Governance    |
-| GPU and provider integration is certified.                                                                                               | Blocked     | External runtime environment and benchmark evidence.                                             | MLOps Lead       |
+| Item                                                                                                                                     | Status      | Evidence Required                                                                                         | Owner            |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------- | ---------------- |
+| Dataset, knowledge, training, fine-tuning, evaluation, optimization, learning, serving, governance, release, and research modules exist. | Done        | Module and schema inventory.                                                                              | AI Platform Lead |
+| AI endpoints identify runtime classification.                                                                                            | Not Started | Response metadata and docs: control-plane, deterministic-local, deferred-integration, production-runtime. | AI Platform Lead |
+| Production model artifacts are signed and registered.                                                                                    | Blocked     | Real model artifacts and registry records.                                                                | MLOps Lead       |
+| Prompt injection tests run in CI.                                                                                                        | Partial     | Guardrail test suite.                                                                                     | AI Security Lead |
+| Hallucination/citation validation is enforced.                                                                                           | Partial     | Evaluation and serving integration tests.                                                                 | AI Governance    |
+| GPU and provider integration is certified.                                                                                               | Blocked     | External runtime environment and benchmark evidence.                                                      | MLOps Lead       |
 
 ## Security Checklist
 
