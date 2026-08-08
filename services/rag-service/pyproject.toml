@@ -1,17 +1,19 @@
 # Purpose: Defines Python dependency and tooling configuration for the RAG service.
-# Why it exists: Establishes the retrieval, embedding, and citation service boundary before RAG implementation begins.
+# Why it exists: The RAG boundary owns trusted document parsing, chunking, retrieval, citation validation, and LLM-grounded answers.
 # Architecture fit: Supports the approved AI Platform Design where knowledge retrieval is separate from prediction and reasoning.
 
 [project]
 name = "rag-service"
-version = "0.1.0"
-description = "RAG service foundation for document retrieval and citations; no retrieval implementation is included in Milestone 1."
+version = "1.0.0"
+description = "Enterprise RAG service for trusted knowledge ingestion, hybrid retrieval, and citation-grounded answers."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.111.0",
   "uvicorn[standard]>=0.30.0",
   "pydantic>=2.8.0",
-  "structlog>=24.2.0"
+  "structlog>=24.2.0",
+  "pypdf>=5.1.0",
+  "python-docx>=1.1.2"
 ]
 
 [build-system]

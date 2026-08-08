@@ -123,10 +123,11 @@ public class AiFoundationService {
         String safeQuery = safetyService.validateAndMask(request.query());
         RagServiceResult retrieved = callRagService(safeQuery, request.topK() == null ? 5 : request.topK());
         List<CitationResponse> citations = retrieved.citations();
-        if (citations.isEmpty()) {
+        boolean insufficientEvidence = "INSUFFICIENT_EVIDENCE".equalsIgnoreCase(retrieved.supportStatus());
+        if (citations.isEmpty() && !insufficientEvidence) {
             citations = vectorSearchService.hybridSearch(value(request.collectionName(), "knowledge"), safeQuery, request.topK() == null ? 5 : request.topK());
         }
-        if (citations.isEmpty()) {
+        if (citations.isEmpty() && !insufficientEvidence) {
             citations = List.of(new CitationResponse("RAG_PIPELINE", "NO_VECTOR_MATCH", "No vector or service match was available; answer is limited to the query context.", 0.1));
         }
         long retrievalLatency = Duration.between(retrievalStarted, Instant.now()).toMillis();
@@ -150,6 +151,20 @@ public class AiFoundationService {
         return inferenceLogRepository.findAll(pageable).map(i -> new InferenceResponse(i.id(), i.modelId(), i.requestType(), i.status(), i.promptTokens(), i.completionTokens(), i.latencyMs(), i.safetyBlocked(), i.createdAt()));
     }
 
+    /** Lists recent citation records validated by the RAG service. */
+    public Map<String, Object> ragCitations() {
+        try {
+            Map<?, ?> body = restTemplate.getForObject(ragServiceUrl + "/v1/citations", Map.class);
+            Map<String, Object> result = new LinkedHashMap<>();
+            if (body != null) {
+                body.forEach((key, value) -> result.put(String.valueOf(key), value));
+            }
+            return result;
+        } catch (RestClientException ex) {
+            throw new AiException("RAG_SERVICE_UNAVAILABLE", "RAG citation service is unavailable", HttpStatus.BAD_GATEWAY);
+        }
+    }
+
     private ModelResponse modelResponse(AIModelEntity model, ModelVersionEntity version) {
         return new ModelResponse(model.id(), model.modelId(), model.name(), version.versionName(), model.family(), version.parameterCount(), version.quantization(), model.provider(), version.licenseName(), version.status(), list(version.capabilities()), list(version.supportedLanguages()), version.memoryRequirement(), version.gpuRequirement(), version.contextLength(), version.embeddingSupport());
     }
@@ -165,7 +180,7 @@ public class AiFoundationService {
             Map<String, Object> payload = Map.of("query", query, "top_k", topK);
             Map<?, ?> body = restTemplate.postForObject(ragServiceUrl + "/v1/query", payload, Map.class);
             if (body == null) {
-                return new RagServiceResult("", List.of());
+                return new RagServiceResult("", List.of(), "");
             }
             List<CitationResponse> citations = new ArrayList<>();
             Object rawCitations = body.get("citations");
@@ -180,10 +195,10 @@ public class AiFoundationService {
                     }
                 }
             }
-            return new RagServiceResult(Objects.toString(body.get("answer"), ""), citations);
+            return new RagServiceResult(Objects.toString(body.get("answer"), ""), citations, Objects.toString(body.get("support_status"), ""));
         } catch (RestClientException ex) {
             // VectorSearchService fallback keeps backend tests and offline development deterministic.
-            return new RagServiceResult("", List.of());
+            return new RagServiceResult("", List.of(), "");
         }
     }
 
@@ -198,7 +213,7 @@ public class AiFoundationService {
         }
     }
 
-    private record RagServiceResult(String answer, List<CitationResponse> citations) {}
+    private record RagServiceResult(String answer, List<CitationResponse> citations, String supportStatus) {}
 
     private String json(Object value) {
         try { return objectMapper.writeValueAsString(value); } catch (Exception ex) { return "{}"; }

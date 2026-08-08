@@ -14,6 +14,7 @@ import com.airural.platform.core.serving.application.ServingGatewayService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
@@ -74,6 +75,12 @@ public class AiController {
     @PostMapping("/rag/query")
     public ResponseEntity<ApiResponse<RagQueryResponse>> rag(@Valid @RequestBody RagQueryRequest body, @AuthenticationPrincipal AuthenticatedUser user, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(service.rag(body, userId(user)), RequestIds.from(request)));
+    }
+
+    @Operation(summary = "List RAG citations", description = "Returns recent citation records validated by the RAG pipeline.")
+    @GetMapping("/rag/citations")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> ragCitations(HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(service.ragCitations(), RequestIds.from(request)));
     }
 
     @Operation(summary = "Run local LLM root-cause analysis", description = "Calls the provider-neutral inference service, validates the strict rural analysis schema, stores metadata, and returns the persisted result.")
