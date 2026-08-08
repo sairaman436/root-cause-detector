@@ -43,6 +43,37 @@ public final class AiDtos {
     /** RAG query response. */
     public record RagQueryResponse(UUID requestId, String answer, List<CitationResponse> citations, Long retrievalLatencyMs, Long inferenceLatencyMs) {}
 
+    /** Local LLM root-cause analysis request. */
+    public record LlmAnalysisRequest(@NotNull UUID surveyId, UUID submissionId, @NotBlank String problem, String modelId, List<UUID> evidenceIds, List<CitationResponse> citations) {}
+
+    /** Validated local LLM rural analysis output. */
+    public record RuralAnalysisOutput(
+            String problem,
+            String summary,
+            List<String> contributingFactors,
+            List<String> rootCauses,
+            List<String> evidence,
+            Double confidence,
+            List<String> recommendations,
+            List<String> limitations) {}
+
+    /** Local LLM analysis response with model, prompt, and latency metadata. */
+    public record LlmAnalysisResponse(
+            UUID id,
+            UUID requestId,
+            UUID surveyId,
+            UUID submissionId,
+            String provider,
+            String model,
+            String modelVersion,
+            String promptId,
+            String promptVersion,
+            String status,
+            Long latencyMs,
+            Integer tokensEstimate,
+            Instant createdAt,
+            RuralAnalysisOutput output) {}
+
     /** Citation response. */
     public record CitationResponse(String sourceType, String sourceId, String excerpt, Double score) {}
 

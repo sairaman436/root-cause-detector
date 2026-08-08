@@ -9,6 +9,7 @@ package com.airural.platform.shared.events;
 public enum EventTopic {
     SURVEY_CREATED("survey.created"),
     SURVEY_UPDATED("survey.updated"),
+    SURVEY_SUBMITTED("survey.submitted"),
     SURVEY_COMPLETED("survey.completed"),
     EVIDENCE_UPLOADED("evidence.uploaded"),
     EVIDENCE_VALIDATED("evidence.validated"),

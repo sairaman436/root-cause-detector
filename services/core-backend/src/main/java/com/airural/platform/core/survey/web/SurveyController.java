@@ -211,4 +211,33 @@ public class SurveyController {
     public ResponseEntity<ApiResponse<List<StatusHistoryResponse>>> history(@PathVariable("surveyId") UUID surveyId, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(surveyManagementService.listStatusHistory(surveyId), RequestIds.from(request)));
     }
+
+    /** Submits survey answers. */
+    @Operation(summary = "Submit survey", description = "Persists answers for a published or active survey.")
+    @PostMapping("/{surveyId}/submissions")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> submit(
+            @PathVariable("surveyId") UUID surveyId,
+            @Valid @RequestBody SubmitSurveyRequest body,
+            @AuthenticationPrincipal AuthenticatedUser user,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                surveyManagementService.submitSurvey(surveyId, body, user.userId()), RequestIds.from(request)));
+    }
+
+    /** Lists survey submissions. */
+    @Operation(summary = "List survey submissions", description = "Lists submitted responses for a survey.")
+    @GetMapping("/{surveyId}/submissions")
+    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> submissions(@PathVariable("surveyId") UUID surveyId, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(surveyManagementService.listSubmissions(surveyId), RequestIds.from(request)));
+    }
+
+    /** Gets a survey submission. */
+    @Operation(summary = "Get survey submission", description = "Gets a submitted response for a survey.")
+    @GetMapping("/{surveyId}/submissions/{submissionId}")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> submission(
+            @PathVariable("surveyId") UUID surveyId,
+            @PathVariable("submissionId") UUID submissionId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(surveyManagementService.getSubmission(surveyId, submissionId), RequestIds.from(request)));
+    }
 }

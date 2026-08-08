@@ -218,4 +218,27 @@ public final class SurveyDtos {
     /** Status history response. */
     public record StatusHistoryResponse(UUID id, UUID surveyId, SurveyStatus fromStatus, SurveyStatus toStatus, UUID changedByUserId, String reason, Instant createdAt) {
     }
+
+    /** Request to submit survey answers. */
+    public record SubmitSurveyRequest(@NotEmpty List<@Valid SubmitAnswerRequest> answers) {
+    }
+
+    /** Submitted answer request. */
+    public record SubmitAnswerRequest(@NotNull UUID questionId, @NotBlank String value) {
+    }
+
+    /** Survey submission response. */
+    public record SubmissionResponse(
+            UUID id,
+            UUID surveyId,
+            UUID organizationId,
+            UUID submittedByUserId,
+            String status,
+            Instant submittedAt,
+            List<SubmittedAnswerResponse> answers) {
+    }
+
+    /** Submitted answer response. */
+    public record SubmittedAnswerResponse(UUID id, UUID questionId, String questionCode, String value, Instant createdAt) {
+    }
 }

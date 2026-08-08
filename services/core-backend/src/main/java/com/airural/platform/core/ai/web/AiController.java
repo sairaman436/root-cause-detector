@@ -6,6 +6,7 @@
 package com.airural.platform.core.ai.web;
 
 import com.airural.platform.core.ai.application.AiFoundationService;
+import com.airural.platform.core.ai.application.LocalLlmAnalysisService;
 import com.airural.platform.core.ai.web.dto.AiDtos.*;
 import com.airural.platform.core.common.*;
 import com.airural.platform.core.identity.security.AuthenticatedUser;
@@ -24,10 +25,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/ai")
 public class AiController {
     private final AiFoundationService service;
+    private final LocalLlmAnalysisService localLlmAnalysisService;
     private final ServingGatewayService servingGateway;
 
-    public AiController(AiFoundationService service, ServingGatewayService servingGateway) {
+    public AiController(AiFoundationService service, LocalLlmAnalysisService localLlmAnalysisService, ServingGatewayService servingGateway) {
         this.service = service;
+        this.localLlmAnalysisService = localLlmAnalysisService;
         this.servingGateway = servingGateway;
     }
 
@@ -71,6 +74,12 @@ public class AiController {
     @PostMapping("/rag/query")
     public ResponseEntity<ApiResponse<RagQueryResponse>> rag(@Valid @RequestBody RagQueryRequest body, @AuthenticationPrincipal AuthenticatedUser user, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(service.rag(body, userId(user)), RequestIds.from(request)));
+    }
+
+    @Operation(summary = "Run local LLM root-cause analysis", description = "Calls the provider-neutral inference service, validates the strict rural analysis schema, stores metadata, and returns the persisted result.")
+    @PostMapping("/analysis/root-cause")
+    public ResponseEntity<ApiResponse<LlmAnalysisResponse>> rootCauseAnalysis(@Valid @RequestBody LlmAnalysisRequest body, @AuthenticationPrincipal AuthenticatedUser user, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(localLlmAnalysisService.analyzeRootCause(body, userId(user)), RequestIds.from(request)));
     }
 
     @Operation(summary = "List AI usage", description = "Lists token usage and estimated cost records.")
