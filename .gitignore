@@ -58,5 +58,6 @@ override.tf.json
 
 # Runtime data
 .local-data/
+var/
 logs/
 tmp/

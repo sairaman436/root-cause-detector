@@ -8,6 +8,7 @@ target/
 .terraform/
 logs/
 tmp/
+var/
 07_Deployment/
 08_Operations/
 09_AI_Documentation/
@@ -18,4 +19,3 @@ Requirements/
 System_Design/
 Testing/
 governance/
-

@@ -42,8 +42,12 @@ This repository started as an enterprise documentation repository and now also c
 - `CURRENT_STATE.md`
 - `FOUNDATION_RECOVERY_REPORT.md`
 - `docs/operations/*`
+- `docs/architecture/RAG_ARCHITECTURE.md`
+- `docs/architecture/RAG_IMPLEMENTATION_REPORT.md`
 
 Do not treat older milestone or target-state documentation as proof of implemented functionality unless it matches runnable code, tests, migrations, and configuration.
+
+The current RAG implementation supports trusted document ingestion, deterministic chunk embeddings, Qdrant indexing, hybrid retrieval, citation validation, insufficient-evidence refusal, and local Qwen/Ollama answer generation through the AI inference service.
 
 Legacy documentation modules:
 

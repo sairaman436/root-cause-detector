@@ -127,8 +127,20 @@ services:
     environment:
       APP_ENV: local
       PORT: 8102
+      QDRANT_URL: http://qdrant:6333
+      AI_INFERENCE_SERVICE_URL: http://ai-inference-service:8101
+      RAG_LLM_MODE: ollama
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:0.5b}
+      RAG_DATA_DIR: /app/var/rag
     ports:
       - '8102:8102'
+    volumes:
+      - rag-data:/app/var/rag
+    depends_on:
+      qdrant:
+        condition: service_started
+      ai-inference-service:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -310,3 +322,4 @@ volumes:
   minio-data:
   qdrant-data:
   ollama-data:
+  rag-data:
