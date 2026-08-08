@@ -14,8 +14,9 @@ RUN npm run build:admin
 FROM node:20-alpine
 
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build /app/apps/admin-portal/.next/standalone ./
 COPY --from=build /app/apps/admin-portal/.next/static ./apps/admin-portal/.next/static
 EXPOSE 3001
-CMD ["node", "apps/admin-portal/server.js"]
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 node apps/admin-portal/server.js"]

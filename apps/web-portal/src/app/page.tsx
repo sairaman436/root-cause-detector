@@ -9,6 +9,7 @@
 import { ChangeEvent, FormEvent, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_CORE_BACKEND_URL ?? 'http://localhost:8080';
+const LLM_MODEL = process.env.NEXT_PUBLIC_LLM_MODEL ?? 'qwen2.5:0.5b';
 const PLATFORM_ORG_ID = '00000000-0000-0000-0000-000000000001';
 const PLATFORM_ORG_CODE = 'PLATFORM';
 
@@ -33,6 +34,27 @@ type SurveyResponse = {
   currentVersion: number;
 };
 
+type SurveySectionResponse = {
+  id: string;
+  code: string;
+  title: string;
+};
+
+type SurveyQuestionResponse = {
+  id: string;
+  code: string;
+  questionType: string;
+  required: boolean;
+};
+
+type SubmissionResponse = {
+  id: string;
+  surveyId: string;
+  status: string;
+  submittedAt: string;
+  answers: Array<{ questionId: string; questionCode: string; value: string }>;
+};
+
 type EvidenceResponse = {
   id: string;
   originalFileName: string;
@@ -46,6 +68,29 @@ type RagResponse = {
   id: string;
   answer: string;
   citations: Array<{ sourceType: string; sourceId: string; excerpt: string; score: number }>;
+};
+
+type LlmAnalysisResponse = {
+  id: string;
+  requestId: string;
+  provider: string;
+  model: string;
+  modelVersion?: string;
+  promptId: string;
+  promptVersion: string;
+  status: string;
+  latencyMs: number;
+  tokensEstimate: number;
+  output: {
+    problem: string;
+    summary: string;
+    contributingFactors: string[];
+    rootCauses: string[];
+    evidence: string[];
+    confidence: number;
+    recommendations: string[];
+    limitations: string[];
+  };
 };
 
 type DecisionResponse = {
@@ -85,8 +130,12 @@ type WorkflowState = {
   token?: TokenResponse;
   profile?: UserProfile;
   survey?: SurveyResponse;
+  surveySection?: SurveySectionResponse;
+  surveyQuestion?: SurveyQuestionResponse;
+  submission?: SubmissionResponse;
   evidence?: EvidenceResponse;
   rag?: RagResponse;
+  llmAnalysis?: LlmAnalysisResponse;
   decision?: DecisionResponse;
   report?: ReportResponse;
 };
@@ -108,11 +157,12 @@ export default function WebPortalSprintOnePage() {
   const [message, setMessage] = useState('Ready to run Sprint 1 workflow.');
   const [error, setError] = useState('');
   const [email, setEmail] = useState('admin@platform.local');
-  const [password, setPassword] = useState('ChangeMe12345!');
+  const [password, setPassword] = useState('');
   const [surveyName, setSurveyName] = useState('Village Water Reliability Survey');
   const [surveyDescription, setSurveyDescription] = useState(
     'Field survey for identifying water access root causes.',
   );
+  const [surveyAnswer, setSurveyAnswer] = useState('well');
   const [problemStatement, setProblemStatement] = useState(
     'Village households report unreliable water access and delayed repairs.',
   );
@@ -180,17 +230,79 @@ export default function WebPortalSprintOnePage() {
   }
 
   async function createSurvey() {
-    await run('Survey created and stored in PostgreSQL.', async () => {
-      const survey = await api<SurveyResponse>('/api/v1/surveys', {
-        method: 'POST',
-        body: JSON.stringify({
-          organizationId: state.profile?.organizationId ?? PLATFORM_ORG_ID,
-          name: surveyName,
-          description: surveyDescription,
-          tags: ['sprint-1', 'mvp', 'rural-intelligence'],
-        }),
-      });
-      setState((current) => ({ ...current, survey }));
+    await run(
+      'Survey definition created, validated, published, and stored in PostgreSQL.',
+      async () => {
+        let survey = await api<SurveyResponse>('/api/v1/surveys', {
+          method: 'POST',
+          body: JSON.stringify({
+            organizationId: state.profile?.organizationId ?? PLATFORM_ORG_ID,
+            name: surveyName,
+            description: surveyDescription,
+            tags: ['sprint-1', 'mvp', 'rural-intelligence'],
+          }),
+        });
+        const surveySection = await api<SurveySectionResponse>(
+          `/api/v1/surveys/${survey.id}/sections`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              code: 'water_access',
+              title: 'Water Access',
+              description: 'Water access conditions',
+              orderIndex: 1,
+              repeatable: false,
+            }),
+          },
+        );
+        const surveyQuestion = await api<SurveyQuestionResponse>(
+          `/api/v1/surveys/${survey.id}/questions`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              sectionId: surveySection.id,
+              code: 'water_source',
+              prompt: 'Primary water source',
+              questionType: 'single_select',
+              orderIndex: 1,
+              required: true,
+              options: [
+                { value: 'well', label: 'Well', orderIndex: 1 },
+                { value: 'tap', label: 'Tap', orderIndex: 2 },
+                { value: 'tanker', label: 'Tanker', orderIndex: 3 },
+              ],
+              validationRules: [
+                { ruleType: 'REQUIRED', message: 'Water source is required', orderIndex: 1 },
+              ],
+            }),
+          },
+        );
+        for (const status of ['REVIEW', 'APPROVED', 'PUBLISHED']) {
+          survey = await api<SurveyResponse>(`/api/v1/surveys/${survey.id}/workflow`, {
+            method: 'POST',
+            body: JSON.stringify({ status, reason: 'Sprint 1 recovery workflow' }),
+          });
+        }
+        setState((current) => ({ ...current, survey, surveySection, surveyQuestion }));
+      },
+    );
+  }
+
+  async function submitSurvey() {
+    await run('Survey response submitted and persisted.', async () => {
+      if (!state.survey || !state.surveyQuestion) {
+        throw new Error('Create the survey definition before submitting a response.');
+      }
+      const submission = await api<SubmissionResponse>(
+        `/api/v1/surveys/${state.survey.id}/submissions`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            answers: [{ questionId: state.surveyQuestion.id, value: surveyAnswer }],
+          }),
+        },
+      );
+      setState((current) => ({ ...current, submission }));
     });
   }
 
@@ -203,6 +315,7 @@ export default function WebPortalSprintOnePage() {
       body.append('file', selectedFile);
       body.append('organizationId', state.profile?.organizationId ?? PLATFORM_ORG_ID);
       if (state.survey?.id) body.append('surveyId', state.survey.id);
+      if (state.surveyQuestion?.id) body.append('questionId', state.surveyQuestion.id);
       body.append('title', selectedFile.name);
       body.append('description', 'Sprint 1 field evidence uploaded from the MVP dashboard.');
       body.append('tags', 'sprint-1');
@@ -222,6 +335,17 @@ export default function WebPortalSprintOnePage() {
           topK: 5,
         }),
       });
+      const llmAnalysis = await api<LlmAnalysisResponse>('/api/v1/ai/analysis/root-cause', {
+        method: 'POST',
+        body: JSON.stringify({
+          surveyId: state.survey?.id,
+          submissionId: state.submission?.id,
+          problem: problemStatement,
+          modelId: LLM_MODEL,
+          evidenceIds: state.evidence ? [state.evidence.id] : [],
+          citations: rag.citations,
+        }),
+      });
       const decision = await api<DecisionResponse>('/api/v1/decision/analyze', {
         method: 'POST',
         body: JSON.stringify({
@@ -233,13 +357,15 @@ export default function WebPortalSprintOnePage() {
             surveyName: state.survey?.name,
             evidenceFile: state.evidence?.originalFileName,
             ragAnswer: rag.answer,
+            llmSummary: llmAnalysis.output.summary,
+            llmRootCauses: llmAnalysis.output.rootCauses,
           },
-          mlPredictions: { model: 'qwen2.5-local', confidence: 0.78 },
+          mlPredictions: { model: llmAnalysis.model, confidence: llmAnalysis.output.confidence },
           agentOutputs: { knowledgeCitations: rag.citations },
           requireHumanApproval: true,
         }),
       });
-      setState((current) => ({ ...current, rag, decision }));
+      setState((current) => ({ ...current, rag, llmAnalysis, decision }));
     });
   }
 
@@ -318,12 +444,13 @@ export default function WebPortalSprintOnePage() {
         {active === 'Dashboard' ? (
           <section className="grid">
             <Metric label="Survey" value={state.survey?.status ?? 'Not created'} />
+            <Metric label="Submission" value={state.submission ? 'Submitted' : 'Pending'} />
             <Metric label="Evidence" value={state.evidence ? 'Uploaded' : 'Not uploaded'} />
             <Metric
               label="AI Analysis"
               value={
-                state.decision
-                  ? `${Math.round(state.decision.confidence * 100)}% confidence`
+                state.llmAnalysis
+                  ? `${Math.round(state.llmAnalysis.output.confidence * 100)}% Qwen confidence`
                   : 'Pending'
               }
             />
@@ -332,7 +459,8 @@ export default function WebPortalSprintOnePage() {
               <h3>End-to-end workflow</h3>
               <ol className="steps">
                 <li>Login or auto-register the first administrator.</li>
-                <li>Create a governed survey definition.</li>
+                <li>Create and publish a governed survey definition.</li>
+                <li>Submit a validated survey response.</li>
                 <li>Upload evidence to the backend storage abstraction.</li>
                 <li>Run RAG and decision intelligence.</li>
                 <li>Generate PDF and CSV reports.</li>
@@ -375,7 +503,26 @@ export default function WebPortalSprintOnePage() {
             <button disabled={!state.token} onClick={createSurvey} type="button">
               Create Survey
             </button>
+            <label>
+              Water source answer
+              <input
+                onChange={(event) => setSurveyAnswer(event.target.value)}
+                value={surveyAnswer}
+              />
+            </label>
+            <button
+              disabled={!state.token || !state.surveyQuestion}
+              onClick={submitSurvey}
+              type="button"
+            >
+              Submit Survey Response
+            </button>
             <pre>{state.survey ? JSON.stringify(state.survey, null, 2) : 'No survey yet.'}</pre>
+            <pre>
+              {state.submission
+                ? JSON.stringify(state.submission, null, 2)
+                : 'Create the survey, then submit a response.'}
+            </pre>
           </section>
         ) : null}
 
@@ -409,6 +556,7 @@ export default function WebPortalSprintOnePage() {
               Run AI Analysis
             </button>
             <Result title="RAG" value={state.rag} />
+            <Result title="Local Qwen Analysis" value={state.llmAnalysis} />
             <Result title="Decision" value={state.decision} />
           </section>
         ) : null}
@@ -465,7 +613,7 @@ export default function WebPortalSprintOnePage() {
               <dt>Organization</dt>
               <dd>{state.profile?.organizationId ?? PLATFORM_ORG_ID}</dd>
               <dt>Model</dt>
-              <dd>qwen2.5-local through Ollama-compatible gateway</dd>
+              <dd>{state.llmAnalysis?.model ?? 'Configured Qwen model through Ollama provider'}</dd>
             </dl>
           </section>
         ) : null}

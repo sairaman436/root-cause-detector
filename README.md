@@ -18,7 +18,7 @@
 | ----------------- | ------------------------------------------------------------------------------------ |
 | Project Name      | AI Rural Root Cause Discovery System                                                 |
 | Domain            | Artificial Intelligence, Machine Learning, Government Analytics, Root Cause Analysis |
-| Repository Status | 100% Fully Completed Enterprise Documentation                                        |
+| Repository Status | Recovery-stabilized implementation foundation with live local runtime verification   |
 | Version           | 1.0                                                                                  |
 | Last Updated      | 2026-07-28                                                                           |
 
@@ -37,7 +37,15 @@ The **AI Rural Root Cause Discovery & Evidence-Based Decision Support System** i
 
 # Master Repository Structure & Module Directory
 
-This repository contains 10 comprehensive enterprise documentation modules covering the complete Software Development Life Cycle (SDLC):
+This repository started as an enterprise documentation repository and now also contains a runnable implementation monorepo. The current source of truth for verified implementation status is:
+
+- `CURRENT_STATE.md`
+- `FOUNDATION_RECOVERY_REPORT.md`
+- `docs/operations/*`
+
+Do not treat older milestone or target-state documentation as proof of implemented functionality unless it matches runnable code, tests, migrations, and configuration.
+
+Legacy documentation modules:
 
 ```text
 c:\Users\saira\OneDrive\Desktop\MyProps\CSP\
@@ -110,11 +118,11 @@ All documents across this repository comply with international standards:
 
 # Implementation Monorepo Bootstrap
 
-> **Milestone:** 4 - Enterprise Evidence & Asset Management Platform
-> **Status:** Identity, survey, and evidence foundations implemented
+> **Milestone:** Foundation Recovery
+> **Status:** Runtime-verified local MVP foundation
 > **Purpose:** Establish the production-ready engineering foundation around the approved documentation repository.  
 > **Why it exists:** The project is transitioning from architecture and planning into implementation. The existing documentation remains source-of-truth, and the monorepo now includes the runtime, tooling, CI/CD, configuration, testing, deployment foundation, and identity platform boundary.  
-> **Architecture fit:** This implements the approved Monorepo Blueprint, the Milestone 2 Identity Platform, the Milestone 3 Enterprise Survey Management Platform, and the Milestone 4 Evidence and Asset Management Platform without adding AI workflows, RAG, Kafka business flows, or reporting.
+> **Architecture fit:** This implements the approved modular monorepo foundation with identity, survey, survey submission, evidence, deterministic AI/RAG integration boundaries, decision analysis, reporting, eventing, and local Docker Compose runtime verification.
 
 ## Canonical Implementation Structure
 
@@ -155,15 +163,20 @@ config/               # Non-secret env templates and secrets strategy docs
 - PostgreSQL/Flyway evidence schema for evidence, metadata, versions, tags, and evidence audit events
 - Local filesystem storage adapter behind a cloud-ready storage interface
 - Evidence upload validation, checksum duplicate detection, filename sanitization, metadata lifecycle, search, download authorization, soft delete, restore, version history, and audit integration
+- Survey submission persistence and APIs
+- Local Ollama/Qwen root-cause analysis through a provider-neutral AI inference service
+- Strict structured rural analysis validation and durable `ai.llm_analysis_results` metadata
+- Sprint 1 web dashboard workflow for login, survey creation, survey submission, evidence upload, AI/RAG analysis, decision analysis, and report generation
+- Reporting MVP with PDF and CSV downloads
+- Docker Compose startup for backend, frontend portals, Python services, PostgreSQL, Redis, Redpanda, MinIO, Qdrant, Ollama, and Prometheus
 
 ## Explicitly Out of Scope
 
-- AI inference logic
-- RAG implementation
 - Agent workflows
-- OCR, image analysis, embedding generation, and survey response collection
-- Analytics and recommendation workflows
-- Reporting workflows
+- Production model training, fine-tuning, optimization, and certified model serving
+- Production vector-backed RAG beyond the current integration-ready/local boundary
+- OCR, image analysis, and embedding generation pipelines
+- Browser E2E, load, soak, and cloud deployment certification
 
 ## Production Release Candidate RC1
 
@@ -190,6 +203,11 @@ RC1 documentation is maintained in `docs/operations`:
 - `RC1_DEPLOYMENT_CHECKLIST.md`
 - `RC1_PRODUCTION_CHECKLIST.md`
 
+Local LLM operational documentation:
+
+- `LOCAL_LLM_INTEGRATION_REPORT.md`
+- `docs/operations/LOCAL_LLM_SETUP.md`
+
 RC1 does not certify internet-facing production use. It certifies that the MVP is structured, buildable, documented, and ready for controlled release-candidate validation.
 
 ## Local Development
@@ -199,6 +217,17 @@ Start local infrastructure dependencies:
 ```powershell
 scripts/dev-up.ps1
 ```
+
+This runs `docker compose up -d --build` and starts the local platform stack.
+
+Enable real local Qwen inference through Ollama:
+
+```powershell
+docker compose exec ollama ollama pull qwen2.5:0.5b
+Invoke-RestMethod http://localhost:8101/v1/provider/health
+```
+
+The configured model can be changed with `LLM_MODEL`, and the provider boundary is selected with `LLM_PROVIDER=ollama`. The backend calls the AI inference service through `AI_INFERENCE_SERVICE_URL`; business modules do not call Ollama directly.
 
 Stop local dependencies:
 
@@ -218,13 +247,32 @@ Run the full operational foundation build:
 powershell -ExecutionPolicy Bypass -File scripts\build-all.ps1
 ```
 
+Core verification commands used during recovery:
+
+```powershell
+npm.cmd audit --audit-level=high
+npm.cmd run typecheck
+npm.cmd run lint --workspaces --if-present
+npm.cmd run test
+npm.cmd run build:frontends
+.\mvnw.cmd -B -pl services/core-backend -am test
+python -m pytest tests/foundation
+docker compose config --quiet
+docker compose up -d
+```
+
 Health endpoints:
 
 - Core backend: `http://localhost:8080/actuator/health`
 - Web portal: `http://localhost:3000/api/health`
 - Admin portal: `http://localhost:3001/api/health`
-- AI inference service: `http://localhost:8101/health`
-- RAG service: `http://localhost:8102/health`
-- Agent orchestrator: `http://localhost:8103/health`
-- Reporting service: `http://localhost:8104/health`
-- Notification service: `http://localhost:8105/health`
+- AI inference service: `http://localhost:8101/health/ready`
+- RAG service: `http://localhost:8102/health/ready`
+- Agent orchestrator: `http://localhost:8103/health/ready`
+- Reporting service: `http://localhost:8104/health/ready`
+- Notification service: `http://localhost:8105/health/ready`
+- Qdrant: `http://localhost:6333/readyz`
+- Ollama: `http://localhost:11434/api/tags`
+- MinIO: `http://localhost:9000/minio/health/live`
+- Redpanda: `http://localhost:9644/v1/status/ready`
+- Prometheus: `http://localhost:9090/-/ready`

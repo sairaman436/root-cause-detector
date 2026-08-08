@@ -36,6 +36,7 @@ public class SurveyManagementService {
     private final QuestionOptionRepository optionRepository;
     private final ValidationRuleRepository ruleRepository;
     private final SurveyAssignmentRepository assignmentRepository;
+    private final SurveySubmissionRepository submissionRepository;
     private final SurveyVersionRepository versionRepository;
     private final SurveyStatusHistoryRepository historyRepository;
     private final OrganizationRepository organizationRepository;
@@ -55,6 +56,7 @@ public class SurveyManagementService {
             QuestionOptionRepository optionRepository,
             ValidationRuleRepository ruleRepository,
             SurveyAssignmentRepository assignmentRepository,
+            SurveySubmissionRepository submissionRepository,
             SurveyVersionRepository versionRepository,
             SurveyStatusHistoryRepository historyRepository,
             OrganizationRepository organizationRepository,
@@ -72,6 +74,7 @@ public class SurveyManagementService {
         this.optionRepository = optionRepository;
         this.ruleRepository = ruleRepository;
         this.assignmentRepository = assignmentRepository;
+        this.submissionRepository = submissionRepository;
         this.versionRepository = versionRepository;
         this.historyRepository = historyRepository;
         this.organizationRepository = organizationRepository;
@@ -319,9 +322,76 @@ public class SurveyManagementService {
         return historyRepository.findBySurvey_IdOrderByCreatedAtAsc(surveyId).stream().map(mapper::history).toList();
     }
 
+    /** Submits answers for a survey and persists them for retrieval/reporting. */
+    @Transactional
+    public SubmissionResponse submitSurvey(UUID surveyId, SubmitSurveyRequest request, UUID actorUserId) {
+        SurveyEntity survey = survey(surveyId);
+        if (!Set.of(SurveyStatus.PUBLISHED, SurveyStatus.ACTIVE).contains(survey.status())) {
+            throw new SurveyException("SURVEY_NOT_ACCEPTING_SUBMISSIONS", "Survey must be published or active before submissions are accepted", HttpStatus.CONFLICT);
+        }
+        Map<UUID, SurveyQuestionEntity> questions = new LinkedHashMap<>();
+        for (SurveyQuestionEntity question : questionRepository.findBySurvey_IdOrderByOrderIndexAsc(surveyId)) {
+            questions.put(question.id(), question);
+        }
+        if (questions.isEmpty()) {
+            throw new SurveyException("SURVEY_HAS_NO_QUESTIONS", "Survey must contain at least one question before submission", HttpStatus.CONFLICT);
+        }
+        Map<UUID, String> submittedAnswers = new LinkedHashMap<>();
+        for (SubmitAnswerRequest answer : request.answers()) {
+            SurveyQuestionEntity question = questions.get(answer.questionId());
+            if (question == null) {
+                throw new SurveyException("SURVEY_QUESTION_INVALID", "Submitted answer references a question outside this survey", HttpStatus.BAD_REQUEST);
+            }
+            submittedAnswers.put(answer.questionId(), answer.value().trim());
+        }
+        for (SurveyQuestionEntity question : questions.values()) {
+            if (question.required() && (!submittedAnswers.containsKey(question.id()) || submittedAnswers.get(question.id()).isBlank())) {
+                throw new SurveyException("SURVEY_REQUIRED_ANSWER_MISSING", "Required question is missing: " + question.code(), HttpStatus.BAD_REQUEST);
+            }
+        }
+        SurveySubmissionEntity submission = new SurveySubmissionEntity(survey, actorUserId);
+        submittedAnswers.forEach((questionId, value) -> submission.addAnswer(questions.get(questionId), value));
+        SurveySubmissionEntity saved = submissionRepository.save(submission);
+        audit(actorUserId, "SURVEY_SUBMITTED", saved.id().toString());
+        publishSurvey(EventTopic.SURVEY_SUBMITTED, survey, actorUserId);
+        return submission(saved);
+    }
+
+    /** Lists submissions for a survey. */
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> listSubmissions(UUID surveyId) {
+        survey(surveyId);
+        return submissionRepository.findBySurvey_IdOrderBySubmittedAtDesc(surveyId).stream().map(this::submission).toList();
+    }
+
+    /** Gets one submission by ID. */
+    @Transactional(readOnly = true)
+    public SubmissionResponse getSubmission(UUID surveyId, UUID submissionId) {
+        survey(surveyId);
+        SurveySubmissionEntity submission = submissionRepository.findWithAnswersById(submissionId)
+                .orElseThrow(() -> new SurveyException("SURVEY_SUBMISSION_NOT_FOUND", "Survey submission was not found", HttpStatus.NOT_FOUND));
+        if (!submission.surveyId().equals(surveyId)) {
+            throw new SurveyException("SURVEY_SUBMISSION_NOT_FOUND", "Survey submission was not found", HttpStatus.NOT_FOUND);
+        }
+        return submission(submission);
+    }
+
     /** Lists registered question types. */
     public Set<String> supportedQuestionTypes() {
         return questionTypeRegistry.supportedTypes();
+    }
+
+    private SubmissionResponse submission(SurveySubmissionEntity submission) {
+        return new SubmissionResponse(
+                submission.id(),
+                submission.surveyId(),
+                submission.organizationId(),
+                submission.submittedByUserId(),
+                submission.status(),
+                submission.submittedAt(),
+                submission.answers().stream()
+                        .map(answer -> new SubmittedAnswerResponse(answer.id(), answer.questionId(), answer.questionCode(), answer.answerValue(), answer.createdAt()))
+                        .toList());
     }
 
     private SurveyEntity survey(UUID surveyId) {

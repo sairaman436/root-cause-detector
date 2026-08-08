@@ -14,8 +14,9 @@ RUN npm run build:web
 FROM node:20-alpine
 
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build /app/apps/web-portal/.next/standalone ./
 COPY --from=build /app/apps/web-portal/.next/static ./apps/web-portal/.next/static
 EXPOSE 3000
-CMD ["node", "apps/web-portal/server.js"]
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 node apps/web-portal/server.js"]

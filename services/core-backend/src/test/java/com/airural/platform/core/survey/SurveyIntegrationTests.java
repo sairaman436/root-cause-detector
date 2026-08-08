@@ -89,6 +89,7 @@ class SurveyIntegrationTests {
                   ]
                 }
                 """.formatted(sectionId)));
+        String questionId = question.at("/data/id").asText();
         assertThat(question.at("/data/questionType").asText()).isEqualTo("SINGLE_SELECT");
         assertThat(question.at("/data/options").size()).isEqualTo(2);
 
@@ -120,6 +121,23 @@ class SurveyIntegrationTests {
                     """.formatted(status)));
             assertThat(transition.at("/data/status").asText()).isEqualTo(status);
         }
+
+        JsonNode submission = json(postJson("/api/v1/surveys/" + surveyId + "/submissions", token, """
+                {
+                  "answers": [
+                    {"questionId": "%s", "value": "well"}
+                  ]
+                }
+                """.formatted(questionId)));
+        String submissionId = submission.at("/data/id").asText();
+        assertThat(submission.at("/data/status").asText()).isEqualTo("SUBMITTED");
+        assertThat(submission.at("/data/answers/0/questionCode").asText()).isEqualTo("water_source");
+
+        JsonNode retrievedSubmission = json(getJson("/api/v1/surveys/" + surveyId + "/submissions/" + submissionId, token));
+        assertThat(retrievedSubmission.at("/data/answers/0/value").asText()).isEqualTo("well");
+
+        JsonNode submissions = json(getJson("/api/v1/surveys/" + surveyId + "/submissions", token));
+        assertThat(submissions.at("/data").size()).isEqualTo(1);
 
         postJsonExpect("/api/v1/surveys/" + surveyId + "/sections", token, """
                 {

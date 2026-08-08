@@ -1,6 +1,6 @@
-# Purpose: Builds and runs the Python AI inference service shell.
-# Why it exists: Establishes runtime conventions, structured logging, and health checks before model workflows exist.
-# Architecture fit: Supports independently scalable AI inference deployment in Kubernetes.
+# Purpose: Builds and runs the Python AI inference service.
+# Why it exists: Hosts the provider-neutral local LLM boundary, structured output validation, health checks, and streaming APIs for Ollama/Qwen integration.
+# Architecture fit: Supports independently scalable AI inference deployment in Docker Compose and Kubernetes while keeping model providers outside backend business logic.
 FROM python:3.11-slim
 
 WORKDIR /app
