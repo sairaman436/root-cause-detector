@@ -44,10 +44,14 @@ This repository started as an enterprise documentation repository and now also c
 - `docs/operations/*`
 - `docs/architecture/RAG_ARCHITECTURE.md`
 - `docs/architecture/RAG_IMPLEMENTATION_REPORT.md`
+- `docs/architecture/ROOT_CAUSE_ENGINE.md`
+- `docs/architecture/ROOT_CAUSE_IMPLEMENTATION_REPORT.md`
 
 Do not treat older milestone or target-state documentation as proof of implemented functionality unless it matches runnable code, tests, migrations, and configuration.
 
 The current RAG implementation supports trusted document ingestion, deterministic chunk embeddings, Qdrant indexing, hybrid retrieval, citation validation, insufficient-evidence refusal, and local Qwen/Ollama answer generation through the AI inference service.
+
+The current root-cause intelligence implementation supports structured problem representation, fact extraction, fact/inference separation, evidence scoring, candidate root causes, alternative hypotheses, causal graph edges, uncertainty detection, human review, versioning, and RAG/Qwen-backed evidence retrieval.
 
 Legacy documentation modules:
 

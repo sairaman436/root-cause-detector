@@ -106,6 +106,49 @@ type DecisionResponse = {
   }>;
 };
 
+type RootCauseAnalysisResponse = {
+  analysisId: string;
+  problem: {
+    village: string;
+    domain: string;
+    description: string;
+    severity: string;
+  };
+  observedFacts: Array<{
+    statement: string;
+    sourceType: string;
+    category: string;
+    confidence: number;
+  }>;
+  contributingFactors: Array<{
+    factor: string;
+    supportingEvidence: string[];
+    contradictingEvidence: string[];
+    confidence: number;
+  }>;
+  candidateRootCauses: Array<{
+    description: string;
+    confidence: number;
+    uncertainty: string;
+    reasoningSummary: string;
+  }>;
+  validatedRootCauses: Array<{
+    description: string;
+    confidence: number;
+    reasoningSummary: string;
+  }>;
+  alternativeHypotheses: Array<{
+    description: string;
+    confidence: number;
+    missingEvidence: string[];
+  }>;
+  uncertainties: Array<{ statement: string; severity: string; followUpQuestions: string[] }>;
+  confidence: { overall: number; interpretation: string };
+  limitations: string[];
+  followUpQuestions: string[];
+  causalGraph: Array<{ from: string; to: string; relationshipType: string; confidence: number }>;
+};
+
 type ReportResponse = {
   id: string;
   title: string;
@@ -136,6 +179,7 @@ type WorkflowState = {
   evidence?: EvidenceResponse;
   rag?: RagResponse;
   llmAnalysis?: LlmAnalysisResponse;
+  rootCauseAnalysis?: RootCauseAnalysisResponse;
   decision?: DecisionResponse;
   report?: ReportResponse;
 };
@@ -146,6 +190,7 @@ const navItems = [
   'Survey',
   'Evidence Upload',
   'AI Assistant',
+  'Root Cause Analysis',
   'Reports',
   'User Profile',
   'Settings',
@@ -365,7 +410,60 @@ export default function WebPortalSprintOnePage() {
           requireHumanApproval: true,
         }),
       });
-      setState((current) => ({ ...current, rag, llmAnalysis, decision }));
+      const rootCauseAnalysis = await api<RootCauseAnalysisResponse>(
+        '/api/v1/analysis/root-cause',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            problem: {
+              problemId: state.submission?.id ?? state.survey?.id ?? 'dashboard-problem',
+              village: 'Demo Village',
+              domain: 'Water',
+              description: problemStatement,
+              affectedPopulation: 120,
+              severity: 'HIGH',
+              evidence: [
+                state.evidence?.originalFileName ?? 'No uploaded evidence selected',
+                state.submission ? 'Survey submission available' : 'Survey submission pending',
+              ],
+              source: 'dashboard-workflow',
+            },
+            surveyResponses: [
+              {
+                surveyName: state.survey?.name,
+                primaryWaterSource: surveyAnswer,
+                submittedAt: state.submission?.submittedAt,
+              },
+            ],
+            evidence: state.evidence
+              ? [
+                  {
+                    title: state.evidence.title,
+                    fileName: state.evidence.originalFileName,
+                    mimeType: state.evidence.mimeType,
+                    checksum: state.evidence.sha256Checksum,
+                  },
+                ]
+              : [],
+            structuredData: {
+              organizationId: state.profile?.organizationId ?? PLATFORM_ORG_ID,
+              surveyId: state.survey?.id,
+              evidenceId: state.evidence?.id,
+            },
+            retrievedDocuments: rag.citations.map((citation) => ({
+              source: citation.sourceId,
+              excerpt: citation.excerpt,
+              score: citation.score,
+            })),
+            surveyId: state.survey?.id,
+            organizationId: state.profile?.organizationId ?? PLATFORM_ORG_ID,
+            surveyVersion: String(state.survey?.currentVersion ?? 'unversioned'),
+            knowledgeSnapshot: 'rag-service:latest',
+            requireHumanReview: true,
+          }),
+        },
+      );
+      setState((current) => ({ ...current, rag, llmAnalysis, decision, rootCauseAnalysis }));
     });
   }
 
@@ -557,7 +655,86 @@ export default function WebPortalSprintOnePage() {
             </button>
             <Result title="RAG" value={state.rag} />
             <Result title="Local Qwen Analysis" value={state.llmAnalysis} />
+            <Result title="Structured Root Cause Engine" value={state.rootCauseAnalysis} />
             <Result title="Decision" value={state.decision} />
+          </section>
+        ) : null}
+
+        {active === 'Root Cause Analysis' ? (
+          <section className="panel form">
+            {state.rootCauseAnalysis ? (
+              <article className="analysis">
+                <h3>{state.rootCauseAnalysis.problem.description}</h3>
+                <dl>
+                  <dt>Village</dt>
+                  <dd>{state.rootCauseAnalysis.problem.village}</dd>
+                  <dt>Domain</dt>
+                  <dd>{state.rootCauseAnalysis.problem.domain}</dd>
+                  <dt>Confidence</dt>
+                  <dd>{Math.round(state.rootCauseAnalysis.confidence.overall * 100)}%</dd>
+                </dl>
+                <h4>Observed Facts And Retrieved Evidence</h4>
+                <ul>
+                  {state.rootCauseAnalysis.observedFacts.slice(0, 8).map((fact) => (
+                    <li key={`${fact.sourceType}-${fact.statement}`}>
+                      <strong>{fact.category}</strong>: {fact.statement}
+                    </li>
+                  ))}
+                </ul>
+                <h4>Contributing Factors</h4>
+                <ul>
+                  {state.rootCauseAnalysis.contributingFactors.map((factor) => (
+                    <li key={factor.factor}>
+                      {factor.factor} ({Math.round(factor.confidence * 100)}%)
+                    </li>
+                  ))}
+                </ul>
+                <h4>Validated Root Causes</h4>
+                <ul>
+                  {state.rootCauseAnalysis.validatedRootCauses.length > 0 ? (
+                    state.rootCauseAnalysis.validatedRootCauses.map((cause) => (
+                      <li key={cause.description}>
+                        {cause.description}
+                        <span>{cause.reasoningSummary}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li>Insufficient evidence for validated root causes.</li>
+                  )}
+                </ul>
+                <h4>Alternative Hypotheses</h4>
+                <ul>
+                  {state.rootCauseAnalysis.alternativeHypotheses.map((hypothesis) => (
+                    <li key={hypothesis.description}>{hypothesis.description}</li>
+                  ))}
+                </ul>
+                <h4>Uncertainty And Follow-up</h4>
+                <ul>
+                  {state.rootCauseAnalysis.uncertainties.map((uncertainty) => (
+                    <li key={uncertainty.statement}>
+                      {uncertainty.severity}: {uncertainty.statement}
+                    </li>
+                  ))}
+                </ul>
+                <h4>Causal Graph</h4>
+                <ul>
+                  {state.rootCauseAnalysis.causalGraph.map((edge) => (
+                    <li key={`${edge.from}-${edge.to}-${edge.relationshipType}`}>
+                      {edge.from} {'->'} {edge.to} ({edge.relationshipType},{' '}
+                      {Math.round(edge.confidence * 100)}%)
+                    </li>
+                  ))}
+                </ul>
+                <h4>Limitations</h4>
+                <ul>
+                  {state.rootCauseAnalysis.limitations.map((limitation) => (
+                    <li key={limitation}>{limitation}</li>
+                  ))}
+                </ul>
+              </article>
+            ) : (
+              <p>Run AI analysis to generate structured root-cause intelligence.</p>
+            )}
           </section>
         ) : null}
 
