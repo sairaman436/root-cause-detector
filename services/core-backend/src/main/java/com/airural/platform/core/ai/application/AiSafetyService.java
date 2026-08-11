@@ -35,6 +35,14 @@ public class AiSafetyService {
         if (INJECTION_MARKERS.stream().anyMatch(lower::contains)) {
             throw new AiException("PROMPT_INJECTION_DETECTED", "Prompt was blocked by AI safety validation", HttpStatus.BAD_REQUEST);
         }
+        return maskSensitiveData(text);
+    }
+
+    /** Masks sensitive values in model output before durable storage or downstream reuse. */
+    public String maskSensitiveData(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
         return PHONE.matcher(EMAIL.matcher(text).replaceAll("[REDACTED_EMAIL]")).replaceAll("[REDACTED_PHONE]");
     }
 }

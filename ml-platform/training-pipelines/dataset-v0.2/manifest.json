@@ -1,0 +1,24 @@
+{
+  "accepted_examples": 10,
+  "citation_context_validated": true,
+  "dataset_version": "dataset-v0.2",
+  "immutable": true,
+  "max_output_tokens_observed": 389,
+  "rejected_examples": 0,
+  "scenario_leakage_count": 0,
+  "split_counts": {
+    "test": 1,
+    "train": 8,
+    "validation": 1
+  },
+  "split_leakage_count": 0,
+  "structured_targets_validated": true,
+  "synthetic_examples": 0,
+  "task_counts": {
+    "rag-grounded-responses": 3,
+    "recommendation-generation": 1,
+    "root-cause-analysis": 6
+  },
+  "training_performed": false,
+  "validation_failures": {}
+}

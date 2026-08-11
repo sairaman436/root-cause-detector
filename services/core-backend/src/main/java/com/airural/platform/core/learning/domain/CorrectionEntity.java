@@ -27,4 +27,8 @@ public class CorrectionEntity {
     public CorrectionEntity(UUID id, UUID learningRecordId, String correctionType, String originalText, String correctedText, String correctedBy, Instant createdAt) {
         this.id = id; this.learningRecordId = learningRecordId; this.correctionType = correctionType; this.originalText = originalText; this.correctedText = correctedText; this.correctedBy = correctedBy; this.createdAt = createdAt;
     }
+
+    public String getOriginalText() { return originalText; }
+    public String getCorrectedText() { return correctedText; }
+    public String getCorrectedBy() { return correctedBy; }
 }

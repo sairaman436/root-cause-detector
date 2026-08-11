@@ -286,6 +286,20 @@ public class RootCauseIntelligenceService {
         if (facts.size() < 4) {
             result.add(new UncertaintyResponse("uncertainty-evidence-volume", "Insufficient direct village evidence to distinguish root causes confidently.", List.of("More survey responses", "Recent uploaded evidence", "Local administrative records"), followUps(problem.domain()), "HIGH"));
         }
+        List<String> explicitlyUncertain = facts.stream()
+                .map(FactResponse::statement)
+                .filter(this::containsExplicitUncertainty)
+                .distinct()
+                .limit(4)
+                .toList();
+        if (!explicitlyUncertain.isEmpty()) {
+            result.add(new UncertaintyResponse(
+                    "uncertainty-explicit-evidence",
+                    "Source evidence explicitly reports an unresolved or inconsistent condition that requires human verification.",
+                    explicitlyUncertain,
+                    followUps(problem.domain()),
+                    "MEDIUM"));
+        }
         if (!contradictions.isEmpty()) {
             result.add(new UncertaintyResponse("uncertainty-contradictions", "Contradictory evidence was found and should be reviewed by a human.", contradictions, List.of("Which source is more recent?", "Can field staff verify the conflicting statements?"), "HIGH"));
         }
@@ -293,6 +307,11 @@ public class RootCauseIntelligenceService {
             result.add(new UncertaintyResponse("uncertainty-causal-strength", "Evidence supports association but not strong causal attribution.", List.of("No controlled causal evidence", "Limited longitudinal evidence"), followUps(problem.domain()), "MEDIUM"));
         }
         return result;
+    }
+
+    private boolean containsExplicitUncertainty(String statement) {
+        String lower = statement == null ? "" : statement.toLowerCase(Locale.ROOT);
+        return List.of("unclear", "uncertain", "inconsistent", "unknown", "unresolved", "not confirmed", "reported as").stream().anyMatch(lower::contains);
     }
 
     private ConfidenceResponse confidence(List<EvidenceAssessmentResponse> evidence, List<String> contradictions, List<CandidateRootCauseResponse> validated, List<UncertaintyResponse> uncertainties) {

@@ -10,7 +10,7 @@ The approved architecture separates AI runtime concerns from the Spring Boot tra
 
 ## Architecture Fit
 
-This service implements the local Ollama/Qwen adapter behind the `AIProvider` contract. It validates strict rural analysis output before the backend persists successful analysis results.
+This service implements the local Ollama/Qwen adapter behind the `AIProvider` contract. It validates strict rural analysis output before the backend persists successful analysis results. Qwen is the only active provider and production model path.
 
 ## Local Ollama Configuration
 
@@ -18,7 +18,7 @@ Required runtime variables:
 
 | Variable                      | Description                                   |
 | ----------------------------- | --------------------------------------------- |
-| `LLM_PROVIDER`                | Provider selector. Use `ollama`.              |
+| `LLM_PROVIDER`                | Provider selector. Must be `ollama`.          |
 | `LLM_MODEL`                   | Ollama model tag, for example `qwen2.5:0.5b`. |
 | `OLLAMA_BASE_URL`             | Ollama base URL.                              |
 | `LLM_CONNECT_TIMEOUT_SECONDS` | Timeout for model availability checks.        |
@@ -54,5 +54,9 @@ With Docker Compose running:
 docker compose exec ollama ollama pull qwen2.5:0.5b
 Invoke-RestMethod http://localhost:8101/v1/provider/health
 ```
+
+## Experimental code boundary
+
+The repository retains the SONAR adapter, optional dependency extra, and historical comparison script for reference. They are not installed, selected, or executed by the normal build, test, Docker, inference, or training paths. Qwen through Ollama remains the only supported active model path.
 
 See `docs/operations/LOCAL_LLM_SETUP.md` and `LOCAL_LLM_INTEGRATION_REPORT.md` for the full operational flow.

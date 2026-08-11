@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://airural.example/contracts/dataset-v0.3",
+  "title": "Rural Intelligence Dataset v0.3 Contract",
+  "version": "dataset-v0.3",
+  "citation_contract": {
+    "source_id_pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$",
+    "rule": "Every target citation and evidence_source_id must exactly match a source_id present in the row input citation context."
+  },
+  "sequence_contract": {
+    "max_sequence_length": 1024,
+    "rule": "The tokenizer-rendered prompt containing input, citation context, and target must fit without truncation."
+  },
+  "tasks": {
+    "root-cause-analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "root_causes", "uncertainties", "citations"],
+      "properties": {
+        "summary": {"type": "string", "minLength": 1},
+        "root_causes": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "description", "evidence_source_ids", "confidence"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "description": {"type": "string", "minLength": 1},
+              "evidence_source_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source_id"}},
+              "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+            }
+          }
+        },
+        "uncertainties": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "citations": {"$ref": "#/$defs/citations"}
+      }
+    },
+    "recommendation-generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_cause", "recommendations", "uncertainties", "citations"],
+      "properties": {
+        "root_cause": {
+          "type": "object", "additionalProperties": false,
+          "required": ["description", "evidence_source_ids"],
+          "properties": {
+            "description": {"type": "string", "minLength": 1},
+            "evidence_source_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source_id"}}
+          }
+        },
+        "recommendations": {
+          "type": "array", "minItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "title", "description", "evidence_source_ids", "feasibility", "risks", "implementation_steps"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "title": {"type": "string", "minLength": 1},
+              "description": {"type": "string", "minLength": 1},
+              "evidence_source_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source_id"}},
+              "feasibility": {
+                "type": "object", "additionalProperties": false,
+                "required": ["rating", "rationale"],
+                "properties": {
+                  "rating": {"type": "string", "enum": ["LOW", "MODERATE", "HIGH", "UNKNOWN"]},
+                  "rationale": {"type": "string", "minLength": 1}
+                }
+              },
+              "risks": {
+                "type": "array", "minItems": 1,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["description", "severity", "mitigation"],
+                  "properties": {
+                    "description": {"type": "string", "minLength": 1},
+                    "severity": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "UNKNOWN"]},
+                    "mitigation": {"type": "string", "minLength": 1}
+                  }
+                }
+              },
+              "implementation_steps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+            }
+          }
+        },
+        "uncertainties": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "citations": {"$ref": "#/$defs/citations"}
+      }
+    },
+    "rag-grounded-responses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["answer", "uncertainties", "citations"],
+      "properties": {
+        "answer": {"type": "string", "minLength": 1},
+        "uncertainties": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "citations": {"$ref": "#/$defs/citations"}
+      }
+    }
+  },
+  "$defs": {
+    "source_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "citations": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source_id"],
+        "properties": {"source_id": {"$ref": "#/$defs/source_id"}}
+      }
+    }
+  }
+}

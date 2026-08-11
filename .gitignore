@@ -35,6 +35,7 @@ target/
 
 # Python
 .venv/
+.venv-training-gpu/
 venv/
 __pycache__/
 *.py[cod]

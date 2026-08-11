@@ -42,7 +42,7 @@ public class AiFoundationService {
     private final String ragServiceUrl;
     private final RestTemplate restTemplate;
 
-    public AiFoundationService(AIModelRepository modelRepository, ModelVersionRepository versionRepository, PromptCategoryRepository categoryRepository, PromptTemplateRepository promptRepository, PromptVersionRepository promptVersionRepository, RAGRequestRepository ragRequestRepository, RAGCitationRepository citationRepository, InferenceLogRepository inferenceLogRepository, TokenUsageRepository usageRepository, EmbeddingService embeddingService, VectorSearchService vectorSearchService, AiGatewayService gatewayService, AiSafetyService safetyService, ObjectMapper objectMapper, @Value("${airural.ai.gateway.rag-service-url:http://localhost:8102}") String ragServiceUrl, RestTemplateBuilder restTemplateBuilder) {
+    public AiFoundationService(AIModelRepository modelRepository, ModelVersionRepository versionRepository, PromptCategoryRepository categoryRepository, PromptTemplateRepository promptRepository, PromptVersionRepository promptVersionRepository, RAGRequestRepository ragRequestRepository, RAGCitationRepository citationRepository, InferenceLogRepository inferenceLogRepository, TokenUsageRepository usageRepository, EmbeddingService embeddingService, VectorSearchService vectorSearchService, AiGatewayService gatewayService, AiSafetyService safetyService, ObjectMapper objectMapper, @Value("${airural.ai.gateway.rag-service-url:http://localhost:8102}") String ragServiceUrl, @Value("${airural.ai.gateway.timeout-seconds:130}") int timeoutSeconds, RestTemplateBuilder restTemplateBuilder) {
         this.modelRepository = modelRepository;
         this.versionRepository = versionRepository;
         this.categoryRepository = categoryRepository;
@@ -58,7 +58,7 @@ public class AiFoundationService {
         this.safetyService = safetyService;
         this.objectMapper = objectMapper;
         this.ragServiceUrl = ragServiceUrl;
-        this.restTemplate = restTemplateBuilder.setConnectTimeout(Duration.ofSeconds(2)).setReadTimeout(Duration.ofSeconds(8)).build();
+        this.restTemplate = restTemplateBuilder.setConnectTimeout(Duration.ofSeconds(3)).setReadTimeout(Duration.ofSeconds(Math.max(10, timeoutSeconds))).build();
     }
 
     public ChatResponse chat(ChatRequest request, UUID userId) { return gatewayService.chat(request, userId); }
@@ -121,7 +121,7 @@ public class AiFoundationService {
     public RagQueryResponse rag(RagQueryRequest request, UUID userId) {
         Instant retrievalStarted = Instant.now();
         String safeQuery = safetyService.validateAndMask(request.query());
-        RagServiceResult retrieved = callRagService(safeQuery, request.topK() == null ? 5 : request.topK());
+        RagServiceResult retrieved = callRagService(request, safeQuery, request.topK() == null ? 5 : request.topK());
         List<CitationResponse> citations = retrieved.citations();
         boolean insufficientEvidence = "INSUFFICIENT_EVIDENCE".equalsIgnoreCase(retrieved.supportStatus());
         if (citations.isEmpty() && !insufficientEvidence) {
@@ -175,9 +175,12 @@ public class AiFoundationService {
 
     private String value(String text, String fallback) { return text == null || text.isBlank() ? fallback : text; }
 
-    private RagServiceResult callRagService(String query, int topK) {
+    private RagServiceResult callRagService(RagQueryRequest request, String query, int topK) {
         try {
-            Map<String, Object> payload = Map.of("query", query, "top_k", topK);
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("query", query);
+            payload.put("top_k", topK);
+            payload.put("filters", ragFilters(request.context()));
             Map<?, ?> body = restTemplate.postForObject(ragServiceUrl + "/v1/query", payload, Map.class);
             if (body == null) {
                 return new RagServiceResult("", List.of(), "");
@@ -200,6 +203,21 @@ public class AiFoundationService {
             // VectorSearchService fallback keeps backend tests and offline development deterministic.
             return new RagServiceResult("", List.of(), "");
         }
+    }
+
+    private Map<String, Object> ragFilters(Map<String, Object> context) {
+        if (context == null || context.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> filters = new LinkedHashMap<>();
+        for (String key : List.of("domain", "language", "source", "document_type", "publisher", "document_version", "geography")) {
+            Object value = context.get(key);
+            if (value != null && !String.valueOf(value).isBlank()) {
+                String normalized = String.valueOf(value).trim();
+                filters.put(key, "domain".equals(key) || "language".equals(key) ? normalized.toLowerCase(Locale.ROOT) : normalized);
+            }
+        }
+        return filters;
     }
 
     private double parseScore(Object value) {

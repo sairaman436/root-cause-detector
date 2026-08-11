@@ -57,7 +57,9 @@ class FakeProvider(main.AIProvider):
 
 
 @pytest.fixture(autouse=True)
-def reset_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+def reset_provider(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    if request.node.name in {"test_ollama_remains_the_default_provider", "test_sonar_provider_is_opt_in_without_loading_the_checkpoint"}:
+        return
     monkeypatch.setattr(main, "provider", lambda: FakeProvider())
 
 
@@ -151,6 +153,29 @@ def test_canonical_payload_converts_list_objects_to_strings() -> None:
 
     validated = main.RuralAnalysisOutput.model_validate(payload)
     assert validated.evidence == ['{"source": "survey", "value": "well"}']
+
+
+def test_ollama_remains_the_default_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("AI_DEFAULT_MODEL", raising=False)
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+
+    selected = main.provider()
+
+    assert isinstance(selected, main.OllamaProvider)
+    assert selected.default_model == "qwen2.5:0.5b"
+
+
+def test_sonar_provider_is_opt_in_without_loading_the_checkpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "sonar")
+    monkeypatch.setenv("SONAR_MODEL_ID", "raxtemur/sonar-llm-100m")
+
+    selected = main.provider()
+
+    assert isinstance(selected, main.SONARProvider)
+    assert selected.default_model == "raxtemur/sonar-llm-100m"
+    with pytest.raises(main.ProviderError, match="configured"):
+        selected.generate("test", "raxtemur/another-model")
 
 
 def test_legacy_inference_no_longer_reports_fake_success_on_provider_failure(monkeypatch: pytest.MonkeyPatch) -> None:

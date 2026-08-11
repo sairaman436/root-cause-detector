@@ -1,0 +1,89 @@
+{
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "base_model_result": {
+    "citation_correctness": "NOT_SCORED_REQUIRES_SOURCE_VERIFICATION",
+    "evidence_grounding": "NO_SOURCE_ID_MENTION",
+    "evidence_grounding_source_mentions": [],
+    "latency_ms": 18910.45,
+    "output": "{\n  \"summary\": \"Root causes of reduced crop reliability due to irrigation interruptions and delayed pump repairs among smallholder farmers.\",\n  \"root_causes\": [\n    {\n      \"name\": \"Inadequate infrastructure\",\n      \"impact\": \"Reduced access to water sources\",\n      \"causes\": [\n        \"Irrigation systems were poorly designed and operated, leading to inadequate water supply.\"\n      ]\n    },\n    {\n      \"name\": \"Poor maintenance practices\",\n      \"impact\": \"Delayed repair of pumps\",\n      \"causes\": [\n        \"Pump maintenance was neglected, resulting in equipment failure.\"\n      ]\n    },\n    {\n      \"name\": \"Unclear responsibilities\",\n      \"impact\": \"Inconsistent reporting of pump availability\",\n      \"causes\": [\n        \"Farmers did not receive clear instructions on how to maintain their pumps properly.\"\n      ]\n    }\n  ],\n  \"uncertainty\": [\n    {\n      \"name\": \"Inadequacy of data collection methods\",\n      \"impact\": \"Insufficient information about pump availability and maintenance\",\n      \"causes\": [\n        \"Observations were made through visual inspection and anecdotal reports rather than precise measurements.\"\n      ]\n    },\n    {\n      \"name\": \"Complexity of farming practices",
+    "output_validity": true,
+    "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+    "resource_usage": {
+      "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+      "peak_gpu_allocated_mb": 1275.22,
+      "peak_gpu_reserved_mb": 1376.0,
+      "process_rss_mb": 1639.94
+    },
+    "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+    "structured_output_success": false,
+    "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+    "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+  },
+  "batch_size": 1,
+  "best_validation_loss": 2.4685072898864746,
+  "checkpoint": "artifacts\\training\\qwen2.5-0.5b-instruct-dataset-v0.2\\experiment-002\\checkpoint-final",
+  "checkpoint_sha256": "796b3c7f60da6d843ed7406dbf8cfbc842533809ffc56b090d2698a1d20a7d30",
+  "compute_dtype": "bfloat16",
+  "dataset_digest_after": "55f7df274c1306bebb2765ae075534f29bd19a547ac8c0c5a74493a4a4c1c16b",
+  "dataset_digest_before": "55f7df274c1306bebb2765ae075534f29bd19a547ac8c0c5a74493a4a4c1c16b",
+  "dataset_version": "dataset-v0.2",
+  "double_quantization": true,
+  "epochs": 1,
+  "experiment_name": "qwen2.5-0.5b-instruct-dataset-v0.2-experiment-002",
+  "fine_tuned_model_result": {
+    "citation_correctness": "NOT_SCORED_REQUIRES_SOURCE_VERIFICATION",
+    "evidence_grounding": "NO_SOURCE_ID_MENTION",
+    "evidence_grounding_source_mentions": [],
+    "latency_ms": 41662.62,
+    "output": "{\n  \"summary\": \"Root causes of reduced crop reliability due to irrigation interruptions and delayed pump repairs among smallholder farmers.\",\n  \"root_causes\": [\n    {\n      \"name\": \"Inadequate infrastructure\",\n      \"impact\": \"Reduced access to water sources\",\n      \"causes\": [\n        {\n          \"name\": \"Irrigation system failure\",\n          \"impact\": \"Water supply disruption\",\n          \"causes\": [\n            {\n              \"name\": \"Incorrectly designed irrigation systems\",\n              \"impact\": \"Inadequate water distribution\",\n              \"causes\": [\n                {\n                  \"name\": \"Poorly maintained pumps\",\n                  \"impact\": \"Pump malfunctions\",\n                  \"causes\": [\n                    {\n                      \"name\": \"Unresponsive pump repair\",\n                      \"impact\": \"No response from maintenance personnel\",\n                      \"causes\": [\n                        {\n                          \"name\": \"Maintenance staff unavailability\",\n                          \"impact\": \"Staff unavailable\",\n                          \"causes\": [\n                            {\n                              \"name\": \"Maintenance personnel absence\",\n                              \"impact\": \"Absence of trained personnel\",\n                              \"causes\": []\n                            }\n                          ]\n                        }\n                      ]\n                    }\n                  ]\n                }\n              ]\n            }\n          ]\n        }\n      ]",
+    "output_validity": true,
+    "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+    "resource_usage": {
+      "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+      "peak_gpu_allocated_mb": 1282.39,
+      "peak_gpu_reserved_mb": 1448.0,
+      "process_rss_mb": 1605.17
+    },
+    "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+    "structured_output_success": false,
+    "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+    "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+  },
+  "gradient_accumulation_steps": 8,
+  "hardware": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+  "learning_rate": 0.0002,
+  "lora": {
+    "alpha": 32,
+    "dropout": 0.05,
+    "rank": 16,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj"
+    ]
+  },
+  "optimizer_updates": 1,
+  "quant_type": "nf4",
+  "quantization": "qlora_4bit",
+  "seed": 42,
+  "sequence_length": 1024,
+  "split_counts": {
+    "test": 1,
+    "train": 8,
+    "validation": 1
+  },
+  "training_duration_seconds": 15.97,
+  "training_loss_by_epoch": [
+    2.9820496439933777
+  ],
+  "training_resource_usage": {
+    "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+    "peak_gpu_allocated_mb": 1282.39,
+    "peak_gpu_reserved_mb": 1448.0,
+    "process_rss_mb": 1548.6
+  },
+  "validation_loss_by_epoch": [
+    2.4685072898864746
+  ]
+}

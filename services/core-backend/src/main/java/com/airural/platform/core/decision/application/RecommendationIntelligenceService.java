@@ -72,14 +72,16 @@ public class RecommendationIntelligenceService {
     /** Gets one generated recommendation set. */
     @Transactional(readOnly = true)
     public RecommendationSetResponse get(UUID id) {
-        String json = jdbcTemplate.query(
-                "select response_json::text from decision.recommendation_sets where id = ?",
-                ps -> ps.setObject(1, id),
-                rs -> rs.next() ? rs.getString(1) : null);
-        if (json == null) {
+        Map<String, Object> snapshot;
+        try {
+            snapshot = jdbcTemplate.queryForMap("select response_json::text as response_json, status from decision.recommendation_sets where id = ?", id);
+        } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
+            snapshot = null;
+        }
+        if (snapshot == null) {
             throw new DecisionException("RECOMMENDATION_NOT_FOUND", "Recommendation set was not found", HttpStatus.NOT_FOUND);
         }
-        return read(json, RecommendationSetResponse.class);
+        return withStatus(read(String.valueOf(snapshot.get("response_json")), RecommendationSetResponse.class), String.valueOf(snapshot.get("status")));
     }
 
     /** Gets generated options for comparison. */
@@ -106,39 +108,52 @@ public class RecommendationIntelligenceService {
     /** Records human recommendation review. */
     @Transactional
     public RecommendationReviewResponse review(UUID id, RecommendationReviewRequest request, UUID userId) {
-        get(id);
+        RecommendationSetResponse current = get(id);
         String action = request.action().toUpperCase(Locale.ROOT);
         if (!Set.of("ACCEPT", "EDIT", "REJECT", "REQUEST_MORE_EVIDENCE", "APPROVE").contains(action)) {
             throw new DecisionException("INVALID_RECOMMENDATION_REVIEW_ACTION", "Unsupported recommendation review action", HttpStatus.BAD_REQUEST);
         }
+        if (Set.of("APPROVED", "REJECTED", "SUPERSEDED").contains(current.status())) {
+            throw new DecisionException("RECOMMENDATION_REVIEW_NOT_ALLOWED", "Recommendation set cannot be reviewed from status " + current.status(), HttpStatus.CONFLICT);
+        }
+        RecommendationSetResponse reviewedResponse = current;
+        if ("EDIT".equals(action)) {
+            reviewedResponse = applyEdit(current, request.modifiedRecommendation());
+        }
+        String nextStatus = switch (action) {
+            case "REJECT" -> "REJECTED";
+            case "REQUEST_MORE_EVIDENCE" -> "MORE_EVIDENCE_REQUESTED";
+            case "APPROVE" -> "APPROVED";
+            case "ACCEPT", "EDIT" -> "UNDER_REVIEW";
+            default -> "UNDER_REVIEW";
+        };
+        reviewedResponse = withStatus(reviewedResponse, nextStatus);
         UUID reviewId = UUID.randomUUID();
         jdbcTemplate.update(
                 "insert into decision.recommendation_reviews (id, recommendation_set_id, reviewer_user_id, action, reviewer_notes, modified_recommendation_json, correction) values (?, ?, ?, ?, ?, ?::jsonb, ?)",
                 reviewId, id, userId, action, request.reviewerNotes(), json(request.modifiedRecommendation()), request.correction());
-        jdbcTemplate.update("update decision.recommendation_sets set status = ?, updated_at = now() where id = ?",
-                switch (action) {
-                    case "REJECT" -> "REJECTED";
-                    case "REQUEST_MORE_EVIDENCE" -> "MORE_EVIDENCE_REQUESTED";
-                    case "APPROVE", "ACCEPT", "EDIT" -> "UNDER_REVIEW";
-                    default -> "UNDER_REVIEW";
-                },
-                id);
-        return new RecommendationReviewResponse(reviewId, id, action, "RECORDED", Instant.now());
+        jdbcTemplate.update("update decision.recommendation_sets set status = ?, response_json = ?::jsonb, updated_at = now() where id = ?",
+                nextStatus, json(reviewedResponse), id);
+        if ("EDIT".equals(action)) {
+            jdbcTemplate.update(
+                    "insert into decision.recommendation_versions (recommendation_set_id, version_number, root_cause_analysis_version, response_json, model, model_version, prompt_version, knowledge_snapshot, evidence_snapshot, reviewer_user_id) select ?, coalesce(max(version_number), 0) + 1, ?, ?::jsonb, ?, ?, ?, ?, ?, ? from decision.recommendation_versions where recommendation_set_id = ?",
+                    id, "human-edit", json(reviewedResponse), current.model(), current.modelVersion(), current.promptVersion(), current.knowledgeSnapshot(), current.evidenceSnapshot(), userId, id);
+        }
+        return new RecommendationReviewResponse(reviewId, id, action, nextStatus, Instant.now());
     }
 
     /** Approves recommendation set for implementation tracking. */
     @Transactional
     public RecommendationReviewResponse approve(UUID id, RecommendationReviewRequest request, UUID userId) {
         RecommendationReviewResponse review = review(id, new RecommendationReviewRequest("APPROVE", request == null ? null : request.reviewerNotes(), request == null ? null : request.modifiedRecommendation(), request == null ? null : request.correction()), userId);
-        jdbcTemplate.update("update decision.recommendation_sets set status = 'APPROVED', updated_at = now() where id = ?", id);
-        return new RecommendationReviewResponse(review.reviewId(), id, "APPROVE", "APPROVED", review.reviewedAt());
+        return review;
     }
 
     /** Rejects recommendation set. */
     @Transactional
     public RecommendationReviewResponse reject(UUID id, RecommendationReviewRequest request, UUID userId) {
         RecommendationReviewResponse review = review(id, new RecommendationReviewRequest("REJECT", request == null ? null : request.reviewerNotes(), request == null ? null : request.modifiedRecommendation(), request == null ? null : request.correction()), userId);
-        return new RecommendationReviewResponse(review.reviewId(), id, "REJECT", "REJECTED", review.reviewedAt());
+        return review;
     }
 
     /** Regenerates recommendations from the stored request context. */
@@ -196,7 +211,11 @@ public class RecommendationIntelligenceService {
                 options.add(option);
             }
         }
-        List<OptionComparisonResponse> comparison = compare(options, request);
+        return prioritize(options);
+    }
+
+    private List<RecommendationOptionResponse> prioritize(List<RecommendationOptionResponse> options) {
+        List<OptionComparisonResponse> comparison = compare(options, null);
         Map<String, Integer> priorities = new HashMap<>();
         for (int i = 0; i < comparison.size(); i++) priorities.put(comparison.get(i).recommendationId(), i + 1);
         return options.stream().map(option -> copyWithPriority(option, priorities.getOrDefault(option.recommendationId(), 99))).toList();
@@ -332,7 +351,14 @@ public class RecommendationIntelligenceService {
     }
 
     private String interventionType(String domain, String intervention) {
-        if (intervention.toLowerCase(Locale.ROOT).contains("scheme")) return "Government Schemes";
+        String lower = intervention.toLowerCase(Locale.ROOT);
+        if (lower.contains("scheme")) return "Government Schemes";
+        if (lower.contains("repair") || lower.contains("maintenance") || lower.contains("monitoring")) return "Service Operations";
+        if (lower.contains("irrigation") || lower.contains("infrastructure") || lower.contains("access improvement")) return "Infrastructure Access";
+        if (lower.contains("soil") || lower.contains("crop") || lower.contains("input")) return "Technical Advisory";
+        if (lower.contains("market") || lower.contains("employer")) return "Market Linkage";
+        if (lower.contains("referral") || lower.contains("medicine") || lower.contains("health")) return "Health Service Coordination";
+        if (lower.contains("outreach") || lower.contains("community")) return "Community Engagement";
         if (domain.equals("WATER")) return "Water Management";
         if (domain.equals("AGRICULTURE")) return "Agriculture";
         if (domain.equals("EDUCATION")) return "Education";
@@ -370,6 +396,32 @@ public class RecommendationIntelligenceService {
 
     private String json(Object value) {
         try { return objectMapper.writeValueAsString(value); } catch (Exception ex) { return "{}"; }
+    }
+
+    private RecommendationSetResponse applyEdit(RecommendationSetResponse current, Map<String, Object> modifiedRecommendation) {
+        if (modifiedRecommendation == null || modifiedRecommendation.isEmpty() || !modifiedRecommendation.containsKey("options")) {
+            throw new DecisionException("EDITED_RECOMMENDATION_REQUIRED", "An EDIT review must include an options array", HttpStatus.BAD_REQUEST);
+        }
+        try {
+            List<RecommendationOptionResponse> editedOptions = objectMapper.convertValue(
+                    modifiedRecommendation.get("options"), new TypeReference<List<RecommendationOptionResponse>>() {});
+            if (editedOptions == null || editedOptions.isEmpty() || editedOptions.stream().anyMatch(option -> option == null || option.recommendationId() == null || option.recommendationId().isBlank())) {
+                throw new DecisionException("EDITED_RECOMMENDATION_INVALID", "Edited recommendation options must contain at least one identified option", HttpStatus.BAD_REQUEST);
+            }
+            Set<String> ids = new HashSet<>();
+            if (editedOptions.stream().anyMatch(option -> !ids.add(option.recommendationId()))) {
+                throw new DecisionException("EDITED_RECOMMENDATION_INVALID", "Edited recommendation option identifiers must be unique", HttpStatus.BAD_REQUEST);
+            }
+            return new RecommendationSetResponse(current.recommendationSetId(), current.rootCauseAnalysisId(), current.status(), prioritize(editedOptions), current.comparison(), current.schemeMatches(), current.methodology(), current.model(), current.modelVersion(), current.promptVersion(), current.knowledgeSnapshot(), current.evidenceSnapshot(), current.createdAt());
+        } catch (DecisionException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw new DecisionException("EDITED_RECOMMENDATION_INVALID", "Edited recommendation options do not match the recommendation contract", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private RecommendationSetResponse withStatus(RecommendationSetResponse response, String status) {
+        return new RecommendationSetResponse(response.recommendationSetId(), response.rootCauseAnalysisId(), status, response.options(), response.comparison(), response.schemeMatches(), response.methodology(), response.model(), response.modelVersion(), response.promptVersion(), response.knowledgeSnapshot(), response.evidenceSnapshot(), response.createdAt());
     }
 
     private <T> T read(String json, Class<T> type) {
