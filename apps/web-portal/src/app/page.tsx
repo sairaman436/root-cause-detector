@@ -350,13 +350,29 @@ type PageResponse<T> = {
 };
 
 type PlatformSnapshot = {
-  aiHealth?: { status: string; activeNodes: number; healthyNodes: number; circuitBreakerStatus: string };
+  aiHealth?: {
+    status: string;
+    activeNodes: number;
+    healthyNodes: number;
+    circuitBreakerStatus: string;
+  };
   deployment?: { status: string; environment: string; region: string };
   candidateCount?: number;
   pendingCandidateCount?: number;
-  humanEvaluation?: { total: number; scored: number; remaining: number; evaluationSetVersion: string };
+  humanEvaluation?: {
+    total: number;
+    scored: number;
+    remaining: number;
+    evaluationSetVersion: string;
+  };
   datasets?: Array<{ name: string; type: string; status: string; qualityScore: number | null }>;
-  evaluations?: Array<{ id: string; modelName: string; status: string; recommendation: string; overallScore: number | null }>;
+  evaluations?: Array<{
+    id: string;
+    modelName: string;
+    status: string;
+    recommendation: string;
+    overallScore: number | null;
+  }>;
 };
 
 const navItems = [
@@ -509,19 +525,41 @@ export default function WebPortalSprintOnePage() {
 
   async function loadPlatformSnapshot() {
     if (!state.token) return;
-    const [aiHealth, deployment, candidates, humanEvaluation, datasets, evaluations] = await Promise.all([
-      api<{ status: string; activeNodes: number; healthyNodes: number; circuitBreakerStatus: string }>('/api/v1/ai/health').catch(() => undefined),
-      api<{ status: string; environment: string; region: string }>('/api/v1/platform/deployment-status').catch(() => undefined),
-      api<PageResponse<TrainingCandidateResponse>>('/api/v1/learning/candidates?size=50').catch(() => undefined),
-      api<HumanEvaluationQueue>('/api/v1/evaluation/human/examples').catch(() => undefined),
-      api<PageResponse<{ name: string; type: string; status: string; qualityScore: number | null }>>('/api/v1/datasets?size=50').catch(() => undefined),
-      api<PageResponse<{ id: string; modelName: string; status: string; recommendation: string; overallScore: number | null }>>('/api/v1/evaluation/results?size=20').catch(() => undefined),
-    ]);
+    const [aiHealth, deployment, candidates, humanEvaluation, datasets, evaluations] =
+      await Promise.all([
+        api<{
+          status: string;
+          activeNodes: number;
+          healthyNodes: number;
+          circuitBreakerStatus: string;
+        }>('/api/v1/ai/health').catch(() => undefined),
+        api<{ status: string; environment: string; region: string }>(
+          '/api/v1/platform/deployment-status',
+        ).catch(() => undefined),
+        api<PageResponse<TrainingCandidateResponse>>('/api/v1/learning/candidates?size=50').catch(
+          () => undefined,
+        ),
+        api<HumanEvaluationQueue>('/api/v1/evaluation/human/examples').catch(() => undefined),
+        api<
+          PageResponse<{ name: string; type: string; status: string; qualityScore: number | null }>
+        >('/api/v1/datasets?size=50').catch(() => undefined),
+        api<
+          PageResponse<{
+            id: string;
+            modelName: string;
+            status: string;
+            recommendation: string;
+            overallScore: number | null;
+          }>
+        >('/api/v1/evaluation/results?size=20').catch(() => undefined),
+      ]);
     setPlatformSnapshot({
       aiHealth,
       deployment,
       candidateCount: candidates?.totalElements,
-      pendingCandidateCount: candidates?.content.filter((candidate) => candidate.approvalStatus === 'PENDING_APPROVAL').length,
+      pendingCandidateCount: candidates?.content.filter(
+        (candidate) => candidate.approvalStatus === 'PENDING_APPROVAL',
+      ).length,
       humanEvaluation: humanEvaluation
         ? {
             total: humanEvaluation.total,
@@ -831,7 +869,9 @@ export default function WebPortalSprintOnePage() {
 
   async function loadTrainingCandidates() {
     await run('Training review queue loaded.', async () => {
-      const page = await api<{ content: TrainingCandidateResponse[] }>('/api/v1/learning/candidates?size=50');
+      const page = await api<{ content: TrainingCandidateResponse[] }>(
+        '/api/v1/learning/candidates?size=50',
+      );
       setState((current) => ({ ...current, trainingCandidates: page.content }));
     });
   }
@@ -891,7 +931,10 @@ export default function WebPortalSprintOnePage() {
     });
   }
 
-  async function reviewTrainingCandidate(candidateId: string, decision: 'APPROVE' | 'CORRECT' | 'REJECT') {
+  async function reviewTrainingCandidate(
+    candidateId: string,
+    decision: 'APPROVE' | 'CORRECT' | 'REJECT',
+  ) {
     await run(`Training candidate ${decision.toLowerCase()} recorded.`, async () => {
       if (decision === 'CORRECT' && !trainingReviewOutput.trim()) {
         throw new Error('Enter the corrected output before selecting Correct.');
@@ -953,24 +996,58 @@ export default function WebPortalSprintOnePage() {
   }
 
   const workflowItems = [
-    { label: 'Survey', detail: state.survey?.status ?? 'Not started', complete: Boolean(state.survey) },
-    { label: 'Evidence', detail: state.evidence ? 'Uploaded' : 'Awaiting file', complete: Boolean(state.evidence) },
-    { label: 'RAG', detail: state.rag ? `${state.rag.citations.length} citations` : 'Not run', complete: Boolean(state.rag) },
-    { label: 'AI analysis', detail: state.llmAnalysis ? 'Qwen complete' : 'Not run', complete: Boolean(state.llmAnalysis) },
-    { label: 'Root cause', detail: state.rootCauseAnalysis ? 'Structured' : 'Not run', complete: Boolean(state.rootCauseAnalysis) },
-    { label: 'Recommendations', detail: state.recommendations ? `${state.recommendations.options.length} options` : 'Not run', complete: Boolean(state.recommendations) },
-    { label: 'Review', detail: state.trainingCandidates?.length ? `${state.trainingCandidates.length} candidates` : 'Human gate', complete: false },
+    {
+      label: 'Survey',
+      detail: state.survey?.status ?? 'Not started',
+      complete: Boolean(state.survey),
+    },
+    {
+      label: 'Evidence',
+      detail: state.evidence ? 'Uploaded' : 'Awaiting file',
+      complete: Boolean(state.evidence),
+    },
+    {
+      label: 'RAG',
+      detail: state.rag ? `${state.rag.citations.length} citations` : 'Not run',
+      complete: Boolean(state.rag),
+    },
+    {
+      label: 'AI analysis',
+      detail: state.llmAnalysis ? 'Qwen complete' : 'Not run',
+      complete: Boolean(state.llmAnalysis),
+    },
+    {
+      label: 'Root cause',
+      detail: state.rootCauseAnalysis ? 'Structured' : 'Not run',
+      complete: Boolean(state.rootCauseAnalysis),
+    },
+    {
+      label: 'Recommendations',
+      detail: state.recommendations ? `${state.recommendations.options.length} options` : 'Not run',
+      complete: Boolean(state.recommendations),
+    },
+    {
+      label: 'Review',
+      detail: state.trainingCandidates?.length
+        ? `${state.trainingCandidates.length} candidates`
+        : 'Human gate',
+      complete: false,
+    },
   ];
   const selectedHumanEvaluationExample = state.humanEvaluation?.examples.find(
     (example) => example.exampleId === humanEvaluationExampleId,
   );
-  const sessionActive = Boolean(state.token && new Date(state.token.accessTokenExpiresAt).getTime() > Date.now());
+  const sessionActive = Boolean(
+    state.token && new Date(state.token.accessTokenExpiresAt).getTime() > Date.now(),
+  );
 
   return (
     <main className="appShell">
       <aside className="sidebar">
         <div className="brandBlock">
-          <div className="brandMark" aria-hidden="true">RI</div>
+          <div className="brandMark" aria-hidden="true">
+            RI
+          </div>
           <p className="eyebrow">Enterprise Rural Intelligence</p>
           <h1>Rural Intelligence</h1>
           <p className="brandSubline">Decision workspace</p>
@@ -1013,7 +1090,9 @@ export default function WebPortalSprintOnePage() {
         </header>
 
         <section className={error ? 'notice noticeError' : 'notice'} aria-live="polite">
-          <span className="noticeLabel">{isBusy ? 'Processing' : error ? 'Action needs attention' : 'System update'}</span>
+          <span className="noticeLabel">
+            {isBusy ? 'Processing' : error ? 'Action needs attention' : 'System update'}
+          </span>
           <span>{message}</span>
           {error ? <strong>{error}</strong> : null}
         </section>
@@ -1024,23 +1103,54 @@ export default function WebPortalSprintOnePage() {
               <div>
                 <p className="eyebrow">Village intelligence</p>
                 <h3>Move from field evidence to an accountable decision.</h3>
-                <p>Complete each stage, inspect the evidence, then send recommendations through human review.</p>
+                <p>
+                  Complete each stage, inspect the evidence, then send recommendations through human
+                  review.
+                </p>
               </div>
-                <button type="button" className="secondaryButton" onClick={() => setActive('Survey')}>
+              <button type="button" className="secondaryButton" onClick={() => setActive('Survey')}>
                 Start a survey
               </button>
             </div>
             <div className="metricGrid">
-              <MetricCard label="Survey status" value={state.survey?.status ?? 'Not created'} detail={state.survey?.name ?? 'Current session'} tone={state.survey ? 'good' : 'neutral'} />
-              <MetricCard label="Submission" value={state.submission ? 'Submitted' : 'Pending'} detail={state.submission?.submittedAt ?? 'Awaiting response'} tone={state.submission ? 'good' : 'neutral'} />
-              <MetricCard label="Evidence" value={state.evidence ? 'Uploaded' : 'Not uploaded'} detail={state.evidence?.originalFileName ?? 'Awaiting asset'} tone={state.evidence ? 'good' : 'neutral'} />
+              <MetricCard
+                label="Survey status"
+                value={state.survey?.status ?? 'Not created'}
+                detail={state.survey?.name ?? 'Current session'}
+                tone={state.survey ? 'good' : 'neutral'}
+              />
+              <MetricCard
+                label="Submission"
+                value={state.submission ? 'Submitted' : 'Pending'}
+                detail={state.submission?.submittedAt ?? 'Awaiting response'}
+                tone={state.submission ? 'good' : 'neutral'}
+              />
+              <MetricCard
+                label="Evidence"
+                value={state.evidence ? 'Uploaded' : 'Not uploaded'}
+                detail={state.evidence?.originalFileName ?? 'Awaiting asset'}
+                tone={state.evidence ? 'good' : 'neutral'}
+              />
               <MetricCard
                 label="AI confidence"
-                value={state.llmAnalysis ? `${Math.round(state.llmAnalysis.output.confidence * 100)}%` : 'Pending'}
+                value={
+                  state.llmAnalysis
+                    ? `${Math.round(state.llmAnalysis.output.confidence * 100)}%`
+                    : 'Pending'
+                }
                 detail={platformSnapshot.aiHealth?.status ?? 'Health not loaded'}
                 tone={state.llmAnalysis ? 'good' : 'neutral'}
               />
-              <MetricCard label="Review queue" value={platformSnapshot.pendingCandidateCount === undefined ? 'Not loaded' : String(platformSnapshot.pendingCandidateCount)} detail="Pending training candidates" tone={platformSnapshot.pendingCandidateCount ? 'warn' : 'neutral'} />
+              <MetricCard
+                label="Review queue"
+                value={
+                  platformSnapshot.pendingCandidateCount === undefined
+                    ? 'Not loaded'
+                    : String(platformSnapshot.pendingCandidateCount)
+                }
+                detail="Pending training candidates"
+                tone={platformSnapshot.pendingCandidateCount ? 'warn' : 'neutral'}
+              />
             </div>
             <article className="panel workflowPanel">
               <div className="sectionHeading">
@@ -1048,12 +1158,19 @@ export default function WebPortalSprintOnePage() {
                   <p className="eyebrow">Decision pipeline</p>
                   <h3>Survey to recommendation review</h3>
                 </div>
-                <span className="sectionMeta">{workflowItems.filter((item) => item.complete).length}/7 complete</span>
+                <span className="sectionMeta">
+                  {workflowItems.filter((item) => item.complete).length}/7 complete
+                </span>
               </div>
               <div className="workflowRail" aria-label="Decision workflow">
                 {workflowItems.map((item, index) => (
-                  <div className={`workflowStep ${item.complete ? 'complete' : ''}`} key={item.label}>
-                    <span className="workflowIndex">{item.complete ? 'OK' : String(index + 1).padStart(2, '0')}</span>
+                  <div
+                    className={`workflowStep ${item.complete ? 'complete' : ''}`}
+                    key={item.label}
+                  >
+                    <span className="workflowIndex">
+                      {item.complete ? 'OK' : String(index + 1).padStart(2, '0')}
+                    </span>
                     <strong>{item.label}</strong>
                     <span>{item.detail}</span>
                   </div>
@@ -1062,20 +1179,72 @@ export default function WebPortalSprintOnePage() {
             </article>
             <div className="dashboardColumns">
               <article className="panel activityPanel">
-                <div className="sectionHeading"><h3>Recent activity</h3><span className="sectionMeta">Live session</span></div>
+                <div className="sectionHeading">
+                  <h3>Recent activity</h3>
+                  <span className="sectionMeta">Live session</span>
+                </div>
                 <ul className="activityList">
-                  <ActivityItem label="Authentication" value={state.token ? 'Account connected' : 'Awaiting sign in'} complete={Boolean(state.token)} />
-                  <ActivityItem label="Survey definition" value={state.survey?.name ?? 'No survey created'} complete={Boolean(state.survey)} />
-                  <ActivityItem label="Evidence workspace" value={state.evidence?.originalFileName ?? 'No evidence attached'} complete={Boolean(state.evidence)} />
-                  <ActivityItem label="Decision output" value={state.recommendations ? 'Recommendations ready for review' : 'Not generated'} complete={Boolean(state.recommendations)} />
+                  <ActivityItem
+                    label="Authentication"
+                    value={state.token ? 'Account connected' : 'Awaiting sign in'}
+                    complete={Boolean(state.token)}
+                  />
+                  <ActivityItem
+                    label="Survey definition"
+                    value={state.survey?.name ?? 'No survey created'}
+                    complete={Boolean(state.survey)}
+                  />
+                  <ActivityItem
+                    label="Evidence workspace"
+                    value={state.evidence?.originalFileName ?? 'No evidence attached'}
+                    complete={Boolean(state.evidence)}
+                  />
+                  <ActivityItem
+                    label="Decision output"
+                    value={
+                      state.recommendations ? 'Recommendations ready for review' : 'Not generated'
+                    }
+                    complete={Boolean(state.recommendations)}
+                  />
                 </ul>
               </article>
               <article className="panel nextActionPanel">
                 <p className="eyebrow">Next action</p>
-                <h3>{!state.token ? 'Connect an operator account' : !state.survey ? 'Create the first survey' : !state.evidence ? 'Attach supporting evidence' : 'Run the intelligence workflow'}</h3>
-                <p>{!state.token ? 'Sign in to unlock survey, evidence, and review actions.' : 'The workspace keeps every decision linked to its source evidence and review state.'}</p>
-                <button type="button" onClick={() => setActive(!state.token ? 'Login' : !state.survey ? 'Survey' : !state.evidence ? 'Evidence / RAG' : 'AI Analysis')}>
-                  {!state.token ? 'Go to login' : !state.survey ? 'Open survey' : !state.evidence ? 'Upload evidence' : 'Open AI analysis'}
+                <h3>
+                  {!state.token
+                    ? 'Connect an operator account'
+                    : !state.survey
+                      ? 'Create the first survey'
+                      : !state.evidence
+                        ? 'Attach supporting evidence'
+                        : 'Run the intelligence workflow'}
+                </h3>
+                <p>
+                  {!state.token
+                    ? 'Sign in to unlock survey, evidence, and review actions.'
+                    : 'The workspace keeps every decision linked to its source evidence and review state.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActive(
+                      !state.token
+                        ? 'Login'
+                        : !state.survey
+                          ? 'Survey'
+                          : !state.evidence
+                            ? 'Evidence / RAG'
+                            : 'AI Analysis',
+                    )
+                  }
+                >
+                  {!state.token
+                    ? 'Go to login'
+                    : !state.survey
+                      ? 'Open survey'
+                      : !state.evidence
+                        ? 'Upload evidence'
+                        : 'Open AI analysis'}
                 </button>
               </article>
             </div>
@@ -1096,7 +1265,9 @@ export default function WebPortalSprintOnePage() {
                 value={password}
               />
             </label>
-            <button disabled={isBusy} type="submit">{isBusy ? 'Signing in...' : 'Login'}</button>
+            <button disabled={isBusy} type="submit">
+              {isBusy ? 'Signing in...' : 'Login'}
+            </button>
           </form>
         ) : null}
 
@@ -1152,7 +1323,11 @@ export default function WebPortalSprintOnePage() {
               Evidence file
               <input onChange={fileChanged} type="file" />
             </label>
-            <button disabled={isBusy || !state.token || !state.survey} onClick={uploadEvidence} type="button">
+            <button
+              disabled={isBusy || !state.token || !state.survey}
+              onClick={uploadEvidence}
+              type="button"
+            >
               {isBusy ? 'Uploading...' : 'Upload Evidence'}
             </button>
             <EvidenceRagView evidence={state.evidence} rag={state.rag} />
@@ -1175,17 +1350,39 @@ export default function WebPortalSprintOnePage() {
                 value={problemStatement}
               />
             </label>
-            <button disabled={isBusy || !state.token || !state.survey} onClick={runAiWorkflow} type="button">
+            <button
+              disabled={isBusy || !state.token || !state.survey}
+              onClick={runAiWorkflow}
+              type="button"
+            >
               {isBusy ? 'Running analysis...' : 'Run AI Analysis'}
             </button>
-            <AiAnalysisView rag={state.rag} llm={state.llmAnalysis} rootCause={state.rootCauseAnalysis} decision={state.decision} />
+            <AiAnalysisView
+              rag={state.rag}
+              llm={state.llmAnalysis}
+              rootCause={state.rootCauseAnalysis}
+              decision={state.decision}
+            />
           </section>
         ) : null}
 
         {active === 'Root Cause Analysis' ? (
           <section className="panel form wide">
-            <div className="sectionHeading"><div><p className="eyebrow">Explainability</p><h3>Root-cause analysis</h3></div><span className="sectionMeta">Facts, causes, uncertainty</span></div>
-            {state.rootCauseAnalysis ? <RootCauseView rootCause={state.rootCauseAnalysis} /> : <EmptyState title="Root cause not available" body="Run AI analysis to generate structured root-cause intelligence." />}
+            <div className="sectionHeading">
+              <div>
+                <p className="eyebrow">Explainability</p>
+                <h3>Root-cause analysis</h3>
+              </div>
+              <span className="sectionMeta">Facts, causes, uncertainty</span>
+            </div>
+            {state.rootCauseAnalysis ? (
+              <RootCauseView rootCause={state.rootCauseAnalysis} />
+            ) : (
+              <EmptyState
+                title="Root cause not available"
+                body="Run AI analysis to generate structured root-cause intelligence."
+              />
+            )}
           </section>
         ) : null}
 
@@ -1193,37 +1390,51 @@ export default function WebPortalSprintOnePage() {
           <section className="panel form wide">
             <RecommendationWorkspace
               recommendation={state.recommendations}
-              actions={state.recommendations ? (
-                <>
-                <label htmlFor="recommendation-review-notes">Reviewer notes</label>
-                <textarea
-                  id="recommendation-review-notes"
-                  value={recommendationReviewNotes}
-                  onChange={(event) => setRecommendationReviewNotes(event.target.value)}
-                  placeholder="Explain the review decision"
-                  rows={3}
-                />
-                <label htmlFor="recommendation-edit-json">Edit options JSON</label>
-                <textarea
-                  id="recommendation-edit-json"
-                  value={recommendationEditJson}
-                  onChange={(event) => setRecommendationEditJson(event.target.value)}
-                  placeholder='{"options":[]}'
-                  rows={10}
-                />
-                <div className="actions" aria-label="Recommendation review actions">
-                  <button disabled={isBusy} type="button" onClick={() => reviewRecommendations('EDIT')}>
-                    Save Edit
-                  </button>
-                  <button disabled={isBusy} type="button" onClick={() => reviewRecommendations('APPROVE')}>
-                    Approve
-                  </button>
-                  <button disabled={isBusy} type="button" onClick={() => reviewRecommendations('REJECT')}>
-                    Reject
-                  </button>
-                </div>
-                </>
-              ) : undefined}
+              actions={
+                state.recommendations ? (
+                  <>
+                    <label htmlFor="recommendation-review-notes">Reviewer notes</label>
+                    <textarea
+                      id="recommendation-review-notes"
+                      value={recommendationReviewNotes}
+                      onChange={(event) => setRecommendationReviewNotes(event.target.value)}
+                      placeholder="Explain the review decision"
+                      rows={3}
+                    />
+                    <label htmlFor="recommendation-edit-json">Edit options JSON</label>
+                    <textarea
+                      id="recommendation-edit-json"
+                      value={recommendationEditJson}
+                      onChange={(event) => setRecommendationEditJson(event.target.value)}
+                      placeholder='{"options":[]}'
+                      rows={10}
+                    />
+                    <div className="actions" aria-label="Recommendation review actions">
+                      <button
+                        disabled={isBusy}
+                        type="button"
+                        onClick={() => reviewRecommendations('EDIT')}
+                      >
+                        Save Edit
+                      </button>
+                      <button
+                        disabled={isBusy}
+                        type="button"
+                        onClick={() => reviewRecommendations('APPROVE')}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        disabled={isBusy}
+                        type="button"
+                        onClick={() => reviewRecommendations('REJECT')}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </>
+                ) : undefined
+              }
             />
           </section>
         ) : null}
@@ -1231,23 +1442,37 @@ export default function WebPortalSprintOnePage() {
         {active === 'Training Review' ? (
           <section className="panel form">
             <div className="actions">
-              <button type="button" onClick={loadTrainingCandidates} disabled={isBusy || !state.token}>
+              <button
+                type="button"
+                onClick={loadTrainingCandidates}
+                disabled={isBusy || !state.token}
+              >
                 {isBusy ? 'Loading...' : 'Load Candidates'}
               </button>
             </div>
-            <p>Reviewer identity is taken from the authenticated account. Pending, rejected, and synthetic candidates cannot enter the production dataset.</p>
+            <p>
+              Reviewer identity is taken from the authenticated account. Pending, rejected, and
+              synthetic candidates cannot enter the production dataset.
+            </p>
             {state.trainingCandidates?.length ? (
               <div className="stack">
                 {state.trainingCandidates.map((candidate) => (
                   <article className="analysis" key={candidate.id}>
-                    <h3>{candidate.taskType} · {candidate.approvalStatus}</h3>
+                    <h3>
+                      {candidate.taskType} · {candidate.approvalStatus}
+                    </h3>
                     <dl>
                       <dt>Scenario</dt>
                       <dd>{candidate.scenarioGroup}</dd>
                       <dt>Model / prompt</dt>
-                      <dd>{candidate.modelVersion} / {candidate.promptVersion}</dd>
+                      <dd>
+                        {candidate.modelVersion} / {candidate.promptVersion}
+                      </dd>
                       <dt>Source</dt>
-                      <dd>{candidate.sourceType}{candidate.synthetic ? ' (synthetic, not promotable)' : ''}</dd>
+                      <dd>
+                        {candidate.sourceType}
+                        {candidate.synthetic ? ' (synthetic, not promotable)' : ''}
+                      </dd>
                     </dl>
                     <h4>Input</h4>
                     <p>{candidate.input}</p>
@@ -1258,25 +1483,69 @@ export default function WebPortalSprintOnePage() {
                     <h4>Evidence and provenance</h4>
                     <pre>{candidate.evidenceUsedJson}</pre>
                     <div className="actions" aria-label={`Review actions for ${candidate.id}`}>
-                      <button type="button" disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'APPROVE')}>
+                      <button
+                        type="button"
+                        disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'}
+                        onClick={() => reviewTrainingCandidate(candidate.id, 'APPROVE')}
+                      >
                         Approve
                       </button>
-                      <button type="button" disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => { setTrainingReviewCandidateId(candidate.id); setTrainingReviewOutput(candidate.acceptedOutput || candidate.aiOutput); }}>
+                      <button
+                        type="button"
+                        disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'}
+                        onClick={() => {
+                          setTrainingReviewCandidateId(candidate.id);
+                          setTrainingReviewOutput(candidate.acceptedOutput || candidate.aiOutput);
+                        }}
+                      >
                         Select Correction
                       </button>
-                      <button type="button" disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'REJECT')}>
+                      <button
+                        type="button"
+                        disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'}
+                        onClick={() => reviewTrainingCandidate(candidate.id, 'REJECT')}
+                      >
                         Reject
                       </button>
                     </div>
                     {trainingReviewCandidateId === candidate.id ? (
                       <div className="form">
-                        <label htmlFor={`training-correction-${candidate.id}`}>Corrected output</label>
-                        <textarea id={`training-correction-${candidate.id}`} value={trainingReviewOutput} onChange={(event) => setTrainingReviewOutput(event.target.value)} rows={7} />
-                        <label htmlFor={`training-review-reason-${candidate.id}`}>Review notes</label>
-                        <textarea id={`training-review-reason-${candidate.id}`} value={trainingReviewReason} onChange={(event) => setTrainingReviewReason(event.target.value)} rows={3} placeholder="Explain the correction or decision" />
+                        <label htmlFor={`training-correction-${candidate.id}`}>
+                          Corrected output
+                        </label>
+                        <textarea
+                          id={`training-correction-${candidate.id}`}
+                          value={trainingReviewOutput}
+                          onChange={(event) => setTrainingReviewOutput(event.target.value)}
+                          rows={7}
+                        />
+                        <label htmlFor={`training-review-reason-${candidate.id}`}>
+                          Review notes
+                        </label>
+                        <textarea
+                          id={`training-review-reason-${candidate.id}`}
+                          value={trainingReviewReason}
+                          onChange={(event) => setTrainingReviewReason(event.target.value)}
+                          rows={3}
+                          placeholder="Explain the correction or decision"
+                        />
                         <div className="actions">
-                          <button disabled={isBusy} type="button" onClick={() => reviewTrainingCandidate(candidate.id, 'CORRECT')}>Save Correction</button>
-                          <button type="button" onClick={() => { setTrainingReviewCandidateId(''); setTrainingReviewOutput(''); }}>Cancel</button>
+                          <button
+                            disabled={isBusy}
+                            type="button"
+                            onClick={() => reviewTrainingCandidate(candidate.id, 'CORRECT')}
+                          >
+                            Save Correction
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTrainingReviewCandidateId('');
+                              setTrainingReviewOutput('');
+                            }}
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     ) : null}
@@ -1297,18 +1566,29 @@ export default function WebPortalSprintOnePage() {
                 <h3>BASE Qwen held-out evaluation</h3>
               </div>
               <span className="sectionMeta">
-                {state.humanEvaluation ? `${state.humanEvaluation.scored}/${state.humanEvaluation.total} scored` : 'Not loaded'}
+                {state.humanEvaluation
+                  ? `${state.humanEvaluation.scored}/${state.humanEvaluation.total} scored`
+                  : 'Not loaded'}
               </span>
             </div>
             <p>
-              Score only against HUMAN-QUALITY-RUBRIC@1.0.0. This workspace is separate from Training Review and never approves training data.
+              Score only against HUMAN-QUALITY-RUBRIC@1.0.0. This workspace is separate from
+              Training Review and never approves training data.
             </p>
             <div className="actions">
-              <button type="button" onClick={loadHumanEvaluations} disabled={isBusy || !state.token}>
+              <button
+                type="button"
+                onClick={loadHumanEvaluations}
+                disabled={isBusy || !state.token}
+              >
                 {isBusy ? 'Loading...' : 'Load Held-out Examples'}
               </button>
             </div>
-            {!state.token ? <p className="emptyState">Sign in with an authorized evaluation reviewer account to load examples.</p> : null}
+            {!state.token ? (
+              <p className="emptyState">
+                Sign in with an authorized evaluation reviewer account to load examples.
+              </p>
+            ) : null}
             {state.humanEvaluation ? (
               <div className="humanEvaluationLayout">
                 <div className="humanEvaluationQueue" aria-label="Held-out evaluation examples">
@@ -1326,7 +1606,11 @@ export default function WebPortalSprintOnePage() {
                     >
                       <strong>{example.task}</strong>
                       <span>{example.scenarioGroup}</span>
-                      <small>{example.reviewStatus === 'SCORED' ? `Scored (${example.reviewCount})` : 'Remaining'}</small>
+                      <small>
+                        {example.reviewStatus === 'SCORED'
+                          ? `Scored (${example.reviewCount})`
+                          : 'Remaining'}
+                      </small>
                     </button>
                   ))}
                 </div>
@@ -1334,10 +1618,16 @@ export default function WebPortalSprintOnePage() {
                   <article className="humanEvaluationDetail">
                     <div className="sectionHeading">
                       <div>
-                        <p className="eyebrow">{selectedHumanEvaluationExample.reviewStatus === 'SCORED' ? 'Submitted state' : 'Incomplete state'}</p>
+                        <p className="eyebrow">
+                          {selectedHumanEvaluationExample.reviewStatus === 'SCORED'
+                            ? 'Submitted state'
+                            : 'Incomplete state'}
+                        </p>
                         <h3>{selectedHumanEvaluationExample.task}</h3>
                       </div>
-                      <span className="sectionMeta">{selectedHumanEvaluationExample.reviewStatus}</span>
+                      <span className="sectionMeta">
+                        {selectedHumanEvaluationExample.reviewStatus}
+                      </span>
                     </div>
                     <dl>
                       <dt>Scenario</dt>
@@ -1345,52 +1635,131 @@ export default function WebPortalSprintOnePage() {
                       <dt>Evaluation set</dt>
                       <dd>{selectedHumanEvaluationExample.evaluationSetVersion}</dd>
                       <dt>Model / prompt</dt>
-                      <dd>{selectedHumanEvaluationExample.modelVersion} / {selectedHumanEvaluationExample.promptVersion}</dd>
+                      <dd>
+                        {selectedHumanEvaluationExample.modelVersion} /{' '}
+                        {selectedHumanEvaluationExample.promptVersion}
+                      </dd>
                       <dt>Output digest</dt>
                       <dd>{selectedHumanEvaluationExample.outputSha256}</dd>
                     </dl>
                     <h4>Problem input</h4>
                     <p>{selectedHumanEvaluationExample.input}</p>
                     <h4>Retrieved evidence and context</h4>
-                    <div className="recordPanel"><p>{selectedHumanEvaluationExample.retrievedContext || 'No retrieved context recorded.'}</p></div>
+                    <div className="recordPanel">
+                      <p>
+                        {selectedHumanEvaluationExample.retrievedContext ||
+                          'No retrieved context recorded.'}
+                      </p>
+                    </div>
                     <h4>Allowed citations</h4>
                     <div className="citationList">
                       {selectedHumanEvaluationExample.citations.map((citation, index) => (
-                        <div className="citationRow" key={`${citation.source_id ?? citation.sourceId ?? 'source'}-${index}`}>
-                          <strong className="citationId">{citation.source_id ?? citation.sourceId ?? 'Unidentified source'}</strong>
+                        <div
+                          className="citationRow"
+                          key={`${citation.source_id ?? citation.sourceId ?? 'source'}-${index}`}
+                        >
+                          <strong className="citationId">
+                            {citation.source_id ?? citation.sourceId ?? 'Unidentified source'}
+                          </strong>
                           <span>{citation.excerpt ?? 'No excerpt recorded.'}</span>
                         </div>
                       ))}
                     </div>
                     <h4>BASE Qwen output</h4>
-                    <div className="recordPanel outputPanel"><p>{selectedHumanEvaluationExample.output}</p></div>
+                    <div className="recordPanel outputPanel">
+                      <p>{selectedHumanEvaluationExample.output}</p>
+                    </div>
                     <h4>Provenance and inference configuration</h4>
                     <div className="recordGrid">
-                      <FieldList title="Provenance" value={selectedHumanEvaluationExample.provenance} />
-                      <FieldList title="Inference configuration" value={selectedHumanEvaluationExample.inferenceConfiguration} />
+                      <FieldList
+                        title="Provenance"
+                        value={selectedHumanEvaluationExample.provenance}
+                      />
+                      <FieldList
+                        title="Inference configuration"
+                        value={selectedHumanEvaluationExample.inferenceConfiguration}
+                      />
                     </div>
                     <div className="scoreGrid">
-                      {(selectedHumanEvaluationExample.task === 'root-cause-analysis' || selectedHumanEvaluationExample.task === 'recommendation-generation') ? (
-                        <ScoreSelect id="human-root-cause-quality" label="Root-cause quality" value={humanScores.rootCauseQuality} onChange={(value) => setHumanScores((current) => ({ ...current, rootCauseQuality: value }))} />
+                      {selectedHumanEvaluationExample.task === 'root-cause-analysis' ||
+                      selectedHumanEvaluationExample.task === 'recommendation-generation' ? (
+                        <ScoreSelect
+                          id="human-root-cause-quality"
+                          label="Root-cause quality"
+                          value={humanScores.rootCauseQuality}
+                          onChange={(value) =>
+                            setHumanScores((current) => ({ ...current, rootCauseQuality: value }))
+                          }
+                        />
                       ) : null}
                       {selectedHumanEvaluationExample.task === 'recommendation-generation' ? (
-                        <ScoreSelect id="human-recommendation-quality" label="Recommendation quality" value={humanScores.recommendationQuality} onChange={(value) => setHumanScores((current) => ({ ...current, recommendationQuality: value }))} />
+                        <ScoreSelect
+                          id="human-recommendation-quality"
+                          label="Recommendation quality"
+                          value={humanScores.recommendationQuality}
+                          onChange={(value) =>
+                            setHumanScores((current) => ({
+                              ...current,
+                              recommendationQuality: value,
+                            }))
+                          }
+                        />
                       ) : null}
-                      <ScoreSelect id="human-rag-quality" label="RAG / evidence quality" value={humanScores.ragEvidenceQuality} onChange={(value) => setHumanScores((current) => ({ ...current, ragEvidenceQuality: value }))} />
-                      <ScoreSelect id="human-uncertainty" label="Uncertainty handling" value={humanScores.uncertaintyHandling} onChange={(value) => setHumanScores((current) => ({ ...current, uncertaintyHandling: value }))} />
-                      <ScoreSelect id="human-usefulness" label="Practical usefulness" value={humanScores.practicalUsefulness} onChange={(value) => setHumanScores((current) => ({ ...current, practicalUsefulness: value }))} />
+                      <ScoreSelect
+                        id="human-rag-quality"
+                        label="RAG / evidence quality"
+                        value={humanScores.ragEvidenceQuality}
+                        onChange={(value) =>
+                          setHumanScores((current) => ({ ...current, ragEvidenceQuality: value }))
+                        }
+                      />
+                      <ScoreSelect
+                        id="human-uncertainty"
+                        label="Uncertainty handling"
+                        value={humanScores.uncertaintyHandling}
+                        onChange={(value) =>
+                          setHumanScores((current) => ({ ...current, uncertaintyHandling: value }))
+                        }
+                      />
+                      <ScoreSelect
+                        id="human-usefulness"
+                        label="Practical usefulness"
+                        value={humanScores.practicalUsefulness}
+                        onChange={(value) =>
+                          setHumanScores((current) => ({ ...current, practicalUsefulness: value }))
+                        }
+                      />
                     </div>
                     <label htmlFor="human-evidence-references">Evidence source IDs used</label>
-                    <input id="human-evidence-references" value={humanEvidenceReferences} onChange={(event) => setHumanEvidenceReferences(event.target.value)} placeholder="CONTROLLED_PROJECT_PILOT" />
-                    <small>Allowed source IDs: {selectedHumanEvaluationExample.citations.map((citation) => citation.source_id ?? citation.sourceId ?? 'unknown').join(', ')}</small>
+                    <input
+                      id="human-evidence-references"
+                      value={humanEvidenceReferences}
+                      onChange={(event) => setHumanEvidenceReferences(event.target.value)}
+                      placeholder="CONTROLLED_PROJECT_PILOT"
+                    />
+                    <small>
+                      Allowed source IDs:{' '}
+                      {selectedHumanEvaluationExample.citations
+                        .map((citation) => citation.source_id ?? citation.sourceId ?? 'unknown')
+                        .join(', ')}
+                    </small>
                     <label htmlFor="human-reviewer-comments">Reviewer comments</label>
-                    <textarea id="human-reviewer-comments" value={humanReviewerComments} onChange={(event) => setHumanReviewerComments(event.target.value)} rows={4} placeholder="Record evidence-based reasoning for the scores." />
+                    <textarea
+                      id="human-reviewer-comments"
+                      value={humanReviewerComments}
+                      onChange={(event) => setHumanReviewerComments(event.target.value)}
+                      rows={4}
+                      placeholder="Record evidence-based reasoning for the scores."
+                    />
                     <button type="button" disabled={isBusy} onClick={submitHumanEvaluation}>
                       {isBusy ? 'Submitting...' : 'Submit Human Scores'}
                     </button>
                   </article>
                 ) : (
-                  <p className="emptyState">Select an example to expose its input, evidence, BASE output, and rubric controls.</p>
+                  <p className="emptyState">
+                    Select an example to expose its input, evidence, BASE output, and rubric
+                    controls.
+                  </p>
                 )}
               </div>
             ) : null}
@@ -1406,18 +1775,46 @@ export default function WebPortalSprintOnePage() {
               </div>
               <span className="sectionMeta">Existing evaluation records</span>
             </div>
-            <p className="sectionLead">This view reports only persisted evaluation data. It does not infer a winner or replace the held-out human rubric.</p>
+            <p className="sectionLead">
+              This view reports only persisted evaluation data. It does not infer a winner or
+              replace the held-out human rubric.
+            </p>
             {platformSnapshot.evaluations?.length ? (
-              <div className="evaluationTable" role="table" aria-label="Persisted model evaluations">
-                <div className="evaluationTableRow evaluationTableHeader" role="row"><span>Model</span><span>Status</span><span>Recommendation</span><span>Score</span></div>
+              <div
+                className="evaluationTable"
+                role="table"
+                aria-label="Persisted model evaluations"
+              >
+                <div className="evaluationTableRow evaluationTableHeader" role="row">
+                  <span>Model</span>
+                  <span>Status</span>
+                  <span>Recommendation</span>
+                  <span>Score</span>
+                </div>
                 {platformSnapshot.evaluations.map((evaluation) => (
-                  <div className="evaluationTableRow" role="row" key={evaluation.id}><strong>{evaluation.modelName}</strong><span>{evaluation.status}</span><span>{evaluation.recommendation || 'Not recorded'}</span><span>{evaluation.overallScore === null ? 'Not evaluated' : evaluation.overallScore}</span></div>
+                  <div className="evaluationTableRow" role="row" key={evaluation.id}>
+                    <strong>{evaluation.modelName}</strong>
+                    <span>{evaluation.status}</span>
+                    <span>{evaluation.recommendation || 'Not recorded'}</span>
+                    <span>
+                      {evaluation.overallScore === null ? 'Not evaluated' : evaluation.overallScore}
+                    </span>
+                  </div>
                 ))}
               </div>
             ) : (
-              <EmptyState title="No comparison is loaded" body="Run and persist an evaluation through the governed evaluation API before comparing model results here." />
+              <EmptyState
+                title="No comparison is loaded"
+                body="Run and persist an evaluation through the governed evaluation API before comparing model results here."
+              />
             )}
-            <div className="notAvailablePanel"><strong>Base Qwen versus fine-tuned Qwen</strong><span>Human-quality scores and detailed comparison metrics are not available through the current portal read API.</span></div>
+            <div className="notAvailablePanel">
+              <strong>Base Qwen versus fine-tuned Qwen</strong>
+              <span>
+                Human-quality scores and detailed comparison metrics are not available through the
+                current portal read API.
+              </span>
+            </div>
           </section>
         ) : null}
 
@@ -1431,17 +1828,73 @@ export default function WebPortalSprintOnePage() {
               <span className="sectionMeta">No automatic promotion</span>
             </div>
             <div className="metricGrid governanceMetrics">
-              <MetricCard label="Dataset registry" value={platformSnapshot.datasets ? `${platformSnapshot.datasets.length} records` : 'Not loaded'} detail="Backend registry" tone={platformSnapshot.datasets ? 'good' : 'neutral'} />
-              <MetricCard label="Training review" value={platformSnapshot.pendingCandidateCount === undefined ? 'Not loaded' : `${platformSnapshot.pendingCandidateCount} pending`} detail={`${platformSnapshot.candidateCount ?? 0} total candidates`} tone={platformSnapshot.pendingCandidateCount ? 'warn' : 'neutral'} />
-              <MetricCard label="Human evaluation" value={platformSnapshot.humanEvaluation ? `${platformSnapshot.humanEvaluation.remaining} remaining` : 'Not loaded'} detail={platformSnapshot.humanEvaluation?.evaluationSetVersion ?? 'Held-out set'} tone={platformSnapshot.humanEvaluation?.remaining ? 'warn' : 'neutral'} />
-              <MetricCard label="Runtime status" value={platformSnapshot.deployment?.status ?? 'Not loaded'} detail={platformSnapshot.deployment?.environment ?? 'Environment unavailable'} tone={platformSnapshot.deployment?.status === 'SERVING' ? 'good' : 'neutral'} />
+              <MetricCard
+                label="Dataset registry"
+                value={
+                  platformSnapshot.datasets
+                    ? `${platformSnapshot.datasets.length} records`
+                    : 'Not loaded'
+                }
+                detail="Backend registry"
+                tone={platformSnapshot.datasets ? 'good' : 'neutral'}
+              />
+              <MetricCard
+                label="Training review"
+                value={
+                  platformSnapshot.pendingCandidateCount === undefined
+                    ? 'Not loaded'
+                    : `${platformSnapshot.pendingCandidateCount} pending`
+                }
+                detail={`${platformSnapshot.candidateCount ?? 0} total candidates`}
+                tone={platformSnapshot.pendingCandidateCount ? 'warn' : 'neutral'}
+              />
+              <MetricCard
+                label="Human evaluation"
+                value={
+                  platformSnapshot.humanEvaluation
+                    ? `${platformSnapshot.humanEvaluation.remaining} remaining`
+                    : 'Not loaded'
+                }
+                detail={platformSnapshot.humanEvaluation?.evaluationSetVersion ?? 'Held-out set'}
+                tone={platformSnapshot.humanEvaluation?.remaining ? 'warn' : 'neutral'}
+              />
+              <MetricCard
+                label="Runtime status"
+                value={platformSnapshot.deployment?.status ?? 'Not loaded'}
+                detail={platformSnapshot.deployment?.environment ?? 'Environment unavailable'}
+                tone={platformSnapshot.deployment?.status === 'SERVING' ? 'good' : 'neutral'}
+              />
             </div>
             {platformSnapshot.datasets?.length ? (
               <div className="datasetList">
-                {platformSnapshot.datasets.map((dataset) => <article className="datasetRow" key={dataset.name}><div><strong>{dataset.name}</strong><span>{dataset.type}</span></div><span className="status">{dataset.status}</span><span>{dataset.qualityScore === null ? 'Quality not recorded' : `Quality ${dataset.qualityScore}`}</span></article>)}
+                {platformSnapshot.datasets.map((dataset) => (
+                  <article className="datasetRow" key={dataset.name}>
+                    <div>
+                      <strong>{dataset.name}</strong>
+                      <span>{dataset.type}</span>
+                    </div>
+                    <span className="status">{dataset.status}</span>
+                    <span>
+                      {dataset.qualityScore === null
+                        ? 'Quality not recorded'
+                        : `Quality ${dataset.qualityScore}`}
+                    </span>
+                  </article>
+                ))}
               </div>
-            ) : <EmptyState title="Dataset registry unavailable" body="Sign in with a permitted account or start the backend services to load governed dataset records." />}
-            <div className="notAvailablePanel"><strong>Dataset v0.3 release status</strong><span>The portal does not invent a static artifact status. Use the dataset and learning APIs for the current persisted state.</span></div>
+            ) : (
+              <EmptyState
+                title="Dataset registry unavailable"
+                body="Sign in with a permitted account or start the backend services to load governed dataset records."
+              />
+            )}
+            <div className="notAvailablePanel">
+              <strong>Dataset v0.3 release status</strong>
+              <span>
+                The portal does not invent a static artifact status. Use the dataset and learning
+                APIs for the current persisted state.
+              </span>
+            </div>
           </section>
         ) : null}
 
@@ -1552,7 +2005,11 @@ function ScoreSelect({
   return (
     <label htmlFor={id}>
       {label}
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value === '' ? '' : Number(event.target.value))}>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value === '' ? '' : Number(event.target.value))}
+      >
         <option value="">Select 0-4</option>
         <option value="0">0 - Absent / unsafe</option>
         <option value="1">1 - Poor</option>
@@ -1569,7 +2026,16 @@ function FieldList({ title, value }: Readonly<{ title: string; value: Record<str
   return (
     <section className="fieldList">
       <h5>{title}</h5>
-      {entries.length ? entries.map(([key, item]) => <div key={key}><span>{key}</span><strong>{formatFieldValue(item)}</strong></div>) : <p>Not recorded.</p>}
+      {entries.length ? (
+        entries.map(([key, item]) => (
+          <div key={key}>
+            <span>{key}</span>
+            <strong>{formatFieldValue(item)}</strong>
+          </div>
+        ))
+      ) : (
+        <p>Not recorded.</p>
+      )}
     </section>
   );
 }
@@ -1580,11 +2046,20 @@ function formatFieldValue(value: unknown) {
   return String(value);
 }
 
-function ActivityItem({ label, value, complete }: Readonly<{ label: string; value: string; complete: boolean }>) {
+function ActivityItem({
+  label,
+  value,
+  complete,
+}: Readonly<{ label: string; value: string; complete: boolean }>) {
   return (
     <li className="activityItem">
-      <span className={`activityMarker ${complete ? 'complete' : ''}`} aria-hidden="true">{complete ? 'OK' : '-'}</span>
-      <span><strong>{label}</strong><small>{value}</small></span>
+      <span className={`activityMarker ${complete ? 'complete' : ''}`} aria-hidden="true">
+        {complete ? 'OK' : '-'}
+      </span>
+      <span>
+        <strong>{label}</strong>
+        <small>{value}</small>
+      </span>
     </li>
   );
 }
