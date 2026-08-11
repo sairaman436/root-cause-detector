@@ -10,7 +10,6 @@ COPY services/core-backend/pom.xml services/core-backend/pom.xml
 COPY packages/java-shared/pom.xml packages/java-shared/pom.xml
 COPY services/core-backend/src services/core-backend/src
 COPY packages/java-shared packages/java-shared
-COPY ml-platform/evaluation/heldout/evaluation-set-v1.0.0 /app/ml-platform/evaluation/heldout/evaluation-set-v1.0.0
 RUN chmod +x mvnw && ./mvnw -B -pl services/core-backend -am -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine
