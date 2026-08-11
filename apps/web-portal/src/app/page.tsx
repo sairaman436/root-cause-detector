@@ -6,7 +6,15 @@
  * Architecture fit: Next.js web adapter that consumes the approved backend API contracts without owning business logic.
  */
 
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import {
+  AiAnalysisView,
+  EvidenceRagView,
+  EmptyState,
+  MetricCard,
+  RecommendationWorkspace,
+  RootCauseView,
+} from './components/decision-support';
 
 const API_BASE = process.env.NEXT_PUBLIC_CORE_BACKEND_URL ?? 'http://localhost:8080';
 const LLM_MODEL = process.env.NEXT_PUBLIC_LLM_MODEL ?? 'qwen2.5:0.5b';
@@ -272,6 +280,42 @@ type TrainingCandidateResponse = {
   createdAt?: string;
 };
 
+type HumanEvaluationExample = {
+  evaluationSetVersion: string;
+  rubricVersion: string;
+  exampleId: string;
+  task: string;
+  scenarioGroup: string;
+  input: string;
+  retrievedContext: string;
+  output: string;
+  citations: Array<{ source_id?: string; sourceId?: string; excerpt?: string }>;
+  provenance: Record<string, unknown>;
+  modelVersion: string;
+  promptVersion: string;
+  inferenceConfiguration: Record<string, unknown>;
+  outputSha256: string;
+  reviewStatus: 'REMAINING' | 'SCORED';
+  reviewCount: number;
+};
+
+type HumanEvaluationQueue = {
+  evaluationSetVersion: string;
+  rubricVersion: string;
+  total: number;
+  scored: number;
+  remaining: number;
+  examples: HumanEvaluationExample[];
+};
+
+type HumanScoreState = {
+  rootCauseQuality: number | '';
+  recommendationQuality: number | '';
+  ragEvidenceQuality: number | '';
+  uncertaintyHandling: number | '';
+  practicalUsefulness: number | '';
+};
+
 type UserProfile = {
   id: string;
   username: string;
@@ -297,17 +341,36 @@ type WorkflowState = {
   decision?: DecisionResponse;
   report?: ReportResponse;
   trainingCandidates?: TrainingCandidateResponse[];
+  humanEvaluation?: HumanEvaluationQueue;
+};
+
+type PageResponse<T> = {
+  content: T[];
+  totalElements: number;
+};
+
+type PlatformSnapshot = {
+  aiHealth?: { status: string; activeNodes: number; healthyNodes: number; circuitBreakerStatus: string };
+  deployment?: { status: string; environment: string; region: string };
+  candidateCount?: number;
+  pendingCandidateCount?: number;
+  humanEvaluation?: { total: number; scored: number; remaining: number; evaluationSetVersion: string };
+  datasets?: Array<{ name: string; type: string; status: string; qualityScore: number | null }>;
+  evaluations?: Array<{ id: string; modelName: string; status: string; recommendation: string; overallScore: number | null }>;
 };
 
 const navItems = [
   'Dashboard',
   'Login',
   'Survey',
-  'Evidence Upload',
-  'AI Assistant',
+  'Evidence / RAG',
+  'AI Analysis',
   'Root Cause Analysis',
   'Recommendations',
   'Training Review',
+  'Human Evaluation',
+  'Model Evaluation',
+  'Governance / Dataset',
   'Reports',
   'User Profile',
   'Settings',
@@ -316,8 +379,11 @@ const navItems = [
 export default function WebPortalSprintOnePage() {
   const [active, setActive] = useState('Dashboard');
   const [state, setState] = useState<WorkflowState>({});
+  const [platformSnapshot, setPlatformSnapshot] = useState<PlatformSnapshot>({});
+  const refreshInFlight = useRef<Promise<TokenResponse | undefined> | null>(null);
   const [message, setMessage] = useState('Ready to run Sprint 1 workflow.');
   const [error, setError] = useState('');
+  const [isBusy, setIsBusy] = useState(false);
   const [email, setEmail] = useState('admin@platform.local');
   const [password, setPassword] = useState('');
   const [recommendationReviewNotes, setRecommendationReviewNotes] = useState('');
@@ -325,6 +391,16 @@ export default function WebPortalSprintOnePage() {
   const [trainingReviewCandidateId, setTrainingReviewCandidateId] = useState('');
   const [trainingReviewOutput, setTrainingReviewOutput] = useState('');
   const [trainingReviewReason, setTrainingReviewReason] = useState('');
+  const [humanEvaluationExampleId, setHumanEvaluationExampleId] = useState('');
+  const [humanScores, setHumanScores] = useState<HumanScoreState>({
+    rootCauseQuality: '',
+    recommendationQuality: '',
+    ragEvidenceQuality: '',
+    uncertaintyHandling: '',
+    practicalUsefulness: '',
+  });
+  const [humanEvidenceReferences, setHumanEvidenceReferences] = useState('');
+  const [humanReviewerComments, setHumanReviewerComments] = useState('');
   const [surveyName, setSurveyName] = useState('Village Water Reliability Survey');
   const [surveyDescription, setSurveyDescription] = useState(
     'Field survey for identifying water access root causes.',
@@ -336,20 +412,27 @@ export default function WebPortalSprintOnePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const headers = new Headers(init.headers);
-    if (!(init.body instanceof FormData)) {
-      headers.set('Content-Type', 'application/json');
+    const request = (accessToken?: string) => {
+      const headers = new Headers(init.headers);
+      if (!(init.body instanceof FormData)) {
+        headers.set('Content-Type', 'application/json');
+      }
+      if (accessToken) {
+        headers.set('Authorization', `Bearer ${accessToken}`);
+      }
+      return fetch(`${API_BASE}${path}`, { ...init, headers });
+    };
+
+    let response = await request(state.token?.accessToken);
+    if (response.status === 401 && state.token?.refreshToken && !path.startsWith('/api/v1/auth/')) {
+      const refreshedToken = await refreshAccessToken(state.token.refreshToken);
+      if (refreshedToken) {
+        response = await request(refreshedToken.accessToken);
+      }
     }
-    if (state.token) {
-      headers.set('Authorization', `Bearer ${state.token.accessToken}`);
-    }
-    const response = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers,
-    });
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(body || `Request failed with ${response.status}`);
+      throw new Error(readableApiError(body, response.status));
     }
     const contentType = response.headers.get('content-type') ?? '';
     if (!contentType.includes('application/json')) {
@@ -357,6 +440,34 @@ export default function WebPortalSprintOnePage() {
     }
     const envelope = (await response.json()) as ApiEnvelope<T>;
     return envelope.data;
+  }
+
+  async function refreshAccessToken(refreshToken: string): Promise<TokenResponse | undefined> {
+    if (refreshInFlight.current) {
+      return refreshInFlight.current;
+    }
+    const refreshPromise = (async () => {
+      const response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!response.ok) {
+        setState((current) => ({ ...current, token: undefined, profile: undefined }));
+        return undefined;
+      }
+      const envelope = (await response.json()) as ApiEnvelope<TokenResponse>;
+      setState((current) => ({ ...current, token: envelope.data }));
+      return envelope.data;
+    })();
+    refreshInFlight.current = refreshPromise;
+    try {
+      return await refreshPromise;
+    } finally {
+      if (refreshInFlight.current === refreshPromise) {
+        refreshInFlight.current = null;
+      }
+    }
   }
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
@@ -395,6 +506,40 @@ export default function WebPortalSprintOnePage() {
     }
     return ((await response.json()) as ApiEnvelope<UserProfile>).data;
   }
+
+  async function loadPlatformSnapshot() {
+    if (!state.token) return;
+    const [aiHealth, deployment, candidates, humanEvaluation, datasets, evaluations] = await Promise.all([
+      api<{ status: string; activeNodes: number; healthyNodes: number; circuitBreakerStatus: string }>('/api/v1/ai/health').catch(() => undefined),
+      api<{ status: string; environment: string; region: string }>('/api/v1/platform/deployment-status').catch(() => undefined),
+      api<PageResponse<TrainingCandidateResponse>>('/api/v1/learning/candidates?size=50').catch(() => undefined),
+      api<HumanEvaluationQueue>('/api/v1/evaluation/human/examples').catch(() => undefined),
+      api<PageResponse<{ name: string; type: string; status: string; qualityScore: number | null }>>('/api/v1/datasets?size=50').catch(() => undefined),
+      api<PageResponse<{ id: string; modelName: string; status: string; recommendation: string; overallScore: number | null }>>('/api/v1/evaluation/results?size=20').catch(() => undefined),
+    ]);
+    setPlatformSnapshot({
+      aiHealth,
+      deployment,
+      candidateCount: candidates?.totalElements,
+      pendingCandidateCount: candidates?.content.filter((candidate) => candidate.approvalStatus === 'PENDING_APPROVAL').length,
+      humanEvaluation: humanEvaluation
+        ? {
+            total: humanEvaluation.total,
+            scored: humanEvaluation.scored,
+            remaining: humanEvaluation.remaining,
+            evaluationSetVersion: humanEvaluation.evaluationSetVersion,
+          }
+        : undefined,
+      datasets: datasets?.content,
+      evaluations: evaluations?.content,
+    });
+  }
+
+  useEffect(() => {
+    if (state.token?.accessToken) {
+      void loadPlatformSnapshot();
+    }
+  }, [state.token?.accessToken]);
 
   async function createSurvey() {
     await run(
@@ -691,6 +836,61 @@ export default function WebPortalSprintOnePage() {
     });
   }
 
+  async function loadHumanEvaluations() {
+    await run('Human evaluation queue loaded.', async () => {
+      const queue = await api<HumanEvaluationQueue>('/api/v1/evaluation/human/examples');
+      setState((current) => ({ ...current, humanEvaluation: queue }));
+    });
+  }
+
+  async function submitHumanEvaluation() {
+    await run('Human rubric review submitted.', async () => {
+      const queue = state.humanEvaluation;
+      const example = queue?.examples.find((item) => item.exampleId === humanEvaluationExampleId);
+      if (!example) throw new Error('Select a held-out example before submitting a review.');
+      const requiredScores: Array<[keyof HumanScoreState, string]> = [
+        ['ragEvidenceQuality', 'RAG/evidence quality'],
+        ['uncertaintyHandling', 'uncertainty handling'],
+        ['practicalUsefulness', 'practical usefulness'],
+      ];
+      if (example.task === 'root-cause-analysis' || example.task === 'recommendation-generation') {
+        requiredScores.push(['rootCauseQuality', 'root-cause quality']);
+      }
+      if (example.task === 'recommendation-generation') {
+        requiredScores.push(['recommendationQuality', 'recommendation quality']);
+      }
+      const missing = requiredScores.find(([key]) => humanScores[key] === '');
+      if (missing) throw new Error(`Select a score for ${missing[1]}.`);
+      const evidenceReferencesUsed = humanEvidenceReferences
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (evidenceReferencesUsed.length === 0) {
+        throw new Error('Enter at least one source ID used for the review.');
+      }
+      await api('/api/v1/evaluation/human/reviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          exampleId: example.exampleId,
+          scores: {
+            rootCauseQuality: scoreValue(humanScores.rootCauseQuality),
+            recommendationQuality: scoreValue(humanScores.recommendationQuality),
+            ragEvidenceQuality: scoreValue(humanScores.ragEvidenceQuality),
+            uncertaintyHandling: scoreValue(humanScores.uncertaintyHandling),
+            practicalUsefulness: scoreValue(humanScores.practicalUsefulness),
+          },
+          evidenceReferencesUsed,
+          reviewerComments: humanReviewerComments || undefined,
+        }),
+      });
+      setHumanEvaluationExampleId('');
+      setHumanScores(emptyHumanScores());
+      setHumanEvidenceReferences('');
+      setHumanReviewerComments('');
+      await loadHumanEvaluations();
+    });
+  }
+
   async function reviewTrainingCandidate(candidateId: string, decision: 'APPROVE' | 'CORRECT' | 'REJECT') {
     await run(`Training candidate ${decision.toLowerCase()} recorded.`, async () => {
       if (decision === 'CORRECT' && !trainingReviewOutput.trim()) {
@@ -736,12 +936,15 @@ export default function WebPortalSprintOnePage() {
   async function run(success: string, action: () => Promise<void>) {
     setError('');
     setMessage('Working...');
+    setIsBusy(true);
     try {
       await action();
       setMessage(success);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected workflow failure');
       setMessage('Workflow stopped.');
+    } finally {
+      setIsBusy(false);
     }
   }
 
@@ -749,16 +952,34 @@ export default function WebPortalSprintOnePage() {
     setSelectedFile(event.target.files?.[0] ?? null);
   }
 
+  const workflowItems = [
+    { label: 'Survey', detail: state.survey?.status ?? 'Not started', complete: Boolean(state.survey) },
+    { label: 'Evidence', detail: state.evidence ? 'Uploaded' : 'Awaiting file', complete: Boolean(state.evidence) },
+    { label: 'RAG', detail: state.rag ? `${state.rag.citations.length} citations` : 'Not run', complete: Boolean(state.rag) },
+    { label: 'AI analysis', detail: state.llmAnalysis ? 'Qwen complete' : 'Not run', complete: Boolean(state.llmAnalysis) },
+    { label: 'Root cause', detail: state.rootCauseAnalysis ? 'Structured' : 'Not run', complete: Boolean(state.rootCauseAnalysis) },
+    { label: 'Recommendations', detail: state.recommendations ? `${state.recommendations.options.length} options` : 'Not run', complete: Boolean(state.recommendations) },
+    { label: 'Review', detail: state.trainingCandidates?.length ? `${state.trainingCandidates.length} candidates` : 'Human gate', complete: false },
+  ];
+  const selectedHumanEvaluationExample = state.humanEvaluation?.examples.find(
+    (example) => example.exampleId === humanEvaluationExampleId,
+  );
+  const sessionActive = Boolean(state.token && new Date(state.token.accessTokenExpiresAt).getTime() > Date.now());
+
   return (
     <main className="appShell">
       <aside className="sidebar">
-        <div>
+        <div className="brandBlock">
+          <div className="brandMark" aria-hidden="true">RI</div>
           <p className="eyebrow">Enterprise Rural Intelligence</p>
-          <h1>Sprint 1 MVP</h1>
+          <h1>Rural Intelligence</h1>
+          <p className="brandSubline">Decision workspace</p>
         </div>
-        <nav>
+        <div className="sidebarSectionLabel">Workspace</div>
+        <nav aria-label="Primary navigation">
           {navItems.map((item) => (
             <button
+              aria-current={active === item ? 'page' : undefined}
               className={active === item ? 'active' : ''}
               key={item}
               onClick={() => setActive(item)}
@@ -768,49 +989,96 @@ export default function WebPortalSprintOnePage() {
             </button>
           ))}
         </nav>
+        <div className="sidebarFooter">
+          <span className="sidebarFooterLabel">Session</span>
+          <strong>{state.profile?.fullName ?? 'Guest operator'}</strong>
+          <span>{state.token ? 'Authenticated workspace' : 'Sign in to begin'}</span>
+        </div>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">Operational workflow</p>
+          <div className="topbarTitle">
+            <p className="eyebrow">Operational workflow / {active}</p>
             <h2>{active}</h2>
+            <p className="topbarHint">Evidence-led decisions for rural programs and services.</p>
           </div>
-          <div className={state.token ? 'status ok' : 'status'}>
-            {state.token ? 'Authenticated' : 'Not signed in'}
+          <div className="topbarMeta">
+            <span className={sessionActive ? 'status ok' : 'status'}>
+              <span className="statusDot" aria-hidden="true" />
+              {sessionActive ? 'Authenticated' : state.token ? 'Session expired' : 'Not signed in'}
+            </span>
+            <span className="modelChip">Qwen / Ollama</span>
           </div>
         </header>
 
-        <section className="notice">
+        <section className={error ? 'notice noticeError' : 'notice'} aria-live="polite">
+          <span className="noticeLabel">{isBusy ? 'Processing' : error ? 'Action needs attention' : 'System update'}</span>
           <span>{message}</span>
           {error ? <strong>{error}</strong> : null}
         </section>
 
         {active === 'Dashboard' ? (
-          <section className="grid">
-            <Metric label="Survey" value={state.survey?.status ?? 'Not created'} />
-            <Metric label="Submission" value={state.submission ? 'Submitted' : 'Pending'} />
-            <Metric label="Evidence" value={state.evidence ? 'Uploaded' : 'Not uploaded'} />
-            <Metric
-              label="AI Analysis"
-              value={
-                state.llmAnalysis
-                  ? `${Math.round(state.llmAnalysis.output.confidence * 100)}% Qwen confidence`
-                  : 'Pending'
-              }
-            />
-            <Metric label="Report" value={state.report?.reportType ?? 'Pending'} />
-            <article className="panel wide">
-              <h3>End-to-end workflow</h3>
-              <ol className="steps">
-                <li>Login or auto-register the first administrator.</li>
-                <li>Create and publish a governed survey definition.</li>
-                <li>Submit a validated survey response.</li>
-                <li>Upload evidence to the backend storage abstraction.</li>
-                <li>Run RAG and decision intelligence.</li>
-                <li>Generate PDF and CSV reports.</li>
-              </ol>
+          <section className="dashboardStack">
+            <div className="pageIntro">
+              <div>
+                <p className="eyebrow">Village intelligence</p>
+                <h3>Move from field evidence to an accountable decision.</h3>
+                <p>Complete each stage, inspect the evidence, then send recommendations through human review.</p>
+              </div>
+                <button type="button" className="secondaryButton" onClick={() => setActive('Survey')}>
+                Start a survey
+              </button>
+            </div>
+            <div className="metricGrid">
+              <MetricCard label="Survey status" value={state.survey?.status ?? 'Not created'} detail={state.survey?.name ?? 'Current session'} tone={state.survey ? 'good' : 'neutral'} />
+              <MetricCard label="Submission" value={state.submission ? 'Submitted' : 'Pending'} detail={state.submission?.submittedAt ?? 'Awaiting response'} tone={state.submission ? 'good' : 'neutral'} />
+              <MetricCard label="Evidence" value={state.evidence ? 'Uploaded' : 'Not uploaded'} detail={state.evidence?.originalFileName ?? 'Awaiting asset'} tone={state.evidence ? 'good' : 'neutral'} />
+              <MetricCard
+                label="AI confidence"
+                value={state.llmAnalysis ? `${Math.round(state.llmAnalysis.output.confidence * 100)}%` : 'Pending'}
+                detail={platformSnapshot.aiHealth?.status ?? 'Health not loaded'}
+                tone={state.llmAnalysis ? 'good' : 'neutral'}
+              />
+              <MetricCard label="Review queue" value={platformSnapshot.pendingCandidateCount === undefined ? 'Not loaded' : String(platformSnapshot.pendingCandidateCount)} detail="Pending training candidates" tone={platformSnapshot.pendingCandidateCount ? 'warn' : 'neutral'} />
+            </div>
+            <article className="panel workflowPanel">
+              <div className="sectionHeading">
+                <div>
+                  <p className="eyebrow">Decision pipeline</p>
+                  <h3>Survey to recommendation review</h3>
+                </div>
+                <span className="sectionMeta">{workflowItems.filter((item) => item.complete).length}/7 complete</span>
+              </div>
+              <div className="workflowRail" aria-label="Decision workflow">
+                {workflowItems.map((item, index) => (
+                  <div className={`workflowStep ${item.complete ? 'complete' : ''}`} key={item.label}>
+                    <span className="workflowIndex">{item.complete ? 'OK' : String(index + 1).padStart(2, '0')}</span>
+                    <strong>{item.label}</strong>
+                    <span>{item.detail}</span>
+                  </div>
+                ))}
+              </div>
             </article>
+            <div className="dashboardColumns">
+              <article className="panel activityPanel">
+                <div className="sectionHeading"><h3>Recent activity</h3><span className="sectionMeta">Live session</span></div>
+                <ul className="activityList">
+                  <ActivityItem label="Authentication" value={state.token ? 'Account connected' : 'Awaiting sign in'} complete={Boolean(state.token)} />
+                  <ActivityItem label="Survey definition" value={state.survey?.name ?? 'No survey created'} complete={Boolean(state.survey)} />
+                  <ActivityItem label="Evidence workspace" value={state.evidence?.originalFileName ?? 'No evidence attached'} complete={Boolean(state.evidence)} />
+                  <ActivityItem label="Decision output" value={state.recommendations ? 'Recommendations ready for review' : 'Not generated'} complete={Boolean(state.recommendations)} />
+                </ul>
+              </article>
+              <article className="panel nextActionPanel">
+                <p className="eyebrow">Next action</p>
+                <h3>{!state.token ? 'Connect an operator account' : !state.survey ? 'Create the first survey' : !state.evidence ? 'Attach supporting evidence' : 'Run the intelligence workflow'}</h3>
+                <p>{!state.token ? 'Sign in to unlock survey, evidence, and review actions.' : 'The workspace keeps every decision linked to its source evidence and review state.'}</p>
+                <button type="button" onClick={() => setActive(!state.token ? 'Login' : !state.survey ? 'Survey' : !state.evidence ? 'Evidence / RAG' : 'AI Analysis')}>
+                  {!state.token ? 'Go to login' : !state.survey ? 'Open survey' : !state.evidence ? 'Upload evidence' : 'Open AI analysis'}
+                </button>
+              </article>
+            </div>
           </section>
         ) : null}
 
@@ -828,7 +1096,7 @@ export default function WebPortalSprintOnePage() {
                 value={password}
               />
             </label>
-            <button type="submit">Login</button>
+            <button disabled={isBusy} type="submit">{isBusy ? 'Signing in...' : 'Login'}</button>
           </form>
         ) : null}
 
@@ -845,8 +1113,8 @@ export default function WebPortalSprintOnePage() {
                 value={surveyDescription}
               />
             </label>
-            <button disabled={!state.token} onClick={createSurvey} type="button">
-              Create Survey
+            <button disabled={isBusy || !state.token} onClick={createSurvey} type="button">
+              {isBusy ? 'Creating...' : 'Create Survey'}
             </button>
             <label>
               Water source answer
@@ -856,7 +1124,7 @@ export default function WebPortalSprintOnePage() {
               />
             </label>
             <button
-              disabled={!state.token || !state.surveyQuestion}
+              disabled={isBusy || !state.token || !state.surveyQuestion}
               onClick={submitSurvey}
               type="button"
             >
@@ -871,25 +1139,35 @@ export default function WebPortalSprintOnePage() {
           </section>
         ) : null}
 
-        {active === 'Evidence Upload' ? (
-          <section className="panel form">
+        {active === 'Evidence / RAG' ? (
+          <section className="panel form wide">
+            <div className="sectionHeading">
+              <div>
+                <p className="eyebrow">Evidence workspace</p>
+                <h3>Evidence and retrieval</h3>
+              </div>
+              <span className="sectionMeta">Source-backed context</span>
+            </div>
             <label>
               Evidence file
               <input onChange={fileChanged} type="file" />
             </label>
-            <button disabled={!state.token || !state.survey} onClick={uploadEvidence} type="button">
-              Upload Evidence
+            <button disabled={isBusy || !state.token || !state.survey} onClick={uploadEvidence} type="button">
+              {isBusy ? 'Uploading...' : 'Upload Evidence'}
             </button>
-            <pre>
-              {state.evidence
-                ? JSON.stringify(state.evidence, null, 2)
-                : 'Create a survey, then upload evidence.'}
-            </pre>
+            <EvidenceRagView evidence={state.evidence} rag={state.rag} />
           </section>
         ) : null}
 
-        {active === 'AI Assistant' ? (
-          <section className="panel form">
+        {active === 'AI Analysis' ? (
+          <section className="panel form wide">
+            <div className="sectionHeading">
+              <div>
+                <p className="eyebrow">Decision support</p>
+                <h3>AI analysis workspace</h3>
+              </div>
+              <span className="sectionMeta">Qwen / constrained output</span>
+            </div>
             <label>
               Problem statement
               <textarea
@@ -897,108 +1175,26 @@ export default function WebPortalSprintOnePage() {
                 value={problemStatement}
               />
             </label>
-            <button disabled={!state.token || !state.survey} onClick={runAiWorkflow} type="button">
-              Run AI Analysis
+            <button disabled={isBusy || !state.token || !state.survey} onClick={runAiWorkflow} type="button">
+              {isBusy ? 'Running analysis...' : 'Run AI Analysis'}
             </button>
-            <Result title="RAG" value={state.rag} />
-            <Result title="Local Qwen Analysis" value={state.llmAnalysis} />
-            <Result title="Structured Root Cause Engine" value={state.rootCauseAnalysis} />
-            <Result title="Recommendation Intelligence" value={state.recommendations} />
-            <Result title="Decision" value={state.decision} />
+            <AiAnalysisView rag={state.rag} llm={state.llmAnalysis} rootCause={state.rootCauseAnalysis} decision={state.decision} />
           </section>
         ) : null}
 
         {active === 'Root Cause Analysis' ? (
-          <section className="panel form">
-            {state.rootCauseAnalysis ? (
-              <article className="analysis">
-                <h3>{state.rootCauseAnalysis.problem.description}</h3>
-                <dl>
-                  <dt>Village</dt>
-                  <dd>{state.rootCauseAnalysis.problem.village}</dd>
-                  <dt>Domain</dt>
-                  <dd>{state.rootCauseAnalysis.problem.domain}</dd>
-                  <dt>Confidence</dt>
-                  <dd>{Math.round(state.rootCauseAnalysis.confidence.overall * 100)}%</dd>
-                </dl>
-                <h4>Observed Facts And Retrieved Evidence</h4>
-                <ul>
-                  {state.rootCauseAnalysis.observedFacts.slice(0, 8).map((fact) => (
-                    <li key={`${fact.sourceType}-${fact.statement}`}>
-                      <strong>{fact.category}</strong>: {fact.statement}
-                    </li>
-                  ))}
-                </ul>
-                <h4>Contributing Factors</h4>
-                <ul>
-                  {state.rootCauseAnalysis.contributingFactors.map((factor) => (
-                    <li key={factor.factor}>
-                      {factor.factor} ({Math.round(factor.confidence * 100)}%)
-                    </li>
-                  ))}
-                </ul>
-                <h4>Validated Root Causes</h4>
-                <ul>
-                  {state.rootCauseAnalysis.validatedRootCauses.length > 0 ? (
-                    state.rootCauseAnalysis.validatedRootCauses.map((cause) => (
-                      <li key={cause.description}>
-                        {cause.description}
-                        <span>{cause.reasoningSummary}</span>
-                      </li>
-                    ))
-                  ) : (
-                    <li>Insufficient evidence for validated root causes.</li>
-                  )}
-                </ul>
-                <h4>Alternative Hypotheses</h4>
-                <ul>
-                  {state.rootCauseAnalysis.alternativeHypotheses.map((hypothesis) => (
-                    <li key={hypothesis.description}>{hypothesis.description}</li>
-                  ))}
-                </ul>
-                <h4>Uncertainty And Follow-up</h4>
-                <ul>
-                  {state.rootCauseAnalysis.uncertainties.map((uncertainty) => (
-                    <li key={uncertainty.statement}>
-                      {uncertainty.severity}: {uncertainty.statement}
-                    </li>
-                  ))}
-                </ul>
-                <h4>Causal Graph</h4>
-                <ul>
-                  {state.rootCauseAnalysis.causalGraph.map((edge) => (
-                    <li key={`${edge.from}-${edge.to}-${edge.relationshipType}`}>
-                      {edge.from} {'->'} {edge.to} ({edge.relationshipType},{' '}
-                      {Math.round(edge.confidence * 100)}%)
-                    </li>
-                  ))}
-                </ul>
-                <h4>Limitations</h4>
-                <ul>
-                  {state.rootCauseAnalysis.limitations.map((limitation) => (
-                    <li key={limitation}>{limitation}</li>
-                  ))}
-                </ul>
-              </article>
-            ) : (
-              <p>Run AI analysis to generate structured root-cause intelligence.</p>
-            )}
+          <section className="panel form wide">
+            <div className="sectionHeading"><div><p className="eyebrow">Explainability</p><h3>Root-cause analysis</h3></div><span className="sectionMeta">Facts, causes, uncertainty</span></div>
+            {state.rootCauseAnalysis ? <RootCauseView rootCause={state.rootCauseAnalysis} /> : <EmptyState title="Root cause not available" body="Run AI analysis to generate structured root-cause intelligence." />}
           </section>
         ) : null}
 
         {active === 'Recommendations' ? (
-          <section className="panel form">
-            {state.recommendations ? (
-              <article className="analysis">
-                <h3>Recommendation Set {state.recommendations.recommendationSetId}</h3>
-                <dl>
-                  <dt>Status</dt>
-                  <dd>{state.recommendations.status}</dd>
-                  <dt>Model</dt>
-                  <dd>{state.recommendations.model}</dd>
-                  <dt>Prompt</dt>
-                  <dd>{state.recommendations.promptVersion}</dd>
-                </dl>
+          <section className="panel form wide">
+            <RecommendationWorkspace
+              recommendation={state.recommendations}
+              actions={state.recommendations ? (
+                <>
                 <label htmlFor="recommendation-review-notes">Reviewer notes</label>
                 <textarea
                   id="recommendation-review-notes"
@@ -1016,91 +1212,27 @@ export default function WebPortalSprintOnePage() {
                   rows={10}
                 />
                 <div className="actions" aria-label="Recommendation review actions">
-                  <button type="button" onClick={() => reviewRecommendations('EDIT')}>
+                  <button disabled={isBusy} type="button" onClick={() => reviewRecommendations('EDIT')}>
                     Save Edit
                   </button>
-                  <button type="button" onClick={() => reviewRecommendations('APPROVE')}>
+                  <button disabled={isBusy} type="button" onClick={() => reviewRecommendations('APPROVE')}>
                     Approve
                   </button>
-                  <button type="button" onClick={() => reviewRecommendations('REJECT')}>
+                  <button disabled={isBusy} type="button" onClick={() => reviewRecommendations('REJECT')}>
                     Reject
                   </button>
                 </div>
-                <h4>Prioritized Options</h4>
-                <ul>
-                  {state.recommendations.options
-                    .slice()
-                    .sort((left, right) => left.priority - right.priority)
-                    .map((option) => (
-                      <li key={option.recommendationId}>
-                        <strong>
-                          P{option.priority} {option.title}
-                        </strong>
-                        <span>{option.description}</span>
-                        <span>
-                          Evidence {Math.round(option.confidence.evidenceStrength * 100)}%,
-                          recommendation{' '}
-                          {Math.round(option.confidence.recommendationConfidence * 100)}
-                          %, feasibility{' '}
-                          {Math.round(option.confidence.implementationFeasibility * 100)}%
-                        </span>
-                        <span>
-                          Resources: {option.requiredResources.join(', ')}. Feasibility:{' '}
-                          {option.feasibility.rating} ({option.feasibility.resourceStatus})
-                        </span>
-                      </li>
-                    ))}
-                </ul>
-                <h4>Trade-offs</h4>
-                <ul>
-                  {state.recommendations.comparison.map((comparison) => (
-                    <li key={comparison.recommendationId}>
-                      {comparison.recommendationId}: score{' '}
-                      {Math.round(comparison.priorityScore * 100)}%, effort{' '}
-                      {comparison.effortCategory}, complexity {comparison.complexity}
-                    </li>
-                  ))}
-                </ul>
-                <h4>Scheme Matches</h4>
-                <ul>
-                  {state.recommendations.schemeMatches.map((scheme) => (
-                    <li key={`${scheme.schemeName}-${scheme.source}`}>
-                      {scheme.schemeName}: {scheme.status}. Source {scheme.source}.{' '}
-                      {scheme.relevantBenefit}
-                    </li>
-                  ))}
-                </ul>
-                <h4>Risks</h4>
-                <ul>
-                  {state.recommendations.options.flatMap((option) =>
-                    option.risks.map((risk) => (
-                      <li key={`${option.recommendationId}-${risk.riskType}`}>
-                        {option.recommendationId} {risk.severity}: {risk.description} Mitigation:{' '}
-                        {risk.mitigation}
-                      </li>
-                    )),
-                  )}
-                </ul>
-                <h4>Implementation Plan</h4>
-                <ul>
-                  {state.recommendations.options[0]?.implementationPlan.map((phase) => (
-                    <li key={phase.phase}>
-                      {phase.phase}: {phase.actions.join(', ')}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ) : (
-              <p>Run AI analysis to generate recommendation intelligence.</p>
-            )}
+                </>
+              ) : undefined}
+            />
           </section>
         ) : null}
 
         {active === 'Training Review' ? (
           <section className="panel form">
             <div className="actions">
-              <button type="button" onClick={loadTrainingCandidates} disabled={!state.token}>
-                Load Candidates
+              <button type="button" onClick={loadTrainingCandidates} disabled={isBusy || !state.token}>
+                {isBusy ? 'Loading...' : 'Load Candidates'}
               </button>
             </div>
             <p>Reviewer identity is taken from the authenticated account. Pending, rejected, and synthetic candidates cannot enter the production dataset.</p>
@@ -1126,13 +1258,13 @@ export default function WebPortalSprintOnePage() {
                     <h4>Evidence and provenance</h4>
                     <pre>{candidate.evidenceUsedJson}</pre>
                     <div className="actions" aria-label={`Review actions for ${candidate.id}`}>
-                      <button type="button" disabled={candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'APPROVE')}>
+                      <button type="button" disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'APPROVE')}>
                         Approve
                       </button>
-                      <button type="button" disabled={candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => { setTrainingReviewCandidateId(candidate.id); setTrainingReviewOutput(candidate.acceptedOutput || candidate.aiOutput); }}>
+                      <button type="button" disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => { setTrainingReviewCandidateId(candidate.id); setTrainingReviewOutput(candidate.acceptedOutput || candidate.aiOutput); }}>
                         Select Correction
                       </button>
-                      <button type="button" disabled={candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'REJECT')}>
+                      <button type="button" disabled={isBusy || candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'REJECT')}>
                         Reject
                       </button>
                     </div>
@@ -1143,7 +1275,7 @@ export default function WebPortalSprintOnePage() {
                         <label htmlFor={`training-review-reason-${candidate.id}`}>Review notes</label>
                         <textarea id={`training-review-reason-${candidate.id}`} value={trainingReviewReason} onChange={(event) => setTrainingReviewReason(event.target.value)} rows={3} placeholder="Explain the correction or decision" />
                         <div className="actions">
-                          <button type="button" onClick={() => reviewTrainingCandidate(candidate.id, 'CORRECT')}>Save Correction</button>
+                          <button disabled={isBusy} type="button" onClick={() => reviewTrainingCandidate(candidate.id, 'CORRECT')}>Save Correction</button>
                           <button type="button" onClick={() => { setTrainingReviewCandidateId(''); setTrainingReviewOutput(''); }}>Cancel</button>
                         </div>
                       </div>
@@ -1157,25 +1289,181 @@ export default function WebPortalSprintOnePage() {
           </section>
         ) : null}
 
+        {active === 'Human Evaluation' ? (
+          <section className="panel form humanEvaluationWorkspace">
+            <div className="sectionHeading">
+              <div>
+                <p className="eyebrow">Independent semantic review</p>
+                <h3>BASE Qwen held-out evaluation</h3>
+              </div>
+              <span className="sectionMeta">
+                {state.humanEvaluation ? `${state.humanEvaluation.scored}/${state.humanEvaluation.total} scored` : 'Not loaded'}
+              </span>
+            </div>
+            <p>
+              Score only against HUMAN-QUALITY-RUBRIC@1.0.0. This workspace is separate from Training Review and never approves training data.
+            </p>
+            <div className="actions">
+              <button type="button" onClick={loadHumanEvaluations} disabled={isBusy || !state.token}>
+                {isBusy ? 'Loading...' : 'Load Held-out Examples'}
+              </button>
+            </div>
+            {!state.token ? <p className="emptyState">Sign in with an authorized evaluation reviewer account to load examples.</p> : null}
+            {state.humanEvaluation ? (
+              <div className="humanEvaluationLayout">
+                <div className="humanEvaluationQueue" aria-label="Held-out evaluation examples">
+                  {state.humanEvaluation.examples.map((example) => (
+                    <button
+                      className={`humanEvaluationQueueItem ${humanEvaluationExampleId === example.exampleId ? 'selected' : ''}`}
+                      type="button"
+                      key={example.exampleId}
+                      onClick={() => {
+                        setHumanEvaluationExampleId(example.exampleId);
+                        setHumanEvidenceReferences('');
+                        setHumanReviewerComments('');
+                        setHumanScores(emptyHumanScores());
+                      }}
+                    >
+                      <strong>{example.task}</strong>
+                      <span>{example.scenarioGroup}</span>
+                      <small>{example.reviewStatus === 'SCORED' ? `Scored (${example.reviewCount})` : 'Remaining'}</small>
+                    </button>
+                  ))}
+                </div>
+                {selectedHumanEvaluationExample ? (
+                  <article className="humanEvaluationDetail">
+                    <div className="sectionHeading">
+                      <div>
+                        <p className="eyebrow">{selectedHumanEvaluationExample.reviewStatus === 'SCORED' ? 'Submitted state' : 'Incomplete state'}</p>
+                        <h3>{selectedHumanEvaluationExample.task}</h3>
+                      </div>
+                      <span className="sectionMeta">{selectedHumanEvaluationExample.reviewStatus}</span>
+                    </div>
+                    <dl>
+                      <dt>Scenario</dt>
+                      <dd>{selectedHumanEvaluationExample.scenarioGroup}</dd>
+                      <dt>Evaluation set</dt>
+                      <dd>{selectedHumanEvaluationExample.evaluationSetVersion}</dd>
+                      <dt>Model / prompt</dt>
+                      <dd>{selectedHumanEvaluationExample.modelVersion} / {selectedHumanEvaluationExample.promptVersion}</dd>
+                      <dt>Output digest</dt>
+                      <dd>{selectedHumanEvaluationExample.outputSha256}</dd>
+                    </dl>
+                    <h4>Problem input</h4>
+                    <p>{selectedHumanEvaluationExample.input}</p>
+                    <h4>Retrieved evidence and context</h4>
+                    <div className="recordPanel"><p>{selectedHumanEvaluationExample.retrievedContext || 'No retrieved context recorded.'}</p></div>
+                    <h4>Allowed citations</h4>
+                    <div className="citationList">
+                      {selectedHumanEvaluationExample.citations.map((citation, index) => (
+                        <div className="citationRow" key={`${citation.source_id ?? citation.sourceId ?? 'source'}-${index}`}>
+                          <strong className="citationId">{citation.source_id ?? citation.sourceId ?? 'Unidentified source'}</strong>
+                          <span>{citation.excerpt ?? 'No excerpt recorded.'}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <h4>BASE Qwen output</h4>
+                    <div className="recordPanel outputPanel"><p>{selectedHumanEvaluationExample.output}</p></div>
+                    <h4>Provenance and inference configuration</h4>
+                    <div className="recordGrid">
+                      <FieldList title="Provenance" value={selectedHumanEvaluationExample.provenance} />
+                      <FieldList title="Inference configuration" value={selectedHumanEvaluationExample.inferenceConfiguration} />
+                    </div>
+                    <div className="scoreGrid">
+                      {(selectedHumanEvaluationExample.task === 'root-cause-analysis' || selectedHumanEvaluationExample.task === 'recommendation-generation') ? (
+                        <ScoreSelect id="human-root-cause-quality" label="Root-cause quality" value={humanScores.rootCauseQuality} onChange={(value) => setHumanScores((current) => ({ ...current, rootCauseQuality: value }))} />
+                      ) : null}
+                      {selectedHumanEvaluationExample.task === 'recommendation-generation' ? (
+                        <ScoreSelect id="human-recommendation-quality" label="Recommendation quality" value={humanScores.recommendationQuality} onChange={(value) => setHumanScores((current) => ({ ...current, recommendationQuality: value }))} />
+                      ) : null}
+                      <ScoreSelect id="human-rag-quality" label="RAG / evidence quality" value={humanScores.ragEvidenceQuality} onChange={(value) => setHumanScores((current) => ({ ...current, ragEvidenceQuality: value }))} />
+                      <ScoreSelect id="human-uncertainty" label="Uncertainty handling" value={humanScores.uncertaintyHandling} onChange={(value) => setHumanScores((current) => ({ ...current, uncertaintyHandling: value }))} />
+                      <ScoreSelect id="human-usefulness" label="Practical usefulness" value={humanScores.practicalUsefulness} onChange={(value) => setHumanScores((current) => ({ ...current, practicalUsefulness: value }))} />
+                    </div>
+                    <label htmlFor="human-evidence-references">Evidence source IDs used</label>
+                    <input id="human-evidence-references" value={humanEvidenceReferences} onChange={(event) => setHumanEvidenceReferences(event.target.value)} placeholder="CONTROLLED_PROJECT_PILOT" />
+                    <small>Allowed source IDs: {selectedHumanEvaluationExample.citations.map((citation) => citation.source_id ?? citation.sourceId ?? 'unknown').join(', ')}</small>
+                    <label htmlFor="human-reviewer-comments">Reviewer comments</label>
+                    <textarea id="human-reviewer-comments" value={humanReviewerComments} onChange={(event) => setHumanReviewerComments(event.target.value)} rows={4} placeholder="Record evidence-based reasoning for the scores." />
+                    <button type="button" disabled={isBusy} onClick={submitHumanEvaluation}>
+                      {isBusy ? 'Submitting...' : 'Submit Human Scores'}
+                    </button>
+                  </article>
+                ) : (
+                  <p className="emptyState">Select an example to expose its input, evidence, BASE output, and rubric controls.</p>
+                )}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {active === 'Model Evaluation' ? (
+          <section className="panel form wide">
+            <div className="sectionHeading">
+              <div>
+                <p className="eyebrow">Independent model comparison</p>
+                <h3>Model evaluation</h3>
+              </div>
+              <span className="sectionMeta">Existing evaluation records</span>
+            </div>
+            <p className="sectionLead">This view reports only persisted evaluation data. It does not infer a winner or replace the held-out human rubric.</p>
+            {platformSnapshot.evaluations?.length ? (
+              <div className="evaluationTable" role="table" aria-label="Persisted model evaluations">
+                <div className="evaluationTableRow evaluationTableHeader" role="row"><span>Model</span><span>Status</span><span>Recommendation</span><span>Score</span></div>
+                {platformSnapshot.evaluations.map((evaluation) => (
+                  <div className="evaluationTableRow" role="row" key={evaluation.id}><strong>{evaluation.modelName}</strong><span>{evaluation.status}</span><span>{evaluation.recommendation || 'Not recorded'}</span><span>{evaluation.overallScore === null ? 'Not evaluated' : evaluation.overallScore}</span></div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No comparison is loaded" body="Run and persist an evaluation through the governed evaluation API before comparing model results here." />
+            )}
+            <div className="notAvailablePanel"><strong>Base Qwen versus fine-tuned Qwen</strong><span>Human-quality scores and detailed comparison metrics are not available through the current portal read API.</span></div>
+          </section>
+        ) : null}
+
+        {active === 'Governance / Dataset' ? (
+          <section className="panel form wide">
+            <div className="sectionHeading">
+              <div>
+                <p className="eyebrow">Controlled data and review</p>
+                <h3>Governance and dataset status</h3>
+              </div>
+              <span className="sectionMeta">No automatic promotion</span>
+            </div>
+            <div className="metricGrid governanceMetrics">
+              <MetricCard label="Dataset registry" value={platformSnapshot.datasets ? `${platformSnapshot.datasets.length} records` : 'Not loaded'} detail="Backend registry" tone={platformSnapshot.datasets ? 'good' : 'neutral'} />
+              <MetricCard label="Training review" value={platformSnapshot.pendingCandidateCount === undefined ? 'Not loaded' : `${platformSnapshot.pendingCandidateCount} pending`} detail={`${platformSnapshot.candidateCount ?? 0} total candidates`} tone={platformSnapshot.pendingCandidateCount ? 'warn' : 'neutral'} />
+              <MetricCard label="Human evaluation" value={platformSnapshot.humanEvaluation ? `${platformSnapshot.humanEvaluation.remaining} remaining` : 'Not loaded'} detail={platformSnapshot.humanEvaluation?.evaluationSetVersion ?? 'Held-out set'} tone={platformSnapshot.humanEvaluation?.remaining ? 'warn' : 'neutral'} />
+              <MetricCard label="Runtime status" value={platformSnapshot.deployment?.status ?? 'Not loaded'} detail={platformSnapshot.deployment?.environment ?? 'Environment unavailable'} tone={platformSnapshot.deployment?.status === 'SERVING' ? 'good' : 'neutral'} />
+            </div>
+            {platformSnapshot.datasets?.length ? (
+              <div className="datasetList">
+                {platformSnapshot.datasets.map((dataset) => <article className="datasetRow" key={dataset.name}><div><strong>{dataset.name}</strong><span>{dataset.type}</span></div><span className="status">{dataset.status}</span><span>{dataset.qualityScore === null ? 'Quality not recorded' : `Quality ${dataset.qualityScore}`}</span></article>)}
+              </div>
+            ) : <EmptyState title="Dataset registry unavailable" body="Sign in with a permitted account or start the backend services to load governed dataset records." />}
+            <div className="notAvailablePanel"><strong>Dataset v0.3 release status</strong><span>The portal does not invent a static artifact status. Use the dataset and learning APIs for the current persisted state.</span></div>
+          </section>
+        ) : null}
+
         {active === 'Reports' ? (
           <section className="panel form">
             <div className="actions">
               <button
-                disabled={!state.decision}
+                disabled={isBusy || !state.decision}
                 onClick={() => generateReport('EXECUTIVE')}
                 type="button"
               >
                 Executive Report
               </button>
               <button
-                disabled={!state.decision}
+                disabled={isBusy || !state.decision}
                 onClick={() => generateReport('VILLAGE')}
                 type="button"
               >
                 Village Report
               </button>
               <button
-                disabled={!state.decision}
+                disabled={isBusy || !state.decision}
                 onClick={() => generateReport('DISTRICT')}
                 type="button"
               >
@@ -1218,12 +1506,86 @@ export default function WebPortalSprintOnePage() {
   );
 }
 
-function Metric({ label, value }: Readonly<{ label: string; value: string }>) {
+function readableApiError(body: string, status: number): string {
+  try {
+    const payload = JSON.parse(body) as { errorCode?: string; message?: string };
+    if (payload.errorCode === 'AUTHENTICATION_REQUIRED' || status === 401) {
+      return 'Your session expired or the access token was rejected. Sign in again.';
+    }
+    if (payload.message) {
+      return payload.message;
+    }
+  } catch {
+    // Fall through to stable text matching for framework/database errors.
+  }
+  if (body.includes('uq_surveys_org_name_active') || body.includes('duplicate key value')) {
+    return 'A survey with this name already exists in this organization. Change the survey name and try again.';
+  }
+  return body || `Request failed with ${status}`;
+}
+
+function emptyHumanScores(): HumanScoreState {
+  return {
+    rootCauseQuality: '',
+    recommendationQuality: '',
+    ragEvidenceQuality: '',
+    uncertaintyHandling: '',
+    practicalUsefulness: '',
+  };
+}
+
+function scoreValue(value: number | ''): number | undefined {
+  return value === '' ? undefined : value;
+}
+
+function ScoreSelect({
+  id,
+  label,
+  value,
+  onChange,
+}: Readonly<{
+  id: string;
+  label: string;
+  value: number | '';
+  onChange: (value: number | '') => void;
+}>) {
   return (
-    <article className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
+    <label htmlFor={id}>
+      {label}
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value === '' ? '' : Number(event.target.value))}>
+        <option value="">Select 0-4</option>
+        <option value="0">0 - Absent / unsafe</option>
+        <option value="1">1 - Poor</option>
+        <option value="2">2 - Mixed</option>
+        <option value="3">3 - Acceptable</option>
+        <option value="4">4 - Strong</option>
+      </select>
+    </label>
+  );
+}
+
+function FieldList({ title, value }: Readonly<{ title: string; value: Record<string, unknown> }>) {
+  const entries = Object.entries(value);
+  return (
+    <section className="fieldList">
+      <h5>{title}</h5>
+      {entries.length ? entries.map(([key, item]) => <div key={key}><span>{key}</span><strong>{formatFieldValue(item)}</strong></div>) : <p>Not recorded.</p>}
+    </section>
+  );
+}
+
+function formatFieldValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return 'Not recorded';
+  if (typeof value === 'object') return Object.values(value as Record<string, unknown>).join(', ');
+  return String(value);
+}
+
+function ActivityItem({ label, value, complete }: Readonly<{ label: string; value: string; complete: boolean }>) {
+  return (
+    <li className="activityItem">
+      <span className={`activityMarker ${complete ? 'complete' : ''}`} aria-hidden="true">{complete ? 'OK' : '-'}</span>
+      <span><strong>{label}</strong><small>{value}</small></span>
+    </li>
   );
 }
 
