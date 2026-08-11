@@ -1,0 +1,33 @@
+{
+  "accepted_examples": 9,
+  "dataset_version": "dataset-v0.1-dev-synthetic",
+  "development_only": true,
+  "rejected_examples": 0,
+  "scenario_groups_by_split": {
+    "test": [
+      "synthetic-scenario-2"
+    ],
+    "train": [
+      "synthetic-scenario-0"
+    ],
+    "validation": [
+      "synthetic-scenario-12"
+    ]
+  },
+  "source_available": true,
+  "source_path": "ml-platform\\training-pipelines\\dataset-v0.1-dev-synthetic\\source\\synthetic_seed.jsonl",
+  "split_counts": {
+    "test": 3,
+    "train": 3,
+    "validation": 3
+  },
+  "split_leakage_count": 0,
+  "synthetic_examples": 9,
+  "task_counts": {
+    "rag-grounded-responses": 3,
+    "recommendation-generation": 3,
+    "root-cause-analysis": 3
+  },
+  "training_performed": false,
+  "validation_failures": {}
+}

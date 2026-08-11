@@ -9,7 +9,9 @@ import com.airural.platform.core.common.ErrorResponse;
 import com.airural.platform.core.common.RequestIds;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Arrays;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,6 +26,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /** Spring Security configuration for the core backend. */
 @Configuration
@@ -31,16 +36,22 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfiguration {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
+    private final String allowedOrigins;
 
-    public SecurityConfiguration(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
+    public SecurityConfiguration(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            ObjectMapper objectMapper,
+            @Value("${airural.security.cors.allowed-origins:http://localhost:3000,http://localhost:3001}") String allowedOrigins) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.objectMapper = objectMapper;
+        this.allowedOrigins = allowedOrigins;
     }
 
     /** Configures stateless HTTP security. */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -171,6 +182,10 @@ public class SecurityConfiguration {
                         .hasAnyAuthority("OPTIMIZATION_PROMOTE", "AI_RELEASE_REVIEW", "AI_ADMIN")
                         .requestMatchers("/api/v1/optimization", "/api/v1/optimization/**", "/optimization", "/optimization/**")
                         .hasAnyAuthority("OPTIMIZATION_RUN", "MODEL_PACKAGE_REVIEW", "PERFORMANCE_REVIEW", "MODEL_SECURITY_REVIEW", "AI_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/learning/dataset-export", "/learning/dataset-export")
+                        .hasAnyAuthority("DATASET_APPROVAL", "AI_GOVERNANCE_REVIEW", "AI_ADMIN")
+                        .requestMatchers("/api/v1/learning/candidates/generate-from-evaluations", "/learning/candidates/generate-from-evaluations")
+                        .hasAnyAuthority("LEARNING_REVIEW", "DATASET_APPROVAL", "AI_GOVERNANCE_REVIEW", "AI_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/learning", "/api/v1/learning/**", "/learning", "/learning/**")
                         .hasAnyAuthority("LEARNING_READ", "LEARNING_REVIEW", "DATASET_APPROVAL", "AI_GOVERNANCE_REVIEW", "AI_ADMIN")
                         .requestMatchers("/api/v1/learning/promote", "/learning/promote")
@@ -216,6 +231,24 @@ public class SecurityConfiguration {
                                 HttpServletResponse.SC_FORBIDDEN)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /** Allows browser clients only from the configured platform web origins. */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList());
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("Content-Disposition", "X-Request-Id"));
+        configuration.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     /** Provides BCrypt password hashing. */

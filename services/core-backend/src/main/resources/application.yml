@@ -66,6 +66,8 @@ airural:
     environment: ${APP_ENV:local}
     region: ${DEPLOYMENT_REGION:local}
   security:
+    cors:
+      allowed-origins: ${AIRURAL_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
     rate-limit:
       enabled: ${RATE_LIMIT_ENABLED:true}
       max-requests: ${RATE_LIMIT_MAX_REQUESTS:240}

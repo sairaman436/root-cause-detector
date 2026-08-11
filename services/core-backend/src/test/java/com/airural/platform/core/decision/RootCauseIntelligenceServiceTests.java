@@ -65,6 +65,24 @@ class RootCauseIntelligenceServiceTests {
         assertThat(response.validatedRootCauses()).isEmpty();
     }
 
+    @Test
+    void convertsExplicitlyUnclearEvidenceIntoReviewableUncertainty() {
+        RootCauseIntelligenceService service = serviceWithRag(List.of());
+        RootCauseAnalysisResponse response = service.analyze(new RootCauseAnalysisRequest(
+                new ProblemRequest("p-unclear", "Rampur", "Water", "Water-point repairs are delayed.", 40, "MEDIUM", List.of(), null, "pilot"),
+                List.of(Map.of("observation", "Maintenance ownership is unclear.")),
+                List.of(Map.of("observation", "Repair responsibility remains unresolved.")),
+                Map.of(),
+                List.of(),
+                null,
+                null,
+                "pilot-v1",
+                "pilot-snapshot",
+                true), UUID.randomUUID());
+
+        assertThat(response.uncertainties()).anyMatch(item -> item.uncertaintyId().equals("uncertainty-explicit-evidence"));
+    }
+
     private RootCauseIntelligenceService serviceWithRag(List<CitationResponse> citations) {
         JdbcOperations jdbcTemplate = mock(JdbcOperations.class);
         RootCauseRagClient ragClient = (request, userId) -> new RagQueryResponse(UUID.randomUUID(), "Grounded RAG answer", citations, 5L, 10L);

@@ -6,4 +6,7 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /** JPA repository for learning records. */
-public interface LearningRecordRepository extends JpaRepository<LearningRecordEntity, UUID> {}
+public interface LearningRecordRepository extends JpaRepository<LearningRecordEntity, UUID> {
+    /** Prevents one evaluation result from creating multiple learning records. */
+    boolean existsByEvaluationResultId(UUID evaluationResultId);
+}

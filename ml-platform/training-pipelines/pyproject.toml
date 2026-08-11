@@ -1,0 +1,23 @@
+# Purpose: Defines isolated dependencies for the future LoRA/QLoRA training worker.
+# Why it exists: Training must not add GPU or fine-tuning dependencies to runtime application services.
+# Architecture fit: Establishes the MLOps training boundary that consumes approved dataset-v0.1 artifacts.
+
+[project]
+name = "airural-training-pipelines"
+version = "0.1.0"
+description = "Reproducible LoRA and QLoRA training setup for approved Rural Intelligence datasets."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+training = [
+  "accelerate>=0.34.0",
+  "bitsandbytes>=0.43.3; platform_system != 'Windows'",
+  "peft>=0.13.0",
+  "safetensors>=0.4.5",
+  "torch>=2.4.0",
+  "transformers>=4.45.0",
+]
+dev = [
+  "pytest>=8.2.0",
+]

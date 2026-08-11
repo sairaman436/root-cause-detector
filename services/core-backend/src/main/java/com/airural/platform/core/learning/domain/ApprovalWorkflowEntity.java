@@ -20,11 +20,19 @@ public class ApprovalWorkflowEntity {
     private String reviewer;
     @Column(columnDefinition = "TEXT") private String rationale;
     private Instant decidedAt;
+    private UUID reviewerUserId;
 
     protected ApprovalWorkflowEntity() {}
 
     /** Creates an approval workflow record. */
     public ApprovalWorkflowEntity(UUID id, UUID trainingCandidateId, String reviewBoard, String decision, String reviewer, String rationale, Instant decidedAt) {
-        this.id = id; this.trainingCandidateId = trainingCandidateId; this.reviewBoard = reviewBoard; this.decision = decision; this.reviewer = reviewer; this.rationale = rationale; this.decidedAt = decidedAt;
+        this(id, trainingCandidateId, reviewBoard, decision, reviewer, rationale, decidedAt, null);
     }
+
+    /** Creates an approval record with authenticated reviewer identity. */
+    public ApprovalWorkflowEntity(UUID id, UUID trainingCandidateId, String reviewBoard, String decision, String reviewer, String rationale, Instant decidedAt, UUID reviewerUserId) {
+        this.id = id; this.trainingCandidateId = trainingCandidateId; this.reviewBoard = reviewBoard; this.decision = decision; this.reviewer = reviewer; this.rationale = rationale; this.decidedAt = decidedAt; this.reviewerUserId = reviewerUserId;
+    }
+
+    public UUID getReviewerUserId() { return reviewerUserId; }
 }

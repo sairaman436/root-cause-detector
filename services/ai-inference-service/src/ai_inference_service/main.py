@@ -7,7 +7,10 @@ Architecture fit: Implements the AI provider interface, Ollama adapter, prompt r
 from __future__ import annotations
 
 import json
+import importlib
 import os
+import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -407,8 +410,117 @@ class OllamaProvider(AIProvider):
         raise ProviderError("OLLAMA_REQUEST_FAILED", "Ollama request failed.", 503)
 
 
+class SONARProvider(AIProvider):
+    """Experimental local adapter for the SONAR-LLM Hugging Face checkpoint."""
+
+    name = "sonar"
+
+    def __init__(self) -> None:
+        self.default_model = os.getenv("SONAR_MODEL_ID", "raxtemur/sonar-llm-100m")
+        self.cache_dir = os.getenv("SONAR_CACHE_DIR", "").strip() or None
+        self.source_lang = os.getenv("SONAR_SOURCE_LANG", "eng_Latn")
+        self.eos_text = os.getenv("SONAR_EOS_TEXT", "End of sequence.")
+        self.temperature = float(os.getenv("SONAR_TEMPERATURE", "0.2"))
+        self.latent_top_p = float(os.getenv("SONAR_LATENT_TOP_P", "0.9"))
+        self.decoder_beam_size = int(os.getenv("SONAR_DECODER_BEAM_SIZE", "1"))
+        self._generator: Any | None = None
+        self._eos_embedding: Any | None = None
+        self._generation_config: Any | None = None
+        self._loaded_model: str | None = None
+        self._lock = threading.Lock()
+
+    def generate(self, prompt: str, model: str | None = None, *, require_json: bool = False) -> dict[str, Any]:
+        selected = self._model(model)
+        generator, eos_embedding, generation_config = self._ensure_loaded(selected)
+        try:
+            generated = generator.generate(prompt, eos_embedding, generation_config)
+        except Exception as exc:  # The checkpoint loader exposes third-party runtime exceptions.
+            raise ProviderError("SONAR_GENERATION_FAILED", f"SONAR generation failed: {exc}", 502) from exc
+        if isinstance(generated, list):
+            text = "\n".join(str(item) for item in generated)
+        else:
+            text = str(generated)
+        if not text.strip():
+            raise ProviderError("SONAR_EMPTY_RESPONSE", "SONAR returned an empty response.", 502)
+        return {"response": text.strip()}
+
+    def chat(self, messages: list[ChatMessage], model: str | None = None) -> dict[str, Any]:
+        prompt = "\n\n".join(f"{message.role}: {message.content}" for message in messages)
+        return self.generate(prompt, model)
+
+    def structured_generate(self, prompt: str, model: str | None = None) -> RuralAnalysisOutput:
+        body = self.generate(prompt, model, require_json=True)
+        text = str(body.get("response", "")).strip()
+        try:
+            return RuralAnalysisOutput.model_validate(_canonical_rural_analysis_payload(text))
+        except (ValueError, TypeError) as exc:
+            raise ProviderError("SONAR_INVALID_STRUCTURED_OUTPUT", f"SONAR output did not match the rural analysis schema: {exc}", 502) from exc
+
+    def stream(self, prompt: str, model: str | None = None) -> Iterable[str]:
+        # SONAR's checkpoint API returns a completed string, so the provider contract exposes one final delta.
+        yield self.generate(prompt, model)["response"]
+
+    def health(self, model: str | None = None) -> ProviderHealth:
+        selected = self._model(model)
+        try:
+            self._checkpoint_path(selected, local_files_only=True)
+            return ProviderHealth(provider=self.name, configured_model=selected, status="ok", model_available=True, model_version=selected)
+        except ProviderError as exc:
+            return ProviderHealth(provider=self.name, configured_model=selected, status="degraded", model_available=False, detail=str(exc))
+
+    def _model(self, model: str | None) -> str:
+        selected = (model or self.default_model).strip()
+        if selected != self.default_model:
+            raise ProviderError("SONAR_MODEL_UNSUPPORTED", f"This experimental adapter is configured for '{self.default_model}', not '{selected}'.", 400)
+        return selected
+
+    def _ensure_loaded(self, model: str) -> tuple[Any, Any, Any]:
+        with self._lock:
+            if self._generator is not None and self._loaded_model == model:
+                return self._generator, self._eos_embedding, self._generation_config
+            try:
+                checkpoint_path = self._checkpoint_path(model, local_files_only=False)
+                if checkpoint_path not in sys.path:
+                    sys.path.insert(0, checkpoint_path)
+                module = importlib.import_module("sonarllm_model")
+                generator = module.SONARLLMGenerator.load_from_checkpoint(checkpoint_path)
+                eos_embedding = generator.t2vec.predict([self.eos_text], source_lang=self.source_lang).to(generator.device)
+                generation_config = module.SONARLLMGenerationConfig(
+                    temperature=self.temperature,
+                    latent_top_p=self.latent_top_p,
+                    decoder_beam_size=self.decoder_beam_size,
+                )
+            except ImportError as exc:
+                raise ProviderError("SONAR_DEPENDENCY_MISSING", "Install the optional SONAR dependencies before enabling this provider.", 503) from exc
+            except ProviderError:
+                raise
+            except Exception as exc:
+                raise ProviderError("SONAR_MODEL_LOAD_FAILED", f"Unable to load SONAR model '{model}': {exc}", 503) from exc
+            self._generator = generator
+            self._eos_embedding = eos_embedding
+            self._generation_config = generation_config
+            self._loaded_model = model
+            return generator, eos_embedding, generation_config
+
+    def _checkpoint_path(self, model: str, *, local_files_only: bool) -> str:
+        try:
+            from huggingface_hub import snapshot_download
+
+            kwargs: dict[str, Any] = {"repo_id": model, "local_files_only": local_files_only}
+            if self.cache_dir:
+                kwargs["cache_dir"] = self.cache_dir
+            return str(snapshot_download(**kwargs))
+        except ImportError as exc:
+            raise ProviderError("SONAR_DEPENDENCY_MISSING", "Install huggingface-hub before enabling the SONAR provider.", 503) from exc
+        except Exception as exc:
+            message = "SONAR checkpoint is not cached locally." if local_files_only else f"SONAR checkpoint download failed: {exc}"
+            raise ProviderError("SONAR_MODEL_UNAVAILABLE", message, 503) from exc
+
+
 def provider() -> AIProvider:
     selected = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+    if selected == "sonar":
+        return SONARProvider()
     if selected != "ollama":
         raise ProviderError("LLM_PROVIDER_UNSUPPORTED", f"LLM provider '{selected}' is not supported by this runtime.", 500)
     return OllamaProvider()

@@ -38,6 +38,7 @@ public class AiGatewayService {
             TokenUsageRepository usageRepository,
             @Value("${airural.ai.gateway.default-model:qwen2.5-local}") String defaultModel,
             @Value("${airural.ai.gateway.inference-service-url:http://localhost:8101}") String inferenceServiceUrl,
+            @Value("${airural.ai.gateway.timeout-seconds:130}") int timeoutSeconds,
             RestTemplateBuilder restTemplateBuilder) {
         this.safetyService = safetyService;
         this.modelRepository = modelRepository;
@@ -45,7 +46,7 @@ public class AiGatewayService {
         this.usageRepository = usageRepository;
         this.defaultModel = defaultModel;
         this.inferenceServiceUrl = inferenceServiceUrl;
-        this.restTemplate = restTemplateBuilder.setConnectTimeout(Duration.ofSeconds(2)).setReadTimeout(Duration.ofSeconds(8)).build();
+        this.restTemplate = restTemplateBuilder.setConnectTimeout(Duration.ofSeconds(3)).setReadTimeout(Duration.ofSeconds(Math.max(10, timeoutSeconds))).build();
     }
 
     /** Routes a chat request through validation, fallback response generation, and telemetry persistence. */
@@ -56,7 +57,7 @@ public class AiGatewayService {
         String safePrompt = safetyService.validateAndMask(request.message());
         int promptTokens = tokens(safePrompt);
         InferenceServiceResult inference = callInferenceService(modelId, safePrompt, request.context());
-        String response = inference.output();
+        String response = safetyService.maskSensitiveData(inference.output());
         int completionTokens = tokens(response);
         long latency = Duration.between(started, Instant.now()).toMillis();
         InferenceLogEntity log = inferenceLogRepository.save(new InferenceLogEntity(userId, modelId, "CHAT", "SUCCEEDED", promptTokens, completionTokens, latency, false, hash(safePrompt), response));
@@ -68,8 +69,9 @@ public class AiGatewayService {
     @Transactional
     public InferenceLogEntity recordRagInference(UUID userId, String modelId, String prompt, String response, long latencyMs) {
         int promptTokens = tokens(prompt);
-        int completionTokens = tokens(response);
-        InferenceLogEntity log = inferenceLogRepository.save(new InferenceLogEntity(userId, modelId, "RAG", "SUCCEEDED", promptTokens, completionTokens, latencyMs, false, hash(prompt), response));
+        String safeResponse = safetyService.maskSensitiveData(response);
+        int completionTokens = tokens(safeResponse);
+        InferenceLogEntity log = inferenceLogRepository.save(new InferenceLogEntity(userId, modelId, "RAG", "SUCCEEDED", promptTokens, completionTokens, latencyMs, false, hash(prompt), safeResponse));
         usageRepository.save(new TokenUsageEntity(userId, modelId, promptTokens, completionTokens, (promptTokens + completionTokens) * 0.000001));
         return log;
     }

@@ -232,6 +232,14 @@ type RecommendationSetResponse = {
   evidenceSnapshot: string;
 };
 
+type RecommendationReviewResponse = {
+  reviewId: string;
+  recommendationSetId: string;
+  action: string;
+  status: string;
+  reviewedAt: string;
+};
+
 type ReportResponse = {
   id: string;
   title: string;
@@ -240,6 +248,28 @@ type ReportResponse = {
   contentMarkdown: string;
   pdfDownloadUrl: string;
   csvDownloadUrl: string;
+};
+
+type TrainingCandidateResponse = {
+  id: string;
+  learningRecordId: string;
+  taskType: string;
+  scenarioGroup: string;
+  input: string;
+  retrievedContext?: string;
+  aiOutput: string;
+  acceptedOutput?: string;
+  evidenceUsedJson: string;
+  sourceType: string;
+  modelVersion: string;
+  promptVersion: string;
+  synthetic: boolean;
+  approvalStatus: string;
+  trainingReadiness: string;
+  reviewer?: string;
+  reviewerUserId?: string;
+  datasetVersion?: string;
+  createdAt?: string;
 };
 
 type UserProfile = {
@@ -266,6 +296,7 @@ type WorkflowState = {
   recommendations?: RecommendationSetResponse;
   decision?: DecisionResponse;
   report?: ReportResponse;
+  trainingCandidates?: TrainingCandidateResponse[];
 };
 
 const navItems = [
@@ -276,6 +307,7 @@ const navItems = [
   'AI Assistant',
   'Root Cause Analysis',
   'Recommendations',
+  'Training Review',
   'Reports',
   'User Profile',
   'Settings',
@@ -288,6 +320,11 @@ export default function WebPortalSprintOnePage() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState('admin@platform.local');
   const [password, setPassword] = useState('');
+  const [recommendationReviewNotes, setRecommendationReviewNotes] = useState('');
+  const [recommendationEditJson, setRecommendationEditJson] = useState('');
+  const [trainingReviewCandidateId, setTrainingReviewCandidateId] = useState('');
+  const [trainingReviewOutput, setTrainingReviewOutput] = useState('');
+  const [trainingReviewReason, setTrainingReviewReason] = useState('');
   const [surveyName, setSurveyName] = useState('Village Water Reliability Survey');
   const [surveyDescription, setSurveyDescription] = useState(
     'Field survey for identifying water access root causes.',
@@ -602,6 +639,78 @@ export default function WebPortalSprintOnePage() {
         rootCauseAnalysis,
         recommendations,
       }));
+      setRecommendationEditJson(JSON.stringify({ options: recommendations.options }, null, 2));
+    });
+  }
+
+  async function reviewRecommendations(action: 'EDIT' | 'APPROVE' | 'REJECT') {
+    await run(`Recommendation ${action.toLowerCase()} recorded.`, async () => {
+      const current = state.recommendations;
+      if (!current) {
+        throw new Error('Run AI analysis before reviewing recommendations.');
+      }
+      let modifiedRecommendation: Record<string, unknown> | undefined;
+      if (action === 'EDIT') {
+        try {
+          modifiedRecommendation = JSON.parse(recommendationEditJson) as Record<string, unknown>;
+        } catch {
+          throw new Error('Edited recommendation JSON is invalid.');
+        }
+      }
+      const path =
+        action === 'APPROVE'
+          ? `/api/v1/recommendations/${current.recommendationSetId}/approve`
+          : action === 'REJECT'
+            ? `/api/v1/recommendations/${current.recommendationSetId}/reject`
+            : `/api/v1/recommendations/${current.recommendationSetId}/review`;
+      const review = await api<RecommendationReviewResponse>(path, {
+        method: 'POST',
+        body: JSON.stringify({
+          action,
+          reviewerNotes: recommendationReviewNotes || undefined,
+          modifiedRecommendation,
+        }),
+      });
+      const updated = await api<RecommendationSetResponse>(
+        `/api/v1/recommendations/${current.recommendationSetId}`,
+      );
+      setState((state) => ({ ...state, recommendations: updated }));
+      if (action === 'EDIT') {
+        setRecommendationEditJson(JSON.stringify({ options: updated.options }, null, 2));
+      }
+      setMessage(
+        `Recommendation review ${review.status.toLowerCase()} by ${review.action.toLowerCase()}.`,
+      );
+    });
+  }
+
+  async function loadTrainingCandidates() {
+    await run('Training review queue loaded.', async () => {
+      const page = await api<{ content: TrainingCandidateResponse[] }>('/api/v1/learning/candidates?size=50');
+      setState((current) => ({ ...current, trainingCandidates: page.content }));
+    });
+  }
+
+  async function reviewTrainingCandidate(candidateId: string, decision: 'APPROVE' | 'CORRECT' | 'REJECT') {
+    await run(`Training candidate ${decision.toLowerCase()} recorded.`, async () => {
+      if (decision === 'CORRECT' && !trainingReviewOutput.trim()) {
+        throw new Error('Enter the corrected output before selecting Correct.');
+      }
+      if (decision === 'REJECT' && !trainingReviewReason.trim()) {
+        throw new Error('Enter a rejection reason before selecting Reject.');
+      }
+      await api(`/api/v1/learning/candidates/${candidateId}/review`, {
+        method: 'POST',
+        body: JSON.stringify({
+          decision,
+          correctedOutput: decision === 'CORRECT' ? trainingReviewOutput : undefined,
+          comments: trainingReviewReason || undefined,
+        }),
+      });
+      setTrainingReviewCandidateId('');
+      setTrainingReviewOutput('');
+      setTrainingReviewReason('');
+      await loadTrainingCandidates();
     });
   }
 
@@ -890,6 +999,33 @@ export default function WebPortalSprintOnePage() {
                   <dt>Prompt</dt>
                   <dd>{state.recommendations.promptVersion}</dd>
                 </dl>
+                <label htmlFor="recommendation-review-notes">Reviewer notes</label>
+                <textarea
+                  id="recommendation-review-notes"
+                  value={recommendationReviewNotes}
+                  onChange={(event) => setRecommendationReviewNotes(event.target.value)}
+                  placeholder="Explain the review decision"
+                  rows={3}
+                />
+                <label htmlFor="recommendation-edit-json">Edit options JSON</label>
+                <textarea
+                  id="recommendation-edit-json"
+                  value={recommendationEditJson}
+                  onChange={(event) => setRecommendationEditJson(event.target.value)}
+                  placeholder='{"options":[]}'
+                  rows={10}
+                />
+                <div className="actions" aria-label="Recommendation review actions">
+                  <button type="button" onClick={() => reviewRecommendations('EDIT')}>
+                    Save Edit
+                  </button>
+                  <button type="button" onClick={() => reviewRecommendations('APPROVE')}>
+                    Approve
+                  </button>
+                  <button type="button" onClick={() => reviewRecommendations('REJECT')}>
+                    Reject
+                  </button>
+                </div>
                 <h4>Prioritized Options</h4>
                 <ul>
                   {state.recommendations.options
@@ -956,6 +1092,67 @@ export default function WebPortalSprintOnePage() {
               </article>
             ) : (
               <p>Run AI analysis to generate recommendation intelligence.</p>
+            )}
+          </section>
+        ) : null}
+
+        {active === 'Training Review' ? (
+          <section className="panel form">
+            <div className="actions">
+              <button type="button" onClick={loadTrainingCandidates} disabled={!state.token}>
+                Load Candidates
+              </button>
+            </div>
+            <p>Reviewer identity is taken from the authenticated account. Pending, rejected, and synthetic candidates cannot enter the production dataset.</p>
+            {state.trainingCandidates?.length ? (
+              <div className="stack">
+                {state.trainingCandidates.map((candidate) => (
+                  <article className="analysis" key={candidate.id}>
+                    <h3>{candidate.taskType} · {candidate.approvalStatus}</h3>
+                    <dl>
+                      <dt>Scenario</dt>
+                      <dd>{candidate.scenarioGroup}</dd>
+                      <dt>Model / prompt</dt>
+                      <dd>{candidate.modelVersion} / {candidate.promptVersion}</dd>
+                      <dt>Source</dt>
+                      <dd>{candidate.sourceType}{candidate.synthetic ? ' (synthetic, not promotable)' : ''}</dd>
+                    </dl>
+                    <h4>Input</h4>
+                    <p>{candidate.input}</p>
+                    <h4>Context</h4>
+                    <pre>{candidate.retrievedContext || 'No retrieved context recorded.'}</pre>
+                    <h4>AI output</h4>
+                    <pre>{candidate.aiOutput}</pre>
+                    <h4>Evidence and provenance</h4>
+                    <pre>{candidate.evidenceUsedJson}</pre>
+                    <div className="actions" aria-label={`Review actions for ${candidate.id}`}>
+                      <button type="button" disabled={candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'APPROVE')}>
+                        Approve
+                      </button>
+                      <button type="button" disabled={candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => { setTrainingReviewCandidateId(candidate.id); setTrainingReviewOutput(candidate.acceptedOutput || candidate.aiOutput); }}>
+                        Select Correction
+                      </button>
+                      <button type="button" disabled={candidate.approvalStatus !== 'PENDING_APPROVAL'} onClick={() => reviewTrainingCandidate(candidate.id, 'REJECT')}>
+                        Reject
+                      </button>
+                    </div>
+                    {trainingReviewCandidateId === candidate.id ? (
+                      <div className="form">
+                        <label htmlFor={`training-correction-${candidate.id}`}>Corrected output</label>
+                        <textarea id={`training-correction-${candidate.id}`} value={trainingReviewOutput} onChange={(event) => setTrainingReviewOutput(event.target.value)} rows={7} />
+                        <label htmlFor={`training-review-reason-${candidate.id}`}>Review notes</label>
+                        <textarea id={`training-review-reason-${candidate.id}`} value={trainingReviewReason} onChange={(event) => setTrainingReviewReason(event.target.value)} rows={3} placeholder="Explain the correction or decision" />
+                        <div className="actions">
+                          <button type="button" onClick={() => reviewTrainingCandidate(candidate.id, 'CORRECT')}>Save Correction</button>
+                          <button type="button" onClick={() => { setTrainingReviewCandidateId(''); setTrainingReviewOutput(''); }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>Load the authenticated training candidate queue to begin review.</p>
             )}
           </section>
         ) : null}
