@@ -1,26 +1,38 @@
 # Purpose: Provides isolated database settings for backend tests.
-# Why it exists: Allows identity integration tests to run Flyway without requiring Docker or a live PostgreSQL instance.
-# Architecture fit: Keeps production runtime on PostgreSQL while making CI tests deterministic.
+# Why it exists: Provides a deterministic isolated H2 database for Spring integration tests without requiring Docker or a live PostgreSQL instance.
+# Architecture fit: Keeps production runtime and migration validation on PostgreSQL while matching the established test-only schema-generation strategy.
 spring:
   datasource:
     url: jdbc:h2:mem:airural_identity_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
     username: sa
     password:
     driver-class-name: org.h2.Driver
+    hikari:
+      connection-init-sql: RUNSCRIPT FROM 'classpath:h2-schemas.sql'
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
     open-in-view: false
+    database-platform: org.hibernate.dialect.H2Dialect
+    properties:
+      hibernate:
+        hbm2ddl:
+          create_namespaces: true
+          import_files: import.sql
+          import_files_sql_extractor: org.hibernate.tool.schema.internal.script.MultiLineSqlScriptExtractor
   flyway:
-    enabled: true
-    locations: classpath:db/migration
-    schemas: identity,audit,survey,evidence,geospatial,eventing,ai,agents,decision,reports,operations,datasets,knowledge,training,finetuning,evaluation,optimization,learning,serving,governance,model_release,research_lab
-    default-schema: identity
-    create-schemas: true
+    # PostgreSQL migrations are validated separately against PostgreSQL. H2 integration tests use Hibernate DDL only.
+    enabled: false
 
 airural:
   platform:
     environment: test
+  ai:
+    gateway:
+      # Keep AI integration tests on the deterministic PostgreSQL-independent vector fallback.
+      # The live RAG service is exercised by the dedicated service test suite and must not change H2 test results.
+      rag-service-url: http://127.0.0.1:65534
+      timeout-seconds: 1
   security:
     rate-limit:
       enabled: false

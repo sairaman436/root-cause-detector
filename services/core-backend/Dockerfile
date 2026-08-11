@@ -10,7 +10,7 @@ COPY services/core-backend/pom.xml services/core-backend/pom.xml
 COPY packages/java-shared/pom.xml packages/java-shared/pom.xml
 COPY services/core-backend/src services/core-backend/src
 COPY packages/java-shared packages/java-shared
-RUN ./mvnw -B -pl services/core-backend -am -DskipTests package
+RUN chmod +x mvnw && ./mvnw -B -pl services/core-backend -am -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine
 

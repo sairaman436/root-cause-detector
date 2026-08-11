@@ -19,3 +19,17 @@ Requirements/
 System_Design/
 Testing/
 governance/
+
+# Purpose: Excludes generated model artifacts and evaluation reports from the
+# repository-wide source formatter.
+# Why it exists: These outputs are reproducible artifacts validated by their
+# dataset/evaluation pipelines rather than hand-maintained application source.
+# Architecture fit: Keeps repository quality gates focused on owned source,
+# configuration, and documentation while preserving generated outputs exactly.
+artifacts/training/
+FINE_TUNING_EXPERIMENT_*.md
+ML_PIPELINE_RECOVERY_REPORT.md
+MODEL_SELECTION_REPORT.md
+SONAR_QWEN_BENCHMARK.md
+ml-platform/training-pipelines/contracts/dataset-v0.3-contract.json
+ml-platform/training-pipelines/dataset-v*/manifest.json
