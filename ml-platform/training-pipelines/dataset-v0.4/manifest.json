@@ -1,0 +1,29 @@
+{
+  "corrected_records_materialized": 6,
+  "dataset_version": "dataset-v0.4",
+  "excluded_corrections": {
+    "9ad7a088-7a46-453f-87bf-ccdd010dfffc:target_generation_overflow:655": 1,
+    "9d50e469-76c3-46e5-a662-62df9ecd9a4a:target_generation_overflow:579": 1,
+    "correction_not_linked_to_overflow_source": 3,
+    "fb1d6884-6656-4534-8c9b-630906cdafcf:target_generation_overflow:575": 1
+  },
+  "immutable": true,
+  "model_tokenizer": "Qwen/Qwen2.5-0.5B-Instruct",
+  "overflow_records_removed": 6,
+  "sequence_length": 1024,
+  "source_dataset_version": "dataset-v0.3",
+  "split_counts": {
+    "test": 3,
+    "train": 20,
+    "validation": 2
+  },
+  "target_generation_budget": 512,
+  "task_counts": {
+    "rag-grounded-responses": 9,
+    "recommendation-generation": 6,
+    "root-cause-analysis": 10
+  },
+  "total_examples": 25,
+  "training_performed": false,
+  "validation": "passed"
+}

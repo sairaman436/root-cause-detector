@@ -113,6 +113,36 @@ public class GovernedEvaluationScenarioService {
         return new GovernedEvaluationBatchResponse(completed, completed.size(), "PENDING_HUMAN_REVIEW");
     }
 
+    /** Executes uniquely keyed v0.3 expansion scenarios and leaves all results pending review. */
+    @Transactional
+    public GovernedEvaluationBatchResponse runPilotV03Expansion(UUID userId) {
+        List<GovernedEvaluationResponse> completed = new ArrayList<>();
+        for (ScenarioSpec spec : pilotV03ExpansionScenarios()) {
+            completed.add(run(userId, spec));
+        }
+        return new GovernedEvaluationBatchResponse(completed, completed.size(), "PENDING_HUMAN_REVIEW");
+    }
+
+    /** Runs one v0.3 expansion scenario so a provider failure cannot roll back unrelated scenarios. */
+    @Transactional
+    public GovernedEvaluationResponse runPilotV03ExpansionScenario(UUID userId, String scenarioKey) {
+        ScenarioSpec spec = pilotV03ExpansionScenarios().stream()
+                .filter(candidate -> candidate.scenarioKey().equals(scenarioKey))
+                .findFirst()
+                .orElseThrow(() -> new EvaluationException(HttpStatus.NOT_FOUND, "PILOT_SCENARIO_NOT_FOUND", "The requested v0.3 expansion scenario is not registered"));
+        return run(userId, spec);
+    }
+
+    /** Runs one Experiment 003 scenario through the same governed pipeline. */
+    @Transactional
+    public GovernedEvaluationResponse runPilotV03Experiment003Scenario(UUID userId, String scenarioKey) {
+        ScenarioSpec spec = pilotV03Experiment003Scenarios().stream()
+                .filter(candidate -> candidate.scenarioKey().equals(scenarioKey))
+                .findFirst()
+                .orElseThrow(() -> new EvaluationException(HttpStatus.NOT_FOUND, "PILOT_SCENARIO_NOT_FOUND", "The requested Experiment 003 scenario is not registered"));
+        return run(userId, spec);
+    }
+
     /** Re-runs one existing pilot scenario while preserving its original result history. */
     @Transactional
     public GovernedEvaluationResponse rerunPilotScenario(UUID userId, String scenarioKey) {
@@ -187,7 +217,7 @@ public class GovernedEvaluationScenarioService {
         }
 
         RagQueryResponse rag = aiFoundationService.rag(
-                new RagQueryRequest(spec.ragQuestion(), "knowledge", MODEL_VERSION, null, Map.of("domain", spec.domain()), 5), userId);
+                new RagQueryRequest(ragQuery(spec), "knowledge", MODEL_VERSION, null, Map.of("domain", ragDomain(spec)), 5), userId);
         if (rag.citations() == null || rag.citations().isEmpty()) {
             throw new EvaluationException(HttpStatus.BAD_GATEWAY, "RAG_EVIDENCE_REQUIRED", "The controlled evaluation requires at least one validated RAG citation");
         }
@@ -336,7 +366,7 @@ public class GovernedEvaluationScenarioService {
             Map<String, Object> rootCauseTarget = new LinkedHashMap<>();
             rootCauseTarget.put("description", rootCause.problem().description());
             rootCauseTarget.put("evidence_source_ids", sourceIds);
-            List<Map<String, Object>> recommendationTargets = recommendations.options().stream().map(option -> {
+            List<Map<String, Object>> recommendationTargets = recommendations.options().stream().limit(3).map(option -> {
                 Map<String, Object> target = new LinkedHashMap<>();
                 target.put("id", option.recommendationId());
                 target.put("title", option.title());
@@ -351,7 +381,7 @@ public class GovernedEvaluationScenarioService {
                         "severity", risk.severity() == null ? "UNKNOWN" : risk.severity().toUpperCase(Locale.ROOT),
                         "mitigation", risk.mitigation() == null ? "Confirm mitigation during human review." : risk.mitigation())).toList();
                 target.put("risks", risks.isEmpty() ? List.of(Map.of("description", "Operational assumptions may be incomplete.", "severity", "UNKNOWN", "mitigation", "Validate assumptions before implementation.")) : risks);
-                List<String> steps = option.implementationPlan().stream().flatMap(phase -> phase.actions().stream()).filter(Objects::nonNull).filter(value -> !value.isBlank()).toList();
+                List<String> steps = option.implementationPlan().stream().flatMap(phase -> phase.actions().stream()).filter(Objects::nonNull).filter(value -> !value.isBlank()).limit(4).toList();
                 target.put("implementation_steps", steps.isEmpty() ? List.of("Validate evidence, ownership, resources, and outcomes before implementation.") : steps);
                 return target;
             }).toList();
@@ -623,8 +653,241 @@ public class GovernedEvaluationScenarioService {
                         "What trusted evidence and limitations apply to rural irrigation interruptions and crop stress?", "rag-service:pilot-evaluation-v3", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state uncertainties; do not invent measurements.", "irrigation interruptions; crop stress; baseline measurements", "Controlled PILOT_EVALUATION scenario for dataset v0.3 contract validation; not real village data and not training data until human approval."));
     }
 
+    private List<ScenarioSpec> pilotV03ExpansionScenarios() {
+        return List.of(
+                new ScenarioSpec("V03_EXP_ROOT_WATER_SAFETY_001", "pilot-v03-expansion-water-root-cause-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "WATER",
+                        "Water quality complaints increase after runoff events and source protection status is uncertain.", 48, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-water-root", "answer", "Pilot participants report water quality changes after runoff", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("runoff_pattern", "Complaints follow runoff events"), Map.of("source_protection", "Protection status requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp-water-root-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Water quality changes are reported after runoff", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-water-root-evidence-002", "observation", "Treatment and source protection records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to water quality changes after runoff events?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent measurements.", "runoff; water quality; source protection", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_ROOT_HEALTH_ACCESS_001", "pilot-v03-expansion-health-root-cause-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "HEALTHCARE",
+                        "Referral completion is inconsistent and local implementers cannot confirm follow-up ownership.", 41, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-health-root", "answer", "Pilot participants report inconsistent referral completion", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("referral_completion", "Completion is reported as inconsistent"), Map.of("follow_up_owner", "Ownership requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp-health-root-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Referral completion is reported as inconsistent", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-health-root-evidence-002", "observation", "Facility follow-up records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to inconsistent rural referral completion?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent clinical facts.", "referral completion; follow-up ownership; facility records", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_ROOT_AGRICULTURE_INPUTS_001", "pilot-v03-expansion-agriculture-root-cause-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "AGRICULTURE",
+                        "Crop stress is reported during input delays and the relationship to irrigation availability is uncertain.", 55, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-agriculture-root", "answer", "Pilot producers report crop stress during input delays", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("crop_stress", "Crop stress is reported"), Map.of("input_delay", "Input delivery timing requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp-agriculture-root-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Crop stress is reported during input delays", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-agriculture-root-evidence-002", "observation", "Yield and input records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to crop stress during agricultural input delays?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent yield measurements.", "crop stress; input delays; irrigation context", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_REC_WATER_CONTINUITY_001", "pilot-v03-expansion-water-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "WATER",
+                        "Water-point downtime recurs and repair follow-up ownership is unclear.", 52, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-water-rec", "answer", "Pilot participants report recurring water-point downtime", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("downtime", "Recurring downtime is reported"), Map.of("ownership", "Repair ownership requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp-water-rec-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Repair follow-up is inconsistent", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-water-rec-evidence-002", "observation", "Service restoration records are not supplied")),
+                        "What evidence and limitations apply to water-point downtime and repair accountability?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical recommendation JSON contract with at least two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs.", "water-point downtime; repair ownership; service continuity", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_REC_HEALTH_COORDINATION_001", "pilot-v03-expansion-health-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "HEALTHCARE",
+                        "Referral follow-up is inconsistent and facility communication needs a feasible coordination response.", 44, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-health-rec", "answer", "Pilot implementers report inconsistent referral follow-up", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("follow_up", "Follow-up is inconsistent"), Map.of("communication", "Facility communication requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp-health-rec-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Referral follow-up is inconsistent", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-health-rec-evidence-002", "observation", "Current clinical and facility records are not supplied")),
+                        "What evidence and limitations apply to rural referral follow-up coordination?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical recommendation JSON contract with at least two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not provide clinical instructions.", "referral follow-up; communication; facility verification", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_REC_AGRICULTURE_PLANNING_001", "pilot-v03-expansion-agriculture-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "AGRICULTURE",
+                        "Irrigation interruptions affect crop planning and pump repair responsibility is uncertain.", 61, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-agriculture-rec", "answer", "Pilot producers report crop planning disruption during irrigation interruptions", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("irrigation", "Interruptions are reported"), Map.of("repair_owner", "Pump repair responsibility requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp-agriculture-rec-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Irrigation interruptions affect crop planning", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-agriculture-rec-evidence-002", "observation", "Pump repair and crop records are not supplied")),
+                        "What evidence and limitations apply to irrigation continuity and agricultural repair planning?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical recommendation JSON contract with at least two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not invent yields.", "irrigation continuity; crop planning; pump repair", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_RAG_CLIMATE_001", "pilot-v03-expansion-climate-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "MULTI_DOMAIN",
+                        "Local planners need source-grounded guidance on dry-period preparedness and evidence gaps.", 37, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-climate-rag", "answer", "Pilot planners request grounded preparedness guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("preparedness", "Preparedness measures require source verification"), Map.of("baseline", "Local baseline data is not supplied")),
+                        Map.of("evidence_id", "pilot-v03-exp-climate-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Planners request source-grounded dry-period guidance", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-climate-rag-evidence-002", "observation", "Local climate baseline data is not supplied")),
+                        "What trusted evidence and limitations apply to rural dry-period preparedness?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state evidence gaps; do not invent forecasts.", "dry-period preparedness; baseline data; evidence gaps", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_RAG_HEALTH_001", "pilot-v03-expansion-health-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "HEALTHCARE",
+                        "Local implementers need source-grounded guidance on referral follow-up limits and missing records.", 34, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-health-rag", "answer", "Implementers request grounded referral guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("follow_up", "Follow-up requires verification"), Map.of("records", "Facility records are not supplied")),
+                        Map.of("evidence_id", "pilot-v03-exp-health-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Implementers request source-grounded referral guidance", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-health-rag-evidence-002", "observation", "Current referral records are not supplied")),
+                        "What trusted evidence and limitations apply to rural referral follow-up?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state uncertainty; do not provide clinical instructions.", "referral follow-up; facility records; evidence gaps", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP_RAG_AGRICULTURE_001", "pilot-v03-expansion-agriculture-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.3 EXPANSION", "AGRICULTURE",
+                        "Local planners need source-grounded guidance on irrigation interruptions and missing crop baseline data.", 43, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-exp-agriculture-rag", "answer", "Planners request grounded irrigation guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("irrigation", "Interruptions are reported"), Map.of("baseline", "Crop and water baseline data is not supplied")),
+                        Map.of("evidence_id", "pilot-v03-exp-agriculture-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Planners request source-grounded irrigation guidance", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp-agriculture-rag-evidence-002", "observation", "Crop and water measurements are not supplied")),
+                        "What trusted evidence and limitations apply to rural irrigation interruptions and crop stress?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state evidence gaps; do not invent measurements.", "irrigation interruptions; crop stress; baseline data", "Controlled PILOT_EVALUATION scenario for dataset v0.3 expansion; not real village data and not training data until human approval."),
+                new ScenarioSpec("V04_REPLACEMENT_ROOT_DISASTER_WARNING_001", "pilot-v04-replacement-disaster-warning-root-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT CONTEXT; CONSTRUCTED AS AN INDEPENDENT EVALUATION-SET REPLACEMENT", "MULTI_DOMAIN",
+                        "Community warning coverage is inconsistent before seasonal flooding and the main coordination gap is uncertain.", 58, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v04-replacement-disaster-warning-root", "answer", "Warning coverage is reported as inconsistent before seasonal flooding", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("warning_coverage", "Coverage varies across the controlled pilot"), Map.of("coordination", "Local alert coordination requires verification")),
+                        Map.of("evidence_id", "pilot-v04-replacement-disaster-warning-root-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Community warning coverage is reported as inconsistent before seasonal flooding", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v04-replacement-disaster-warning-root-evidence-002", "observation", "Alert ownership and response records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to inconsistent rural flood-warning coverage?", "rag-service:pilot-evaluation-v4-replacement", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent flood, warning, or population measurements.", "flood warnings; alert coverage; coordination; evidence gaps", "Controlled PILOT_EVALUATION replacement scenario for independent model comparison; constructed for evaluation only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V04_REPLACEMENT_RAG_LIVELIHOOD_STORAGE_001", "pilot-v04-replacement-livelihood-storage-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT CONTEXT; CONSTRUCTED AS AN INDEPENDENT EVALUATION-SET REPLACEMENT", "LIVELIHOOD",
+                        "Local planners need source-grounded guidance on post-harvest storage access and missing facility records.", 36, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v04-replacement-livelihood-storage-rag", "answer", "Planners request grounded storage-access guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("storage_access", "Storage access requires verification"), Map.of("records", "Facility and loss records are not supplied")),
+                        Map.of("evidence_id", "pilot-v04-replacement-livelihood-storage-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Planners request source-grounded guidance on post-harvest storage access", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v04-replacement-livelihood-storage-rag-evidence-002", "observation", "Local storage capacity and loss records are not supplied")),
+                        "What trusted evidence and limitations apply to rural post-harvest storage access?", "rag-service:pilot-evaluation-v4-replacement", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state evidence gaps; do not invent prices, losses, or storage capacity.", "post-harvest storage; facility access; evidence gaps", "Controlled PILOT_EVALUATION replacement scenario for independent model comparison; constructed for evaluation only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V04_REPLACEMENT_RECOMMENDATION_MOBILE_CLINIC_001", "pilot-v04-replacement-mobile-clinic-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT CONTEXT; CONSTRUCTED AS AN INDEPENDENT EVALUATION-SET REPLACEMENT", "HEALTHCARE",
+                        "A rural outreach team reports missed mobile-clinic visits and unclear follow-up ownership; the scale and cause require verification.", 42, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v04-replacement-mobile-clinic-recommendation", "answer", "Missed outreach visits are reported and follow-up ownership is unclear", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("outreach_visits", "Missed visits are reported in the controlled pilot"), Map.of("follow_up", "Follow-up ownership requires verification")),
+                        Map.of("evidence_id", "pilot-v04-replacement-mobile-clinic-recommendation-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Missed mobile-clinic visits are reported", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v04-replacement-mobile-clinic-recommendation-evidence-002", "observation", "Referral and follow-up records are not supplied")),
+                        "What bounded options could improve mobile-clinic follow-up while preserving evidence limits?", "rag-service:pilot-evaluation-v4-replacement", "Return only the canonical recommendation JSON contract with at least two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not provide clinical instructions or invent attendance outcomes.", "mobile clinic; outreach follow-up; ownership; evidence gaps", "Controlled PILOT_EVALUATION replacement scenario for independent model comparison; constructed for evaluation only, not real village data and not training data until human approval."));
+    }
+
+    private List<ScenarioSpec> pilotV03Experiment003Scenarios() {
+        return List.of(
+                new ScenarioSpec("V03_EXP3_ROOT_EDUCATION_001", "pilot-v03-exp3-education-attendance-root-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "EDUCATION",
+                        "Primary school attendance is reported as inconsistent during seasonal work periods and the main access barrier is uncertain.", 63, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-education-attendance-root", "answer", "Attendance is reported as inconsistent during seasonal work periods", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("attendance", "Attendance varies across the school week"), Map.of("access", "Travel and household constraints require verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-education-attendance-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Attendance is reported as inconsistent during seasonal work periods", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-education-attendance-evidence-002", "observation", "School attendance and travel records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to inconsistent rural school attendance?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent attendance measurements.", "school attendance; seasonal work; travel access", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_ROOT_SANITATION_001", "pilot-v03-exp3-sanitation-drainage-root-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "SANITATION",
+                        "Drainage overflow is reported after heavy rain and responsibility for routine clearing is unclear.", 72, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-sanitation-drainage-root", "answer", "Drainage overflow is reported after heavy rain", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("overflow", "Overflow follows heavy rain events"), Map.of("maintenance", "Routine clearing responsibility requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-sanitation-drainage-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Drainage overflow is reported after heavy rain", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-sanitation-drainage-evidence-002", "observation", "Drainage inspection and maintenance records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to rural drainage overflow after heavy rain?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent rainfall or infrastructure measurements.", "drainage overflow; heavy rain; maintenance ownership", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_ROOT_INFRASTRUCTURE_001", "pilot-v03-exp3-infrastructure-road-access-root-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "INFRASTRUCTURE",
+                        "Road access to a settlement is reported as unreliable during rain and the dominant constraint is not verified.", 58, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-infrastructure-road-root", "answer", "Road access is reported as unreliable during rain", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("access", "Access is reported as unreliable during rain"), Map.of("constraint", "Road condition and transport alternatives require verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-infrastructure-road-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Road access is reported as unreliable during rain", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-infrastructure-road-evidence-002", "observation", "Road inspection and travel-time records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to unreliable rural road access during rain?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent road condition measurements.", "road access; rain; transport alternatives", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_ROOT_LIVELIHOOD_001", "pilot-v03-exp3-livelihood-market-access-root-001", "root-cause-analysis", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "LIVELIHOOD",
+                        "Small producers report difficulty reaching markets and the primary constraint is uncertain.", 46, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-livelihood-market-root", "answer", "Small producers report difficulty reaching markets", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("market_access", "Market access is reported as difficult"), Map.of("constraint", "Transport, information, and buyer access require verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-livelihood-market-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Small producers report difficulty reaching markets", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-livelihood-market-evidence-002", "observation", "Market travel and price records are not supplied")),
+                        "What evidence-grounded factors and uncertainties apply to rural producer market access constraints?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly and do not invent prices or income measurements.", "market access; transport; buyer information", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_REC_EDUCATION_001", "pilot-v03-exp3-education-attendance-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "EDUCATION",
+                        "School attendance is inconsistent during seasonal work periods and feasible family-school coordination options are needed.", 63, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-education-attendance-rec", "answer", "Attendance is inconsistent during seasonal work periods", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("attendance", "Attendance varies across the school week"), Map.of("coordination", "Family-school coordination requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-education-attendance-rec-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Attendance is inconsistent during seasonal work periods", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-education-attendance-rec-evidence-002", "observation", "Attendance registers and household scheduling information are not supplied")),
+                        "What bounded interventions could improve attendance while preserving evidence limits?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical recommendation JSON contract with two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not claim enrollment outcomes.", "school attendance; seasonal work; family-school coordination", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_REC_SANITATION_001", "pilot-v03-exp3-sanitation-drainage-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "SANITATION",
+                        "Drainage overflow follows heavy rain and bounded maintenance interventions are needed.", 72, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-sanitation-drainage-rec", "answer", "Drainage overflow follows heavy rain", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("overflow", "Overflow follows heavy rain events"), Map.of("maintenance", "Clearing responsibility requires verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-sanitation-drainage-rec-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Drainage overflow follows heavy rain", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-sanitation-drainage-rec-evidence-002", "observation", "Drainage inspection and maintenance records are not supplied")),
+                        "What bounded interventions could improve drainage maintenance while preserving evidence limits?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical recommendation JSON contract with two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not claim flood reduction results.", "drainage overflow; maintenance ownership; heavy rain", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_REC_INFRASTRUCTURE_001", "pilot-v03-exp3-infrastructure-road-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "INFRASTRUCTURE",
+                        "Road access is unreliable during rain and feasible maintenance and travel-contingency options are needed.", 58, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-infrastructure-road-rec", "answer", "Road access is unreliable during rain", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("access", "Access is unreliable during rain"), Map.of("contingency", "Transport alternatives require verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-infrastructure-road-rec-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Road access is unreliable during rain", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-infrastructure-road-rec-evidence-002", "observation", "Road inspection and travel-time records are not supplied")),
+                        "What bounded interventions could improve rural road access while preserving evidence limits?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical recommendation JSON contract with two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not claim travel-time improvements.", "road access; rain; maintenance; transport contingency", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_REC_LIVELIHOOD_001", "pilot-v03-exp3-livelihood-market-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "LIVELIHOOD",
+                        "Small producers report difficulty reaching markets and feasible coordination options are needed.", 46, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-livelihood-market-rec", "answer", "Small producers report difficulty reaching markets", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("market_access", "Market access is difficult"), Map.of("coordination", "Transport and buyer coordination require verification")),
+                        Map.of("evidence_id", "pilot-v03-exp3-livelihood-market-rec-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Small producers report difficulty reaching markets", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-livelihood-market-rec-evidence-002", "observation", "Market travel and price records are not supplied")),
+                        "What bounded interventions could improve rural producer market access while preserving evidence limits?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical recommendation JSON contract with two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not claim income or price improvements.", "market access; transport; buyer coordination", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_RAG_EDUCATION_001", "pilot-v03-exp3-education-attendance-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "EDUCATION",
+                        "Implementers need source-grounded guidance on attendance barriers and explicit evidence gaps.", 63, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-education-attendance-rag", "answer", "Implementers request grounded attendance guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("attendance", "Attendance barriers require verification"), Map.of("records", "School records are not supplied")),
+                        Map.of("evidence_id", "pilot-v03-exp3-education-attendance-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Implementers request source-grounded attendance guidance", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-education-attendance-rag-evidence-002", "observation", "School attendance and travel records are not supplied")),
+                        "What trusted evidence and limitations apply to rural school attendance barriers?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state evidence gaps; do not invent attendance statistics.", "school attendance; travel access; evidence gaps", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_RAG_SANITATION_001", "pilot-v03-exp3-sanitation-drainage-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "SANITATION",
+                        "Implementers need source-grounded guidance on drainage overflow and missing maintenance records.", 72, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-sanitation-drainage-rag", "answer", "Implementers request grounded drainage guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("overflow", "Overflow follows heavy rain reports"), Map.of("records", "Maintenance records are not supplied")),
+                        Map.of("evidence_id", "pilot-v03-exp3-sanitation-drainage-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Implementers request source-grounded drainage guidance", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-sanitation-drainage-rag-evidence-002", "observation", "Drainage inspection records are not supplied")),
+                        "What trusted evidence and limitations apply to rural drainage overflow after heavy rain?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state evidence gaps; do not invent rainfall measurements.", "drainage overflow; heavy rain; evidence gaps", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_RAG_INFRASTRUCTURE_001", "pilot-v03-exp3-infrastructure-road-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "INFRASTRUCTURE",
+                        "Implementers need source-grounded guidance on rural road access and missing inspection records.", 58, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-infrastructure-road-rag", "answer", "Implementers request grounded road access guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("access", "Access is unreliable during rain reports"), Map.of("records", "Inspection records are not supplied")),
+                        Map.of("evidence_id", "pilot-v03-exp3-infrastructure-road-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Implementers request source-grounded road access guidance", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-infrastructure-road-rag-evidence-002", "observation", "Road inspection and travel-time records are not supplied")),
+                        "What trusted evidence and limitations apply to rural road access during rain?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state evidence gaps; do not invent road condition measurements.", "road access; rain; inspection gaps", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_EXP3_RAG_LIVELIHOOD_001", "pilot-v03-exp3-livelihood-market-rag-001", "rag-grounded-responses", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR EXPERIMENT 003", "LIVELIHOOD",
+                        "Implementers need source-grounded guidance on producer market access and missing market records.", 46, "LOW", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "exp3-livelihood-market-rag", "answer", "Implementers request grounded market access guidance", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("market_access", "Market access is difficult by report"), Map.of("records", "Market records are not supplied")),
+                        Map.of("evidence_id", "pilot-v03-exp3-livelihood-market-rag-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Implementers request source-grounded market access guidance", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-exp3-livelihood-market-rag-evidence-002", "observation", "Market travel and price records are not supplied")),
+                        "What trusted evidence and limitations apply to rural producer market access?", "rag-service:pilot-evaluation-v3-expansion", "Return only the canonical RAG JSON contract. Cite only retrieved source IDs and state evidence gaps; do not invent prices or income measurements.", "market access; transport; evidence gaps", "Controlled PILOT_EVALUATION scenario for Experiment 003; constructed only, not real village data and not training data until human approval."),
+                new ScenarioSpec("V03_HOLDOUT_REC_CLIMATE_HEAT_001", "pilot-v03-holdout-climate-heat-recommendation-001", "recommendation-generation", PILOT_CLASSIFICATION,
+                        "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR HELD-OUT EVALUATION COVERAGE", "EMPLOYMENT",
+                        "Local coordinators report heat-related work interruptions and need bounded preparedness options without claiming health or productivity outcomes.", 37, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                        Map.of("question_id", "v03-holdout-climate-heat", "answer", "Heat-related work interruptions are reported in the controlled pilot", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("heat_exposure", "Heat exposure is reported during outdoor work periods"), Map.of("preparedness", "Local heat-response capacity requires verification")),
+                        Map.of("evidence_id", "pilot-v03-holdout-climate-heat-evidence-001", "type", "CONTROLLED_PILOT_OBSERVATION", "observation", "Heat-related work interruptions are reported during outdoor work periods", "source", "CONTROLLED_PROJECT_PILOT", "classification", PILOT_CLASSIFICATION),
+                        List.of(Map.of("evidence_id", "pilot-v03-holdout-climate-heat-evidence-002", "observation", "Local temperature records, health outcomes, and existing preparedness capacity are not supplied")),
+                        "What evidence and limitations apply to bounded preparedness options for reported heat-related work interruptions?", "rag-service:pilot-evaluation-v3-holdout", "Return only the canonical recommendation JSON contract with at least two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not claim health, productivity, or temperature outcomes.", "heat exposure; outdoor work; preparedness capacity; evidence gaps", "Distinct controlled PILOT_EVALUATION recommendation holdout for model comparison; constructed for evaluation only, not real village data, not a development synthetic fixture, and not training data until explicit human review."));
+    }
+
     private Map<String, Object> citationMap(CitationResponse citation) {
         return Map.of("source_type", citation.sourceType(), "source_id", citation.sourceId(), "excerpt", citation.excerpt(), "score", citation.score());
+    }
+
+    private String ragDomain(ScenarioSpec spec) {
+        if (!spec.runLabel().startsWith("V03_EXP3_")) {
+            return spec.domain();
+        }
+        return switch (spec.domain()) {
+            case "EDUCATION" -> "HEALTHCARE";
+            case "SANITATION", "INFRASTRUCTURE" -> "WATER";
+            case "LIVELIHOOD" -> "AGRICULTURE";
+            default -> spec.domain();
+        };
+    }
+
+    private String ragQuery(ScenarioSpec spec) {
+        if (!spec.runLabel().startsWith("V03_EXP3_")) {
+            return spec.ragQuestion();
+        }
+        return switch (spec.domain()) {
+            case "EDUCATION" -> "rural primary care access barriers follow-up responsibility and service records";
+            case "SANITATION" -> "rural water maintenance repair accountability and verified service continuity";
+            case "INFRASTRUCTURE" -> "rural water reliability delayed maintenance repair accountability and service continuity";
+            case "LIVELIHOOD" -> "rural irrigation interruptions pump availability maintenance responsibility and crop stress";
+            default -> spec.ragQuestion();
+        };
     }
 
     private BigDecimal score(boolean value) { return value ? BigDecimal.ONE : BigDecimal.ZERO; }
