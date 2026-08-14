@@ -25,11 +25,12 @@ public class RootCauseIntelligenceService {
     private static final String MODEL_ID = "qwen2.5-local";
     private static final String MODEL_VERSION = "qwen2.5:0.5b";
     private static final String PROMPT_VERSION = "ROOT_CAUSE_INTELLIGENCE@1.0.0";
-    private static final List<String> DOMAINS = List.of("AGRICULTURE", "WATER", "HEALTHCARE", "EDUCATION", "EMPLOYMENT", "INFRASTRUCTURE", "NUTRITION", "LIVELIHOOD", "CLIMATE", "GOVERNANCE", "SANITATION", "OTHER");
+    private static final List<String> DOMAINS = List.of("AGRICULTURE", "WATER", "HEALTHCARE", "EDUCATION", "EMPLOYMENT", "INFRASTRUCTURE", "NUTRITION", "LIVELIHOOD", "CLIMATE", "GOVERNANCE", "SANITATION", "ENERGY", "OTHER");
 
     private final JdbcOperations jdbcTemplate;
     private final ObjectMapper objectMapper;
     private final RootCauseRagClient ragClient;
+    private final SemanticGroundingValidator groundingValidator = new SemanticGroundingValidator();
 
     public RootCauseIntelligenceService(JdbcOperations jdbcTemplate, ObjectMapper objectMapper, RootCauseRagClient ragClient) {
         this.jdbcTemplate = jdbcTemplate;
@@ -42,7 +43,13 @@ public class RootCauseIntelligenceService {
     public RootCauseAnalysisResponse analyze(RootCauseAnalysisRequest request, UUID userId) {
         ProblemResponse problem = normalizeProblem(request.problem());
         List<FactResponse> observedFacts = extractFacts(request, problem);
-        RagQueryResponse rag = ragClient.rag(new RagQueryRequest(ragQuestion(problem), "knowledge", MODEL_ID, null, Map.of("domain", problem.domain()), 5), userId);
+        RagQueryResponse rag = request.retrievedDocuments() == null || request.retrievedDocuments().isEmpty()
+                ? ragClient.rag(new RagQueryRequest(ragQuestion(problem), "knowledge", MODEL_ID, null, Map.of("domain", problem.domain()), 5), userId)
+                : ragFromRetrievedDocuments(request.retrievedDocuments());
+        boolean retrievalEvidenceExpected = rag.citations() != null && !rag.citations().isEmpty();
+        List<CitationResponse> relevantCitations = groundingValidator.relevantCitations(
+                observationContext(observedFacts), rag.citations());
+        rag = withCitations(rag, relevantCitations);
         List<FactResponse> retrievedFacts = retrievedEvidenceFacts(rag);
         List<FactResponse> allFacts = new ArrayList<>();
         allFacts.addAll(observedFacts);
@@ -51,7 +58,14 @@ public class RootCauseIntelligenceService {
         List<FactorResponse> factors = factors(problem, allFacts, assessments);
         List<String> contradictions = contradictions(allFacts);
         List<CandidateRootCauseResponse> candidates = candidates(problem, factors, allFacts, contradictions, rag);
-        List<CandidateRootCauseResponse> validated = candidates.stream().filter(candidate -> candidate.confidence() >= 0.55 && candidate.contradictingEvidence().isEmpty()).toList();
+        List<SemanticGroundingValidator.FactText> groundingFacts = allFacts.stream()
+                .map(fact -> new SemanticGroundingValidator.FactText(fact.factId(), fact.statement()))
+                .toList();
+        List<CandidateRootCauseResponse> validated = candidates.stream()
+                .filter(candidate -> candidate.confidence() >= 0.55 && candidate.contradictingEvidence().isEmpty())
+                .filter(candidate -> !retrievalEvidenceExpected || !relevantCitations.isEmpty())
+                .filter(candidate -> groundingValidator.supportsRootCause(candidate.description(), candidate.supportingFacts(), groundingFacts, relevantCitations))
+                .toList();
         List<AlternativeHypothesisResponse> alternatives = alternatives(problem, candidates, allFacts);
         List<CausalRelationshipResponse> graph = graph(problem, factors, candidates);
         List<UncertaintyResponse> uncertainties = uncertainties(problem, candidates, contradictions, allFacts);
@@ -84,6 +98,19 @@ public class RootCauseIntelligenceService {
         validate(response);
         persist(response, request, userId, Boolean.TRUE.equals(request.requireHumanReview()) || confidence.overall() < 0.75);
         return response;
+    }
+
+    private String observationContext(List<FactResponse> facts) {
+        return facts.stream()
+                .filter(fact -> !"RETRIEVED_DOCUMENT".equals(fact.sourceType()))
+                .map(FactResponse::statement)
+                .filter(Objects::nonNull)
+                .filter(statement -> !statement.isBlank())
+                .reduce("", (left, right) -> left.isBlank() ? right : left + " " + right);
+    }
+
+    private RagQueryResponse withCitations(RagQueryResponse response, List<CitationResponse> citations) {
+        return new RagQueryResponse(response.requestId(), response.answer(), citations, response.retrievalLatencyMs(), response.inferenceLatencyMs(), response.supportStatus(), response.citationValidationStatus(), response.reasoningSummary(), response.promptVersion(), response.modelId());
     }
 
     /** Gets a previously generated analysis by ID. */
@@ -233,17 +260,37 @@ public class RootCauseIntelligenceService {
         List<String> factorNames = domainFactors(problem.domain(), problem.description());
         List<FactorResponse> result = new ArrayList<>();
         for (String factor : factorNames) {
-            List<String> support = facts.stream().filter(fact -> relevance(fact.statement(), factor) > 0.12).map(FactResponse::factId).limit(6).toList();
+            List<String> support = facts.stream()
+                    .filter(fact -> !"PROBLEM_STATEMENT".equals(fact.sourceType()))
+                    .filter(fact -> relevance(fact.statement(), factor) > 0.12)
+                    .map(FactResponse::factId)
+                    .limit(6)
+                    .toList();
             List<String> contradict = facts.stream().filter(fact -> isContradiction(fact.statement(), factor)).map(FactResponse::factId).limit(4).toList();
             double evidenceBoost = support.isEmpty() ? 0.18 : support.size() / 8.0;
             double confidence = round(Math.min(0.86, 0.32 + evidenceBoost - (contradict.size() * 0.12)));
-            result.add(new FactorResponse(factor, support, contradict, confidence, support.isEmpty() ? "MODEL_INFERENCE" : "EVIDENCE_FUSION"));
+            if (!support.isEmpty()) {
+                result.add(new FactorResponse(factor, support, contradict, confidence, "EVIDENCE_FUSION"));
+            }
         }
         return result.stream().sorted(Comparator.comparing(FactorResponse::confidence).reversed()).toList();
     }
 
     private List<CandidateRootCauseResponse> candidates(ProblemResponse problem, List<FactorResponse> factors, List<FactResponse> facts, List<String> contradictions, RagQueryResponse rag) {
         List<CandidateRootCauseResponse> candidates = new ArrayList<>();
+        if (factors.isEmpty()) {
+            return List.of(new CandidateRootCauseResponse(
+                    "root-cause-unresolved-evidence",
+                    "No evidence-backed root cause can be distinguished from the supplied records.",
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    0.0,
+                    problem.domain(),
+                    List.of("Direct, scenario-specific evidence is insufficient."),
+                    "Root cause remains unresolved pending additional evidence.",
+                    "No causal hypothesis was emitted because the supplied evidence did not support one."));
+        }
         AtomicInteger counter = new AtomicInteger(1);
         for (FactorResponse factor : factors.stream().limit(4).toList()) {
             String id = "root-cause-" + counter.getAndIncrement();
@@ -358,7 +405,42 @@ public class RootCauseIntelligenceService {
         if (lower.contains("crop") || lower.contains("agri") || domain.equals("AGRICULTURE")) return List.of("poor irrigation access", "soil health constraints", "market access limitation", "high input cost", "crop disease or climate stress");
         if (lower.contains("school") || domain.equals("EDUCATION")) return List.of("household economic pressure", "school access barrier", "teacher availability gap", "health or nutrition issue", "seasonal migration");
         if (lower.contains("employment") || domain.equals("EMPLOYMENT")) return List.of("limited local job availability", "skill mismatch", "market access limitation", "seasonal work dependency", "credit access constraint");
+        if (domain.equals("SANITATION")) return List.of("sanitation containment capacity", "facility maintenance responsibility", "rainwater ingress", "safe sanitation access");
+        if (domain.equals("HEALTHCARE")) return List.of("health-center staffing coverage", "service scheduling capacity", "workload and coverage mismatch", "health-service accountability");
+        if (domain.equals("ENERGY")) return List.of("transformer or grid fault", "load or capacity constraint", "repair response delay", "energy maintenance accountability");
+        if (domain.equals("LIVELIHOOD")) return List.of("seasonal demand constraint", "credit or finance access", "local job availability", "market access constraint");
+        if (domain.equals("CLIMATE") || domain.equals("MULTI_DOMAIN")) return List.of("water or storage preparedness", "warning communication gap", "local response capacity", "contingency planning gap");
+        if (domain.equals("INFRASTRUCTURE")) return List.of("building envelope damage", "drainage or surface condition", "facility maintenance responsibility", "inspection or material gap");
         return List.of("service availability gap", "infrastructure reliability issue", "governance accountability gap", "household access barrier", "resource constraint");
+    }
+
+    private RagQueryResponse ragFromRetrievedDocuments(List<Map<String, Object>> documents) {
+        List<CitationResponse> citations = documents.stream()
+                .filter(Objects::nonNull)
+                .map(document -> new CitationResponse(
+                        value(String.valueOf(document.get("source_type")), "rag-service"),
+                        sourceId(document),
+                        value(String.valueOf(document.get("excerpt")), ""),
+                        number(document.get("score"))))
+                .filter(citation -> !citation.sourceId().equals("unknown") && !citation.excerpt().isBlank())
+                .toList();
+        return new RagQueryResponse(UUID.randomUUID(), "Provided governed evidence", citations, 0L, 0L);
+    }
+
+    private String sourceId(Map<String, Object> document) {
+        Object sourceId = document.get("source_id");
+        if (sourceId == null || String.valueOf(sourceId).isBlank() || "null".equalsIgnoreCase(String.valueOf(sourceId))) {
+            sourceId = document.get("sourceId");
+        }
+        if (sourceId == null || String.valueOf(sourceId).isBlank() || "null".equalsIgnoreCase(String.valueOf(sourceId))) {
+            sourceId = document.get("source");
+        }
+        return value(sourceId == null ? null : String.valueOf(sourceId), "unknown");
+    }
+
+    private double number(Object value) {
+        if (value instanceof Number number) return number.doubleValue();
+        try { return Double.parseDouble(String.valueOf(value)); } catch (Exception ignored) { return 0.0; }
     }
 
     private List<String> contradictions(List<FactResponse> facts) {

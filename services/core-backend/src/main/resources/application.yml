@@ -93,12 +93,17 @@ airural:
       batch-size: ${OUTBOX_BATCH_SIZE:50}
       max-attempts: ${OUTBOX_MAX_ATTEMPTS:5}
   ai:
+    vision:
+      max-image-bytes: ${AI_VISION_MAX_IMAGE_BYTES:10485760}
+      max-width: ${AI_VISION_MAX_IMAGE_WIDTH:4096}
+      max-height: ${AI_VISION_MAX_IMAGE_HEIGHT:4096}
     gateway:
       default-model: ${LLM_MODEL:${AI_DEFAULT_MODEL:qwen2.5:0.5b}}
       ollama-url: ${OLLAMA_BASE_URL:${OLLAMA_URL:http://localhost:11434}}
       vllm-url: ${VLLM_URL:http://localhost:8000}
       inference-service-url: ${AI_INFERENCE_SERVICE_URL:http://localhost:8101}
       rag-service-url: ${RAG_SERVICE_URL:http://localhost:8102}
+      vision-model: ${VISION_MODEL:moondream:1.8b}
       timeout-seconds: ${AI_INFERENCE_TIMEOUT_SECONDS:130}
     qdrant:
       url: ${QDRANT_URL:http://localhost:6333}
@@ -107,6 +112,10 @@ airural:
       vector-size: ${AI_EMBEDDING_VECTOR_SIZE:16}
     safety:
       max-prompt-chars: ${AI_MAX_PROMPT_CHARS:12000}
+  evaluation:
+    heldout-path: ${AIRURAL_EVALUATION_SET_PATH:ml-platform/evaluation/heldout/evaluation-set-v1.0.0}
+    multimodal-artifact-path: ${AIRURAL_MULTIMODAL_ARTIFACT_PATH:artifacts/evaluation}
+    inference-configuration: '${AIRURAL_EVALUATION_INFERENCE_CONFIGURATION:{"provider":"ollama","temperature":0.1,"request_timeout_seconds":180,"constrained_generation":true,"fallback":"none"}}'
 
 springdoc:
   api-docs:

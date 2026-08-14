@@ -1,0 +1,28 @@
+{
+  "duplicate_count": 0,
+  "evaluation_set_version": "evaluation-set-v1.0.0",
+  "evaluation_version": "MODEL-EVALUATION-METHODOLOGY@1.0.0",
+  "excluded_examples": {
+    "dataset-v0.3-train-or-validation": 25
+  },
+  "immutable": true,
+  "output_contract_version": "dataset-v0.3",
+  "pii_detected": 0,
+  "rubric_version": "HUMAN-QUALITY-RUBRIC@1.0.0",
+  "scenario_leakage_count": 0,
+  "split_counts": {
+    "test": 4,
+    "train": 0,
+    "validation": 0
+  },
+  "split_leakage_count": 0,
+  "synthetic_examples": 0,
+  "task_counts": {
+    "rag-grounded-responses": 2,
+    "recommendation-generation": 1,
+    "root-cause-analysis": 1
+  },
+  "total_test_examples": 4,
+  "training_data_modified": false,
+  "training_performed": false
+}

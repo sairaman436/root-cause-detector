@@ -135,6 +135,21 @@ class EvaluationTrainingCandidateServiceTests {
         assertThat(response.blockedReasons()).containsEntry("QUALITY_GATE_FAILED", 1);
     }
 
+    @Test
+    void developmentSyntheticCitationIsBlockedEvenForPilotScenario() {
+        PilotScenarioResultEntity result = result(true, "rag-grounded-responses");
+        result.setPipelineOutputJson("{\"task\":\"rag-grounded-responses\",\"input\":\"Verify the water source\",\"output\":\"Grounded response\",\"citations\":[{\"source_id\":\"development-evaluation-fixture\"}]}");
+        when(results.findAll()).thenReturn(List.of(result));
+        when(runs.findById(runId)).thenReturn(Optional.of(run()));
+        when(scenarios.findById(scenarioId)).thenReturn(Optional.of(scenario("REAL_GOVERNED")));
+
+        CandidateGenerationResponse response = service.generate(new CandidateGenerationRequest(null), reviewer());
+
+        assertThat(response.candidatesGenerated()).isZero();
+        assertThat(response.blockedReasons()).containsEntry("DEVELOPMENT_SYNTHETIC_EVIDENCE", 1);
+        verifyNoInteractions(learning);
+    }
+
     private PilotScenarioResultEntity result(boolean pass, String task) {
         PilotScenarioResultEntity result = new PilotScenarioResultEntity(resultId, runId, scenarioId);
         result.setPass(pass);

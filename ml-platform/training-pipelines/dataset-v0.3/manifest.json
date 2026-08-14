@@ -1,0 +1,34 @@
+{
+  "accepted_examples": 28,
+  "approved_records": 31,
+  "citation_context_validated": true,
+  "corrected_records": 0,
+  "dataset_version": "dataset-v0.3",
+  "duplicate_count": 0,
+  "excluded_approved_records": 3,
+  "exclusion_reasons": {
+    "contract:output:exceeds_sequence_length": 3
+  },
+  "immutable": true,
+  "max_output_tokens_observed": 588,
+  "pending_records": 0,
+  "pii_detected": 0,
+  "provenance_validated": true,
+  "rejected_records": 0,
+  "scenario_leakage_count": 0,
+  "split_counts": {
+    "test": 3,
+    "train": 23,
+    "validation": 2
+  },
+  "split_leakage_count": 0,
+  "structured_targets_validated": true,
+  "synthetic_examples": 0,
+  "task_counts": {
+    "rag-grounded-responses": 9,
+    "recommendation-generation": 9,
+    "root-cause-analysis": 10
+  },
+  "training_performed": false,
+  "validation_failures": {}
+}

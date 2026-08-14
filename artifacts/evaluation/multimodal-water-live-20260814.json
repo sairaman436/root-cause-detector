@@ -1,0 +1,43 @@
+{
+  "traceId": "mm-water-live-20260814",
+  "artifactVersion": "MULTIMODAL_CROSS_DOMAIN_2026-08-14@1.0.0",
+  "evaluationRound": "MULTIMODAL_CROSS_DOMAIN_2026-08-14",
+  "domain": "Water & sanitation",
+  "question": "What visible water-access condition should be investigated?",
+  "image": {
+    "name": "csp-water-sanitation-valid.jpg",
+    "type": "image/jpeg",
+    "size": 236929,
+    "sha256": "efb845afd509d3434a22d979f4989998037ecde0133add997a9c281bf7c388f3"
+  },
+  "status": "COMPLETED",
+  "result": {
+    "vision": {
+      "model": "moondream:1.8b",
+      "provider": "ollama",
+      "observations": [
+        {
+          "description": "The image shows a water pump in an open field with dry grass surrounding it. The water pump is located on top of a dirt mound and has a blue cover over its spout. There are no people or other objects visible in the scene.",
+          "type": "visual_observation"
+        }
+      ],
+      "question": "What visible water-access condition should be investigated?",
+      "uncertainty": "The image does not establish a diagnosis or cause.",
+      "latency_ms": 15550,
+      "gpu_memory": null
+    },
+    "retrievalQuery": "Evaluation context: Water & sanitation (user-provided label; image domain not assumed)\nGoverned retrieval domain: WATER_SANITATION\nUser question: What visible water-access condition should be investigated?\nObserved concepts: water pump, open field, dry grass, dirt mound, blue cover, spout\nObserved summary:\n- The image shows a water pump in an open field with dry grass surrounding it. The water pump is located on top of a dirt mound and has a blue cover over its spout. There are no people or other objects visible in the scene.\nModel uncertainty: The image does not establish a diagnosis or cause.",
+    "rag": {
+      "answer": "Insufficient trusted evidence was retrieved to produce a grounded answer.",
+      "citations": [],
+      "retrievalLatencyMs": 2681,
+      "inferenceLatencyMs": 0,
+      "supportStatus": "INSUFFICIENT_EVIDENCE",
+      "citationValidationStatus": "NOT_APPLICABLE",
+      "promptVersion": "RAG_GROUNDED_ANSWER@1.0.0",
+      "modelId": "qwen2.5:0.5b"
+    },
+    "totalLatencyMs": 18231
+  },
+  "reviewStatus": "UNSCORED"
+}

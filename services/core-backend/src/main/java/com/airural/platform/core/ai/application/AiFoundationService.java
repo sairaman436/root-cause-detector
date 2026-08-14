@@ -121,13 +121,14 @@ public class AiFoundationService {
     public RagQueryResponse rag(RagQueryRequest request, UUID userId) {
         Instant retrievalStarted = Instant.now();
         String safeQuery = safetyService.validateAndMask(request.query());
+        boolean governedEvidence = isGovernedEvidenceRequest(request.context());
         RagServiceResult retrieved = callRagService(request, safeQuery, request.topK() == null ? 5 : request.topK());
         List<CitationResponse> citations = retrieved.citations();
         boolean insufficientEvidence = "INSUFFICIENT_EVIDENCE".equalsIgnoreCase(retrieved.supportStatus());
-        if (citations.isEmpty() && !insufficientEvidence) {
+        if (citations.isEmpty() && !insufficientEvidence && !governedEvidence) {
             citations = vectorSearchService.hybridSearch(value(request.collectionName(), "knowledge"), safeQuery, request.topK() == null ? 5 : request.topK());
         }
-        if (citations.isEmpty() && !insufficientEvidence) {
+        if (citations.isEmpty() && !insufficientEvidence && !governedEvidence) {
             citations = List.of(new CitationResponse("RAG_PIPELINE", "NO_VECTOR_MATCH", "No vector or service match was available; answer is limited to the query context.", 0.1));
         }
         long retrievalLatency = Duration.between(retrievalStarted, Instant.now()).toMillis();
@@ -140,7 +141,17 @@ public class AiFoundationService {
         for (CitationResponse citation : citations) {
             citationRepository.save(new RAGCitationEntity(rag, citation.sourceType(), citation.sourceId(), citation.excerpt(), citation.score()));
         }
-        return new RagQueryResponse(rag.id(), answer, citations, retrievalLatency, inferenceLatency);
+        return new RagQueryResponse(
+                rag.id(),
+                answer,
+                citations,
+                retrievalLatency,
+                inferenceLatency,
+                retrieved.supportStatus(),
+                retrieved.citationValidationStatus(),
+                retrieved.reasoningSummary(),
+                retrieved.promptVersion(),
+                retrieved.modelId());
     }
 
     public Page<UsageResponse> usage(Pageable pageable) {
@@ -183,7 +194,7 @@ public class AiFoundationService {
             payload.put("filters", ragFilters(request.context()));
             Map<?, ?> body = restTemplate.postForObject(ragServiceUrl + "/v1/query", payload, Map.class);
             if (body == null) {
-                return new RagServiceResult("", List.of(), "");
+                return RagServiceResult.empty();
             }
             List<CitationResponse> citations = new ArrayList<>();
             Object rawCitations = body.get("citations");
@@ -194,14 +205,28 @@ public class AiFoundationService {
                                 "rag-service",
                                 Objects.toString(citation.get("source_id"), "unknown"),
                                 Objects.toString(citation.get("excerpt"), ""),
-                                parseScore(citation.get("score"))));
+                                parseScore(citation.get("score")),
+                                Objects.toString(citation.get("citation_id"), Objects.toString(citation.get("chunk_id"), null)),
+                                Objects.toString(citation.get("document_id"), null),
+                                Objects.toString(citation.get("title"), null),
+                                Objects.toString(citation.get("source_url"), null),
+                                Objects.toString(citation.get("publisher"), null),
+                                parseInteger(citation.get("page")),
+                                Objects.toString(citation.get("section"), null)));
                     }
                 }
             }
-            return new RagServiceResult(Objects.toString(body.get("answer"), ""), citations, Objects.toString(body.get("support_status"), ""));
+            return new RagServiceResult(
+                    Objects.toString(body.get("answer"), ""),
+                    citations,
+                    Objects.toString(body.get("support_status"), ""),
+                    Objects.toString(body.get("citation_validation_status"), ""),
+                    Objects.toString(body.get("reasoning_summary"), ""),
+                    Objects.toString(body.get("prompt_version"), ""),
+                    Objects.toString(body.get("model_id"), ""));
         } catch (RestClientException ex) {
             // VectorSearchService fallback keeps backend tests and offline development deterministic.
-            return new RagServiceResult("", List.of(), "");
+            return RagServiceResult.empty();
         }
     }
 
@@ -210,14 +235,19 @@ public class AiFoundationService {
             return Map.of();
         }
         Map<String, Object> filters = new LinkedHashMap<>();
-        for (String key : List.of("domain", "language", "source", "document_type", "publisher", "document_version", "geography")) {
+        for (String key : List.of("domain", "language", "source", "document_type", "publisher", "document_version", "geography", "allowed_source_ids", "governed_only")) {
             Object value = context.get(key);
-            if (value != null && !String.valueOf(value).isBlank()) {
+            if (value != null && (!String.valueOf(value).isBlank() || value instanceof Boolean)) {
                 String normalized = String.valueOf(value).trim();
-                filters.put(key, "domain".equals(key) || "language".equals(key) ? normalized.toLowerCase(Locale.ROOT) : normalized);
+                filters.put(key, "domain".equals(key) || "language".equals(key) ? normalized.toLowerCase(Locale.ROOT) : value);
             }
         }
         return filters;
+    }
+
+    private boolean isGovernedEvidenceRequest(Map<String, Object> context) {
+        return context != null && Boolean.parseBoolean(String.valueOf(context.getOrDefault("governed_evaluation", false)))
+                && context.get("allowed_source_ids") instanceof List<?> sources && !sources.isEmpty();
     }
 
     private double parseScore(Object value) {
@@ -231,7 +261,29 @@ public class AiFoundationService {
         }
     }
 
-    private record RagServiceResult(String answer, List<CitationResponse> citations, String supportStatus) {}
+    private Integer parseInteger(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return value == null ? null : Integer.valueOf(String.valueOf(value));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private record RagServiceResult(
+            String answer,
+            List<CitationResponse> citations,
+            String supportStatus,
+            String citationValidationStatus,
+            String reasoningSummary,
+            String promptVersion,
+            String modelId) {
+        private static RagServiceResult empty() {
+            return new RagServiceResult("", List.of(), "", "", "", "", "");
+        }
+    }
 
     private String json(Object value) {
         try { return objectMapper.writeValueAsString(value); } catch (Exception ex) { return "{}"; }

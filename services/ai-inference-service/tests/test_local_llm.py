@@ -43,6 +43,34 @@ class FakeProvider(main.AIProvider):
             limitations=["Requires field validation"],
         )
 
+    def constrained_generate_v03(self, prompt: str, task: str, source_ids: set[str], model: str | None = None) -> dict[str, object]:
+        if self.error:
+            raise self.error
+        if not source_ids:
+            raise main.ProviderError("V03_SOURCE_IDS_REQUIRED", "source IDs are required", 400)
+        if self.output == "malformed":
+            raise main.ProviderError("LLM_INVALID_V03_OUTPUT", "invalid schema", 502)
+        source_id = sorted(source_ids)[0]
+        if task == "rag-grounded-responses":
+            payload = {
+                "answer": "The evidence indicates a maintenance constraint.",
+                "uncertainties": ["Field validation remains necessary."],
+                "citations": [{"source_id": source_id}],
+            }
+        else:
+            payload = {
+                "summary": "Water access is constrained by maintenance delays.",
+                "root_causes": [{
+                    "name": "Weak maintenance capacity",
+                    "description": "Repair capacity is insufficient for reported demand.",
+                    "evidence_source_ids": [source_id],
+                    "confidence": 0.74,
+                }],
+                "uncertainties": ["Requires field validation."],
+                "citations": [{"source_id": source_id}],
+            }
+        return {"payload": payload, "latency_ms": 1, "repair_attempts": 0, "gpu_memory": None}
+
     def stream(self, prompt: str, model: str | None = None):
         yield "ok"
 
@@ -85,7 +113,8 @@ def test_structured_root_cause_analysis_returns_strict_schema() -> None:
             "problem": "Water supply is unreliable in the village.",
             "survey": {"name": "Water survey"},
             "submission": {"answers": [{"questionCode": "water_source", "value": "well"}]},
-            "evidence": [{"fileName": "field-note.txt"}],
+            "evidence": [{"fileName": "field-note.txt", "source_id": "pilot.water.circular.001"}],
+            "citations": [{"source_id": "pilot.water.circular.001"}],
             "model": "qwen-test",
         },
     )
@@ -112,11 +141,14 @@ def test_structured_analysis_rejects_malformed_model_output(monkeypatch: pytest.
 
     response = TestClient(main.app).post(
         "/v1/analysis/root-cause",
-        json={"problem": "Water supply is unreliable."},
+        json={
+            "problem": "Water supply is unreliable.",
+            "citations": [{"source_id": "pilot.water.circular.001"}],
+        },
     )
 
     assert response.status_code == 502
-    assert response.json()["detail"]["code"] == "LLM_INVALID_STRUCTURED_OUTPUT"
+    assert response.json()["detail"]["code"] == "LLM_INVALID_V03_OUTPUT"
 
 
 def test_structured_analysis_fails_when_model_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -133,6 +165,99 @@ def test_structured_analysis_fails_when_model_unavailable(monkeypatch: pytest.Mo
 
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "OLLAMA_MODEL_UNAVAILABLE"
+
+
+def test_vision_endpoint_returns_validated_observations(monkeypatch: pytest.MonkeyPatch) -> None:
+    class VisionFakeProvider(FakeProvider):
+        def analyze_image(self, request: main.VisionAnalysisRequest) -> main.VisionAnalysisResponse:
+            return main.VisionAnalysisResponse(
+                model="moondream:1.8b",
+                provider="fake-provider",
+                observations=[main.VisionObservation(description="Green crop leaves with visible brown spots.", type="visual_observation")],
+                question=request.question,
+                uncertainty="The image does not establish a diagnosis or cause.",
+                latency_ms=1,
+                gpu_memory=None,
+            )
+
+    monkeypatch.setattr(main, "provider", lambda: VisionFakeProvider())
+    response = TestClient(main.app).post(
+        "/v1/vision/analyze",
+        json={"image_base64": "YWJjZGVmZ2hpamtsbW5vcA==", "mime_type": "image/jpeg", "question": "What is visible?"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["observations"][0]["type"] == "visual_observation"
+    assert body["uncertainty"]
+
+
+def test_ollama_vision_bounds_long_prose_without_truncating(monkeypatch: pytest.MonkeyPatch) -> None:
+    vision = main.OllamaProvider()
+    long_description = " ".join(["The image shows green crop leaves with brown and yellow patches across the field."] * 12)
+    monkeypatch.setattr(
+        vision,
+        "_post_json",
+        lambda *args, **kwargs: {"model": "moondream:1.8b", "message": {"content": long_description}},
+    )
+
+    response = vision.analyze_image(
+        main.VisionAnalysisRequest(
+            image_base64="YWJjZGVmZ2hpamtsbW5vcA==",
+            mime_type="image/jpeg",
+            question="What is visible?",
+            model="moondream:1.8b",
+        )
+    )
+
+    joined = " ".join(item.description for item in response.observations)
+    assert len(response.observations) > 1
+    assert max(len(item.description) for item in response.observations) <= main.VISION_OBSERVATION_MAX_CHARS
+    assert joined.replace("  ", " ") == long_description
+
+
+def test_vision_endpoint_fails_closed_when_provider_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        main,
+        "provider",
+        lambda: FakeProvider(error=main.ProviderError("VISION_MODEL_UNAVAILABLE", "vision model missing", 503)),
+    )
+
+    response = TestClient(main.app).post(
+        "/v1/vision/analyze",
+        json={"image_base64": "YWJjZGVmZ2hpamtsbW5vcA==", "mime_type": "image/jpeg", "question": "What is visible?"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["message"] == "Vision analysis unavailable."
+
+
+def test_v03_rag_inference_returns_canonical_contract() -> None:
+    response = TestClient(main.app).post(
+        "/v1/inference",
+        json={
+            "prompt": "Summarize the retrieved evidence.",
+            "task_type": "rag-grounded-responses",
+            "citations": [{"source_id": "pilot.water.circular.001"}],
+            "context": {"citations": [{"source_id": "pilot.water.circular.001"}]},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["contract_version"] == "dataset-v0.3"
+    assert body["structured_output"]["citations"] == [{"source_id": "pilot.water.circular.001"}]
+    assert body["fallback_used"] is False
+
+
+def test_v03_rag_inference_rejects_missing_source_ids() -> None:
+    response = TestClient(main.app).post(
+        "/v1/inference",
+        json={"prompt": "Summarize the retrieved evidence.", "task_type": "rag-grounded-responses"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "V03_SOURCE_IDS_REQUIRED"
 
 
 def test_canonical_payload_converts_list_objects_to_strings() -> None:

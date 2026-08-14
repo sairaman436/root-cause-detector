@@ -17,6 +17,7 @@ import com.airural.platform.core.governance.application.GovernanceException;
 import com.airural.platform.core.datasets.application.DatasetException;
 import com.airural.platform.core.knowledge.application.KnowledgeException;
 import com.airural.platform.core.learning.application.LearningException;
+import com.airural.platform.core.evaluation.application.HumanEvaluationException;
 import com.airural.platform.core.optimization.application.OptimizationException;
 import com.airural.platform.core.release.application.ReleaseException;
 import com.airural.platform.core.reports.application.ReportException;
@@ -120,6 +121,12 @@ public class GlobalExceptionHandler {
     /** Handles domain-level continuous learning errors. */
     @ExceptionHandler(LearningException.class)
     public ResponseEntity<ErrorResponse> handleLearning(LearningException ex, HttpServletRequest request) {
+        return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
+    }
+
+    /** Handles controlled human-evaluation workflow failures. */
+    @ExceptionHandler(HumanEvaluationException.class)
+    public ResponseEntity<ErrorResponse> handleHumanEvaluation(HumanEvaluationException ex, HttpServletRequest request) {
         return error(ex.status(), ex.code(), ex.getMessage(), List.of(), request);
     }
 

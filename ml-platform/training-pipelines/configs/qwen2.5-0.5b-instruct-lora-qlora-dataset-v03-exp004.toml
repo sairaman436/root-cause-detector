@@ -1,0 +1,79 @@
+# Purpose: Pins the single controlled Qwen QLoRA Experiment 004.
+# Why it exists: Experiment 004 trains only on dataset-v0.3 TRAIN/VALIDATION and reserves evaluation-set-v1.0.0 for final comparison.
+# Architecture fit: Keeps training data, immutable held-out evaluation, constrained inference, and adapter output independently versioned and auditable.
+
+[experiment]
+name = "qwen2.5-0.5b-instruct-dataset-v0.3-experiment-004"
+seed = 42
+dataset_version = "dataset-v0.3"
+dataset_dir = "ml-platform/training-pipelines/dataset-v0.3"
+output_dir = "artifacts/training/qwen2.5-0.5b-instruct-dataset-v0.3/experiment-004"
+resume_from_checkpoint = ""
+report_path = "FINE_TUNING_EXPERIMENT_004.md"
+
+[model]
+base_model = "Qwen/Qwen2.5-0.5B-Instruct"
+model_family = "QWEN"
+trust_remote_code = false
+torch_dtype = "bfloat16"
+
+[data]
+sequence_length = 1024
+train_files = ["root-cause-analysis.jsonl", "recommendation-generation.jsonl", "rag-grounded-responses.jsonl"]
+validation_files = ["root-cause-analysis.jsonl", "recommendation-generation.jsonl", "rag-grounded-responses.jsonl"]
+test_files = ["root-cause-analysis.jsonl", "recommendation-generation.jsonl", "rag-grounded-responses.jsonl"]
+
+[holdout]
+directory = "ml-platform/evaluation/heldout/evaluation-set-v1.0.0"
+evaluation_set_version = "evaluation-set-v1.0.0"
+expected_examples = 4
+files = ["root-cause-analysis.jsonl", "recommendation-generation.jsonl", "rag-grounded-responses.jsonl"]
+
+[preflight]
+train_examples = 23
+validation_examples = 2
+dataset_test_examples = 3
+evaluation_version = "MODEL-EVALUATION-METHODOLOGY@1.0.0"
+rubric_version = "HUMAN-QUALITY-RUBRIC@1.0.0"
+output_contract_version = "dataset-v0.3"
+
+[inference]
+path = "outlines-transformers"
+prompt_version = "DATASET_V03_CONSTRAINED@1.0.0"
+schema_version = "dataset-v0.3"
+max_new_tokens = 512
+do_sample = false
+unconstrained_fallback = false
+
+[training]
+batch_size = 1
+gradient_accumulation_steps = 8
+learning_rate = 0.0002
+epochs = 1
+warmup_ratio = 0.03
+max_grad_norm = 1.0
+gradient_checkpointing = true
+logging_steps = 1
+evaluation_steps = 10
+save_steps = 10
+
+[lora]
+rank = 16
+alpha = 32
+dropout = 0.05
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+[quantization]
+method = "qlora_4bit"
+double_quantization = true
+quant_type = "nf4"
+compute_dtype = "bfloat16"
+
+[reproducibility]
+deterministic_algorithms = true
+
+[checkpoint]
+resume_supported = true
+save_optimizer_state = true
+save_tokenizer = true
+save_metadata = true

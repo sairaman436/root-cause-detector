@@ -144,6 +144,8 @@ class SearchFilters(BaseModel):
     publication_date_to: str | None = None
     geography: str | None = None
     document_version: str | None = None
+    allowed_source_ids: list[str] = Field(default_factory=list)
+    governed_only: bool = False
 
 
 class KnowledgeSearchRequest(BaseModel):
@@ -353,6 +355,10 @@ async def ingest_document(request: Request) -> KnowledgeDocument:
         embedding_dimension=settings.embedding_dimension,
         security_flags=security_flags,
     )
+
+    same_document = knowledge_store.documents.get(document_id)
+    if same_document is not None and same_document.checksum == checksum:
+        return same_document
 
     existing = [item for item in knowledge_store.documents.values() if item.checksum == checksum and item.document_id != document_id]
     if existing:
@@ -705,6 +711,10 @@ def _retrieve(request: KnowledgeSearchRequest) -> tuple[list[Citation], str]:
 
 
 def _matches_filters(chunk: KnowledgeChunk, filters: SearchFilters) -> bool:
+    if filters.allowed_source_ids and chunk.source not in set(filters.allowed_source_ids):
+        return False
+    if filters.governed_only and _is_development_source(chunk.source):
+        return False
     checks = {
         "domain": chunk.domain,
         "language": chunk.language,
@@ -718,6 +728,11 @@ def _matches_filters(chunk: KnowledgeChunk, filters: SearchFilters) -> bool:
         if wanted and str(value).lower() != str(wanted).lower():
             return False
     return True
+
+
+def _is_development_source(source: str) -> bool:
+    normalized = str(source or "").lower()
+    return any(marker in normalized for marker in ("development", "synthetic", "fixture"))
 
 
 def _metadata_boost(chunk: KnowledgeChunk, filters: SearchFilters) -> float:
@@ -752,6 +767,7 @@ def _citation_from_chunk(chunk: KnowledgeChunk, score: float) -> Citation:
 
 
 def _generate_grounded_answer(query: str, citations: list[Citation]) -> str:
+    source_ids = sorted({citation.source_id for citation in citations if citation.source_id})
     evidence = "\n\n".join(
         f"[{index + 1}] Document: {citation.title}; Section: {citation.section}; "
         f"Page: {citation.page or 'n/a'}; Source: {citation.source}; Evidence: {citation.excerpt}"
@@ -768,9 +784,15 @@ def _generate_grounded_answer(query: str, citations: list[Citation]) -> str:
     try:
         payload = {
             "prompt": prompt,
+            "task_type": "rag-grounded-responses",
             "model": settings.llm_model,
             "temperature": 0.1,
             "max_tokens": 500,
+            "citations": [{"source_id": source_id} for source_id in source_ids],
+            "context": {
+                "citations": [{"source_id": source_id} for source_id in source_ids],
+                "evidence": [citation.model_dump() for citation in citations[:5]],
+            },
             "metadata": {"prompt_version": "RAG_GROUNDED_ANSWER@1.0.0"},
         }
         raw = _http_json(
@@ -779,10 +801,20 @@ def _generate_grounded_answer(query: str, citations: list[Citation]) -> str:
             payload=payload,
             timeout=settings.llm_timeout_seconds,
         )
-        answer = str(raw.get("output") or raw.get("text") or raw.get("response") or "").strip()
-        return answer or _deterministic_answer(query, citations)
+        answer = str(raw.get("output") or "").strip()
+        if not answer:
+            raise ValueError("CONSTRAINED_RAG_EMPTY_OUTPUT")
+        constrained = json.loads(answer)
+        generated_ids = {
+            item.get("source_id")
+            for item in constrained.get("citations", [])
+            if isinstance(item, dict) and isinstance(item.get("source_id"), str)
+        }
+        if not generated_ids or not generated_ids.issubset(set(source_ids)):
+            raise ValueError("CONSTRAINED_RAG_INVALID_SOURCE_IDS")
+        return str(constrained["answer"]).strip()
     except Exception as exc:
-        logger.warning("rag_llm_generation_failed", error=str(exc))
+        logger.warning("rag_constrained_generation_failed", error=str(exc), fallback="deterministic_evidence_summary")
         return _deterministic_answer(query, citations)
 
 
@@ -872,6 +904,12 @@ def _qdrant_search(query_embedding: list[float], limit: int, filters: SearchFilt
         value = getattr(filters, key)
         if value:
             must.append({"key": key, "match": {"value": value}})
+    if filters.allowed_source_ids:
+        must.append({"key": "source", "match": {"any": filters.allowed_source_ids}})
+    if filters.governed_only:
+        # The in-memory candidate filter is authoritative; this marker keeps
+        # Qdrant payload filtering conservative when the collection is used.
+        must.append({"key": "security_flags", "match": {"except": ["DEVELOPMENT_SYNTHETIC"]}})
     payload: dict[str, Any] = {"vector": query_embedding, "limit": limit, "with_payload": True}
     if must:
         payload["filter"] = {"must": must}

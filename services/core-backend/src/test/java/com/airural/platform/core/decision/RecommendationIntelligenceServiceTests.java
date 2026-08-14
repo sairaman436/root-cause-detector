@@ -25,7 +25,7 @@ class RecommendationIntelligenceServiceTests {
     @Test
     void generatesPrioritizedOptionsFromValidatedRootCauseAndRagEvidence() {
         JdbcOperations jdbcTemplate = mock(JdbcOperations.class);
-        RecommendationIntelligenceService service = service(jdbcTemplate, List.of(new CitationResponse("rag-water-scheme", "approved-water-policy", "Water reliability programs require maintenance verification.", 0.86)));
+        RecommendationIntelligenceService service = service(jdbcTemplate, List.of(new CitationResponse("rag-water-scheme", "approved-water-policy", "Water asset repair and maintenance programs support source reliability, government schemes, and water infrastructure planning.", 0.86)));
 
         RecommendationSetResponse response = service.generate(request(Map.of("fieldTeam", "available")), UUID.randomUUID());
 
@@ -46,11 +46,12 @@ class RecommendationIntelligenceServiceTests {
 
     @Test
     void flagsResourceInformationGapsInResourcesRisksAndLimitations() {
-        RecommendationIntelligenceService service = service(mock(JdbcOperations.class), List.of());
+        RecommendationIntelligenceService service = service(mock(JdbcOperations.class), List.of(new CitationResponse("rag-water", "approved-water-policy", "Water asset repair and maintenance programs support source reliability.", 0.86)));
 
         RecommendationSetResponse response = service.generate(request(Map.of()), UUID.randomUUID());
 
-        assertThat(response.schemeMatches()).singleElement().satisfies(match -> assertThat(match.status()).isEqualTo("ELIGIBILITY_REQUIRES_VERIFICATION"));
+        assertThat(response.schemeMatches()).isNotEmpty();
+        assertThat(response.schemeMatches()).allMatch(match -> match.status().equals("ELIGIBILITY_REQUIRES_VERIFICATION"));
         assertThat(response.options()).allSatisfy(option -> {
             assertThat(option.requiredResources()).anyMatch(resource -> resource.contains("RESOURCE_INFORMATION_MISSING"));
             assertThat(option.risks()).anyMatch(risk -> risk.riskType().equals("Data Risk") && risk.severity().equals("HIGH"));
@@ -68,6 +69,78 @@ class RecommendationIntelligenceServiceTests {
         assertThatThrownBy(() -> service.generate(emptyRequest, UUID.randomUUID()))
                 .isInstanceOf(DecisionException.class)
                 .hasMessageContaining("At least one validated root cause");
+    }
+
+    @Test
+    void filtersRecommendationEvidenceToPermittedScenarioSources() {
+        JdbcOperations jdbcTemplate = mock(JdbcOperations.class);
+        RecommendationIntelligenceService service = service(jdbcTemplate, List.of(
+                new CitationResponse("rag-service", "permitted-source", "Approved crop disease evidence describes pest damage, soil and crop advisory, and treatment response.", 0.86),
+                new CitationResponse("rag-service", "unrelated-source", "Unrelated evidence.", 0.85)));
+        RecommendationGenerateRequest request = new RecommendationGenerateRequest(
+                null,
+                List.of(new RootCauseInput("rc-1", "Validated crop disease factor.", "AGRICULTURE", 0.82, List.of("permitted-source"))),
+                Map.of(),
+                List.of(),
+                Map.of("fieldTeam", "available"),
+                Map.of("allowed_source_ids", List.of("permitted-source")),
+                "AGRICULTURE",
+                10,
+                "knowledge-test",
+                "evidence-test",
+                true);
+
+        RecommendationSetResponse response = service.generate(request, UUID.randomUUID());
+
+        assertThat(response.options()).allSatisfy(option -> {
+            assertThat(option.evidence()).contains("permitted-source");
+            assertThat(option.evidence()).doesNotContain("unrelated-source");
+        });
+    }
+
+    @Test
+    void rejectsRecommendationWhenPermittedCitationIsSemanticallyUnrelated() {
+        RecommendationIntelligenceService service = service(mock(JdbcOperations.class), List.of(
+                new CitationResponse("rag-service", "permitted-source", "Market logistics and buyer delivery records.", 0.86)));
+        RecommendationGenerateRequest request = new RecommendationGenerateRequest(
+                null,
+                List.of(new RootCauseInput("rc-1", "Validated crop disease factor.", "AGRICULTURE", 0.82, List.of("permitted-source"))),
+                Map.of(),
+                List.of(),
+                Map.of(),
+                Map.of("allowed_source_ids", List.of("permitted-source")),
+                "AGRICULTURE",
+                10,
+                "knowledge-test",
+                "evidence-test",
+                true);
+
+        assertThatThrownBy(() -> service.generate(request, UUID.randomUUID()))
+                .isInstanceOf(DecisionException.class)
+                .hasMessageContaining("semantically relevant");
+    }
+
+    @Test
+    void excludesGenericMarketRecommendationFromCropDiseaseEvidence() {
+        RecommendationIntelligenceService service = service(mock(JdbcOperations.class), List.of(
+                new CitationResponse("rag-service", "crop-source", "Crop disease and pest damage response should use field scouting and treatment verification.", 0.86)));
+        RecommendationGenerateRequest request = new RecommendationGenerateRequest(
+                null,
+                List.of(new RootCauseInput("rc-1", "Validated crop disease factor.", "AGRICULTURE", 0.82, List.of("crop-source"))),
+                Map.of(),
+                List.of(),
+                Map.of(),
+                Map.of("allowed_source_ids", List.of("crop-source")),
+                "AGRICULTURE",
+                10,
+                "knowledge-test",
+                "evidence-test",
+                true);
+
+        RecommendationSetResponse response = service.generate(request, UUID.randomUUID());
+
+        assertThat(response.options()).hasSize(2);
+        assertThat(response.options()).allMatch(option -> !option.title().toLowerCase(Locale.ROOT).contains("market"));
     }
 
     @Test
@@ -116,7 +189,7 @@ class RecommendationIntelligenceServiceTests {
     }
 
     private RecommendationSetResponse generatedResponse(JdbcOperations jdbcTemplate) {
-        return service(jdbcTemplate, List.of(new CitationResponse("rag-water", "policy", "Maintain water assets.", 0.9)))
+        return service(jdbcTemplate, List.of(new CitationResponse("rag-water", "policy", "Water asset maintenance and repair records support reliable water service, government schemes, and infrastructure.", 0.9)))
                 .generate(request(Map.of("fieldTeam", "available")), UUID.randomUUID());
     }
 
