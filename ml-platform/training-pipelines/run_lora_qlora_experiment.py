@@ -17,7 +17,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from contracts.dataset_v03_contract import format_training_example, validate_generated_target, validate_record
+from contracts.dataset_v03_contract import (
+    format_inference_example,
+    format_inference_repair_example,
+    format_training_example,
+    validate_generated_target,
+    validate_record,
+    v03_json_schema,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -51,9 +58,7 @@ def _dataset_digest(dataset_dir: Path) -> str:
     return _sha256_tree(dataset_dir)
 
 
-def _load_split(config: dict[str, Any], split: str) -> list[dict[str, Any]]:
-    dataset_dir = Path(config["experiment"]["dataset_dir"])
-    names = config["data"].get(f"{split}_files") or config["data"].get("train_files", [])
+def _load_rows(dataset_dir: Path, names: list[str], split: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for name in names:
         for row in SETUP._read_jsonl(dataset_dir / name):
@@ -62,15 +67,51 @@ def _load_split(config: dict[str, Any], split: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _validate_preflight(config: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], str]:
+def _load_split(config: dict[str, Any], split: str) -> list[dict[str, Any]]:
+    dataset_dir = Path(config["experiment"]["dataset_dir"])
+    names = config["data"].get(f"{split}_files") or config["data"].get("train_files", [])
+    return _load_rows(dataset_dir, names, split)
+
+
+def _load_holdout(config: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any], str]:
+    holdout_config = config.get("holdout", {})
+    holdout_dir = Path(holdout_config["directory"])
+    manifest_path = holdout_dir / "manifest.json"
+    if not manifest_path.exists():
+        raise TrainingSetupError(f"HOLDOUT_MANIFEST_MISSING:{manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    expected_version = holdout_config["evaluation_set_version"]
+    if manifest.get("evaluation_set_version") != expected_version:
+        raise TrainingSetupError("HOLDOUT_VERSION_MISMATCH")
+    if manifest.get("immutable") is not True or manifest.get("training_data_modified") is not False:
+        raise TrainingSetupError("HOLDOUT_IMMUTABILITY_GATE_FAILED")
+    names = holdout_config.get("files") or [file.name for file in sorted(holdout_dir.glob("*.jsonl"))]
+    rows = _load_rows(holdout_dir, names, "test")
+    if len(rows) != int(holdout_config["expected_examples"]):
+        raise TrainingSetupError(f"HOLDOUT_EXAMPLE_COUNT_MISMATCH:{len(rows)}")
+    return rows, manifest, _sha256_tree(holdout_dir)
+
+
+def _validate_preflight(config: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], dict[str, Any], str, str]:
     train, validation, manifest = SETUP.validate_dataset(config)
-    test = _load_split(config, "test")
+    dataset_test = _load_split(config, "test")
+    holdout, holdout_manifest, holdout_digest = _load_holdout(config)
     sequence_length = int(config["data"]["sequence_length"])
+    expected_counts = config.get("preflight", {})
+    if len(train) != int(expected_counts.get("train_examples", len(train))) or len(validation) != int(expected_counts.get("validation_examples", len(validation))):
+        raise TrainingSetupError("DATASET_SPLIT_COUNT_GATE_FAILED")
+    if len(dataset_test) != int(expected_counts.get("dataset_test_examples", len(dataset_test))):
+        raise TrainingSetupError("DATASET_TEST_SPLIT_COUNT_GATE_FAILED")
+    if holdout_manifest.get("total_test_examples") != len(holdout):
+        raise TrainingSetupError("HOLDOUT_MANIFEST_COUNT_MISMATCH")
+    for key in ("evaluation_version", "rubric_version", "output_contract_version"):
+        if holdout_manifest.get(key) != expected_counts.get(key):
+            raise TrainingSetupError(f"HOLDOUT_{key.upper()}_MISMATCH")
     if manifest.get("structured_targets_validated") is not True:
         raise TrainingSetupError("DATASET_STRUCTURED_TARGET_GATE_FAILED")
     if manifest.get("citation_context_validated") is not True:
         raise TrainingSetupError("DATASET_CITATION_CONTEXT_GATE_FAILED")
-    for row in train + validation + test:
+    for row in train + validation + dataset_test + holdout:
         if config["experiment"]["dataset_version"] == "dataset-v0.3":
             contract_errors = validate_record(row, sequence_length)
             if contract_errors:
@@ -87,23 +128,32 @@ def _validate_preflight(config: dict[str, Any]) -> tuple[list[dict[str, Any]], l
             input_text = str(row.get("input", ""))
             if "Retrieved evidence and citation context" not in input_text or not row.get("citations"):
                 raise TrainingSetupError("DATASET_RAG_CITATION_CONTEXT_GATE_FAILED")
-    if not test:
-        raise TrainingSetupError("DATASET_REQUIRES_TEST_EXAMPLE")
-    if len({row.get("scenario_group") for row in train + validation + test}) != len(train + validation + test):
+    if not holdout:
+        raise TrainingSetupError("HOLDOUT_REQUIRES_EXAMPLES")
+    dataset_rows = train + validation + dataset_test
+    if len({row.get("scenario_group") for row in dataset_rows}) != len(dataset_rows):
         raise TrainingSetupError("DATASET_SCENARIO_LEAKAGE")
+    if len({row.get("scenario_group") for row in holdout}) != len(holdout):
+        raise TrainingSetupError("HOLDOUT_SCENARIO_LEAKAGE")
+    training_rows = train + validation
+    if {row.get("scenario_group") for row in training_rows} & {row.get("scenario_group") for row in holdout}:
+        raise TrainingSetupError("TRAINING_OR_DATASET_TEST_CONTAMINATES_HOLDOUT")
+    if {row.get("example_id") for row in training_rows} & {row.get("example_id") for row in holdout}:
+        raise TrainingSetupError("EXAMPLE_ID_CONTAMINATES_HOLDOUT")
     if any(row.get("split") != "train" for row in train):
         raise TrainingSetupError("TRAIN_SPLIT_INVALID")
     if any(row.get("split") != "validation" for row in validation):
         raise TrainingSetupError("VALIDATION_SPLIT_INVALID")
-    if any(row.get("split") != "test" for row in test):
+    if any(row.get("split") != "test" for row in dataset_test):
         raise TrainingSetupError("TEST_SPLIT_INVALID")
     dataset_dir = Path(config["experiment"]["dataset_dir"])
-    return train, validation, test, manifest, _dataset_digest(dataset_dir)
+    return train, validation, holdout, manifest, holdout_manifest, _dataset_digest(dataset_dir), holdout_digest
 
 
-def _imports() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
+def _imports() -> tuple[Any, Any, Any, Any, Any, Any, Any, Any]:
     try:
         import torch
+        import bitsandbytes  # noqa: F401
         from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     except ImportError as exc:
@@ -141,7 +191,7 @@ def _batch(tokenizer: Any, text: str, sequence_length: int, torch: Any) -> dict[
 
 
 def _prompt(tokenizer: Any, row: dict[str, Any]) -> str:
-    return format_training_example(tokenizer, row, include_target=False)
+    return format_inference_example(tokenizer, row)
 
 
 def _resource_snapshot(torch: Any) -> dict[str, Any]:
@@ -164,21 +214,65 @@ def _load_base(config: dict[str, Any], torch: Any, AutoModelForCausalLM: Any, Bi
     return AutoModelForCausalLM.from_pretrained(config["model"]["base_model"], **_model_kwargs(config, torch, BitsAndBytesConfig))
 
 
-def _evaluate_model(model: Any, tokenizer: Any, row: dict[str, Any], config: dict[str, Any], torch: Any) -> dict[str, Any]:
+def _constrained_generator(model: Any, tokenizer: Any) -> tuple[Any, Any]:
+    """Create the mandatory Outlines Transformers JSON-schema generator."""
+
+    try:
+        import outlines
+        from outlines.models.transformers import from_transformers
+    except ImportError as exc:
+        raise TrainingSetupError(f"CONSTRAINED_DECODING_DEPENDENCY_MISSING:{exc.name}") from exc
+    return from_transformers(model, tokenizer), outlines.json_schema
+
+
+def _evaluate_model(
+    model: Any,
+    tokenizer: Any,
+    row: dict[str, Any],
+    config: dict[str, Any],
+    torch: Any,
+    constrained_generator: Any,
+    schema_factory: Any,
+) -> dict[str, Any]:
     model.eval()
     device = next(model.parameters()).device
-    encoded = tokenizer(_prompt(tokenizer, row), return_tensors="pt", truncation=True, max_length=int(config["data"]["sequence_length"]))
-    encoded = {key: value.to(device) for key, value in encoded.items()}
+    sequence_length = int(config["data"]["sequence_length"])
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
     started = time.perf_counter()
-    with torch.inference_mode():
-        output = model.generate(**encoded, max_new_tokens=256, do_sample=False, pad_token_id=tokenizer.eos_token_id)
-    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-    generated = tokenizer.decode(output[0][encoded["input_ids"].shape[1] :], skip_special_tokens=True).strip()
     source_ids = {str(citation.get("source_id")) for citation in row.get("citations", []) if citation.get("source_id")}
+    constrained_output_type = schema_factory(v03_json_schema(row["task"], source_ids))
+    prompt = _prompt(tokenizer, row)
+    generated = ""
+    contract_errors: list[str] = []
+    repair_attempts = 0
+    for attempt in range(2):
+        encoded = tokenizer(prompt, return_tensors="pt", truncation=False)
+        if encoded["input_ids"].shape[1] > sequence_length:
+            raise ValueError(
+                f"INFERENCE_PROMPT_EXCEEDS_SEQUENCE_LENGTH:{encoded['input_ids'].shape[1]}>{sequence_length}"
+            )
+        prompt_length = encoded["input_ids"].shape[1]
+        encoded = {key: value.to(device) for key, value in encoded.items()}
+        del encoded, prompt_length
+        generated = str(
+            constrained_generator(
+                prompt,
+                constrained_output_type,
+                max_new_tokens=512,
+                do_sample=False,
+                eos_token_id=tokenizer.eos_token_id,
+                pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+            )
+        ).strip()
+        contract_errors = validate_generated_target(row["task"], generated, source_ids)
+        if not contract_errors:
+            break
+        if attempt == 0:
+            repair_attempts = 1
+            prompt = format_inference_repair_example(tokenizer, row, contract_errors, generated)
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
     source_mentions = sorted(source_id for source_id in source_ids if source_id in generated)
-    contract_errors = validate_generated_target(row["task"], generated, source_ids)
     structured = not contract_errors
     return {
         "output_validity": bool(generated),
@@ -194,25 +288,66 @@ def _evaluate_model(model: Any, tokenizer: Any, row: dict[str, Any], config: dic
         "latency_ms": elapsed_ms,
         "resource_usage": _resource_snapshot(torch),
         "output": generated,
+        "task": row["task"],
+        "scenario_group": row["scenario_group"],
+        "repair_attempts": repair_attempts,
     }
 
 
-def _evaluate_base_and_adapter(config: dict[str, Any], test_row: dict[str, Any], checkpoint: Path, torch: Any, AutoModelForCausalLM: Any, AutoTokenizer: Any, BitsAndBytesConfig: Any, PeftModel: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+def _aggregate_evaluation(results: list[dict[str, Any]]) -> dict[str, Any]:
+    contract_passes = sum(result["structured_output_success"] for result in results)
+    latencies = [result["latency_ms"] for result in results]
+    return {
+        "examples": len(results),
+        "task_counts": {task: sum(result["task"] == task for result in results) for task in {
+            "root-cause-analysis",
+            "recommendation-generation",
+            "rag-grounded-responses",
+        }},
+        "structured_output_successes": contract_passes,
+        "structured_output_success_rate": round(contract_passes / len(results), 4) if results else 0.0,
+        "citation_contract_successes": sum(result["citation_correctness"] != "CONTRACT_FAILED" for result in results),
+        "evidence_grounding_successes": sum(result["evidence_grounding"] != "CONTRACT_FAILED" for result in results),
+        "average_latency_ms": round(sum(latencies) / len(latencies), 2) if latencies else None,
+        "min_latency_ms": min(latencies) if latencies else None,
+        "max_latency_ms": max(latencies) if latencies else None,
+        "quality_metrics": "PENDING_HUMAN_QUALITY_RUBRIC_SCORING",
+        "recommendation_quality": "PENDING_HUMAN_QUALITY_RUBRIC_SCORING",
+    }
+
+
+def _classify_result(base: dict[str, Any], fine: dict[str, Any]) -> str:
+    base_rate = base["aggregate"]["structured_output_success_rate"]
+    fine_rate = fine["aggregate"]["structured_output_success_rate"]
+    if fine_rate > base_rate:
+        return "IMPROVED"
+    if fine_rate < base_rate:
+        return "REGRESSED"
+    base_latency = base["aggregate"]["average_latency_ms"]
+    fine_latency = fine["aggregate"]["average_latency_ms"]
+    if base_latency and fine_latency and fine_latency > base_latency * 1.10:
+        return "REGRESSED"
+    return "NO_SIGNIFICANT_CHANGE"
+
+
+def _evaluate_base_and_adapter(config: dict[str, Any], test_rows: list[dict[str, Any]], checkpoint: Path, torch: Any, AutoModelForCausalLM: Any, AutoTokenizer: Any, BitsAndBytesConfig: Any, PeftModel: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     tokenizer = AutoTokenizer.from_pretrained(config["model"]["base_model"], trust_remote_code=bool(config["model"]["trust_remote_code"]))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
     base = _load_base(config, torch, AutoModelForCausalLM, BitsAndBytesConfig)
-    base_result = _evaluate_model(base, tokenizer, test_row, config, torch)
+    base_generator, schema_factory = _constrained_generator(base, tokenizer)
+    base_results = [_evaluate_model(base, tokenizer, row, config, torch, base_generator, schema_factory) for row in test_rows]
     del base
     torch.cuda.empty_cache()
     fine = _load_base(config, torch, AutoModelForCausalLM, BitsAndBytesConfig)
     fine = PeftModel.from_pretrained(fine, checkpoint, is_trainable=False)
-    fine_result = _evaluate_model(fine, tokenizer, test_row, config, torch)
+    fine_generator, schema_factory = _constrained_generator(fine, tokenizer)
+    fine_results = [_evaluate_model(fine, tokenizer, row, config, torch, fine_generator, schema_factory) for row in test_rows]
     del fine
     torch.cuda.empty_cache()
-    return base_result, fine_result
+    return {"per_example": base_results, "aggregate": _aggregate_evaluation(base_results)}, {"per_example": fine_results, "aggregate": _aggregate_evaluation(fine_results)}
 
 
 def _write_report(result: dict[str, Any], report_path: Path) -> None:
@@ -226,6 +361,13 @@ Status: **EXPERIMENTAL**. This run uses a small approved dataset and is not evid
 
 - Base model: `{result['base_model']}`
 - Dataset: `{result['dataset_version']}`
+- Dataset digest: `{result['dataset_digest_before']}` (unchanged: `{result['dataset_digest_before'] == result['dataset_digest_after']}`)
+- Evaluation set: `{result['evaluation_set_version']}`
+- Evaluation-set digest: `{result['holdout_digest_before']}` (unchanged: `{result['holdout_digest_before'] == result['holdout_digest_after']}`)
+- Evaluation methodology: `{result['evaluation_version']}`
+- Human rubric: `{result['rubric_version']}`
+- Prompt version: `{result['prompt_version']}`
+- Inference configuration: `{json.dumps(result['inference_configuration'], sort_keys=True)}`
 - Experiment: `{result['experiment_name']}`
 - Split counts: train `{result['split_counts']['train']}`, validation `{result['split_counts']['validation']}`, test `{result['split_counts']['test']}`
 - Quantization: `{result['quantization']}` (`{result['quant_type']}`, double quantization `{result['double_quantization']}`, compute dtype `{result['compute_dtype']}`)
@@ -245,59 +387,60 @@ Status: **EXPERIMENTAL**. This run uses a small approved dataset and is not evid
 - Training loss by epoch: `{result['training_loss_by_epoch']}`
 - Validation loss by epoch: `{result['validation_loss_by_epoch']}`
 - Best validation loss: `{result['best_validation_loss']}`
+- Dataset digest before/after: `{result['dataset_digest_before']}` / `{result['dataset_digest_after']}`
+- Evaluation-set digest before/after: `{result['holdout_digest_before']}` / `{result['holdout_digest_after']}`
 - Checkpoint SHA-256: `{result['checkpoint_sha256']}`
 - Dataset digest unchanged: `{result['dataset_digest_before'] == result['dataset_digest_after']}`
 
 ## Held-Out Test Comparison
 
-The same unchanged TEST row, prompt construction, decoding settings, and evaluation checks were used for both models. Human-rubric metrics are reported as not scored rather than inferred.
+The same unchanged `{result['evaluation_set_version']}` TEST rows, prompt construction, constrained-decoding settings, generation limits, and evaluation checks were used for both models. Human-rubric metrics are reported as pending rather than inferred.
 
 | Metric | Base Qwen | Fine-tuned Qwen |
 |---|---:|---:|
-| Output validity | `{base['output_validity']}` | `{fine['output_validity']}` |
-| Structured output success | `{base['structured_output_success']}` | `{fine['structured_output_success']}` |
-| Evidence grounding check | `{base['evidence_grounding']}` | `{fine['evidence_grounding']}` |
-| Citation correctness | `{base['citation_correctness']}` | `{fine['citation_correctness']}` |
-| Unsupported-claim rate | `{base['unsupported_claim_rate']}` | `{fine['unsupported_claim_rate']}` |
-| Root-cause quality | `{base['root_cause_quality']}` | `{fine['root_cause_quality']}` |
-| Recommendation quality | `{base['recommendation_quality']}` | `{fine['recommendation_quality']}` |
-| Uncertainty handling | `{base['uncertainty_handling']}` | `{fine['uncertainty_handling']}` |
-| Latency (ms) | `{base['latency_ms']}` | `{fine['latency_ms']}` |
+| Structured output success | `{base['aggregate']['structured_output_successes']}/{base['aggregate']['examples']}` | `{fine['aggregate']['structured_output_successes']}/{fine['aggregate']['examples']}` |
+| Citation/source-ID contract | `{base['aggregate']['citation_contract_successes']}/{base['aggregate']['examples']}` | `{fine['aggregate']['citation_contract_successes']}/{fine['aggregate']['examples']}` |
+| Evidence grounding check | `{base['aggregate']['evidence_grounding_successes']}/{base['aggregate']['examples']}` | `{fine['aggregate']['evidence_grounding_successes']}/{fine['aggregate']['examples']}` |
+| Unsupported-claim rate | `PENDING HUMAN SCORING` | `PENDING HUMAN SCORING` |
+| Root-cause quality | `PENDING HUMAN SCORING` | `PENDING HUMAN SCORING` |
+| Recommendation quality | `PENDING HUMAN SCORING` | `PENDING HUMAN SCORING` |
+| RAG response quality | `PENDING HUMAN SCORING` | `PENDING HUMAN SCORING` |
+| Uncertainty handling | `PENDING HUMAN SCORING` | `PENDING HUMAN SCORING` |
+| Average latency (ms) | `{base['aggregate']['average_latency_ms']}` | `{fine['aggregate']['average_latency_ms']}` |
 
-### Outputs
+### Per-example Structural Results
 
-Base output:
-
-```text
-{base['output']}
-```
-
-Fine-tuned output:
-
-```text
-{fine['output']}
-```
+| Task | Scenario | Base contract | Fine-tuned contract | Base latency (ms) | Fine-tuned latency (ms) |
+|---|---|---|---|---:|---:|
+{chr(10).join(f"| `{b['task']}` | `{b['scenario_group']}` | `{b['structured_output_success']}` | `{f['structured_output_success']}` | `{b['latency_ms']}` | `{f['latency_ms']}` |" for b, f in zip(base['per_example'], fine['per_example']))}
 
 ## Resource Usage
 
-- Base inference: `{json.dumps(base['resource_usage'], sort_keys=True)}`
-- Fine-tuned inference: `{json.dumps(fine['resource_usage'], sort_keys=True)}`
+- Base inference by test example: `{json.dumps([item['resource_usage'] for item in base['per_example']], sort_keys=True)}`
+- Fine-tuned inference by test example: `{json.dumps([item['resource_usage'] for item in fine['per_example']], sort_keys=True)}`
 - Training: `{json.dumps(result['training_resource_usage'], sort_keys=True)}`
 
 ## Limitations and Decision
 
-- One TEST example cannot support a statistical quality or generalization claim.
-- Root-cause quality, recommendation quality, citation correctness, and unsupported-claim rate require the existing human/reference evaluation rubric and are not fabricated here.
-- The held-out TEST contains one example, so grounding and quality checks remain limited and are not production evaluation.
+- The `{result['evaluation_set_version']}` TEST contains four examples: one root-cause, one recommendation, and two RAG examples. This remains a small sample and cannot support a statistical generalization claim.
+- Cross-test overlap disclosure: `{len(result['dataset_test_holdout_overlap'])}` held-out example IDs also appear in the immutable dataset-v0.3 TEST split; none overlap TRAIN or VALIDATION. This is a test-set independence limitation, not training contamination.
+- Human quality scores for both model outputs were not fabricated. The existing human baseline report records zero completed reviewer scores, so rubric dimensions remain pending.
+- Root-cause quality, recommendation quality, RAG/evidence quality, uncertainty handling, practical usefulness, and unsupported-claim rate require authenticated human scoring under `HUMAN-QUALITY-RUBRIC@1.0.0`.
 - This adapter is not deployed and does not replace the base model.
 - Pipeline readiness for a larger dataset: **TECHNICALLY READY FOR A CONTROLLED LARGER RUN; QUALITY READINESS NOT ESTABLISHED**.
+
+## Final Classification
+
+**{result['classification']}**
+
+This classification is based on available structural contract and performance evidence only. It is not a claim of statistical quality improvement because the test set is small and human quality metrics are pending.
 """
     report_path.write_text(report, encoding="utf-8")
 
 
 def run_experiment(config_path: Path) -> dict[str, Any]:
     config = SETUP.load_config(config_path)
-    train, validation, test, manifest, digest_before = _validate_preflight(config)
+    train, validation, test, manifest, holdout_manifest, digest_before, holdout_digest_before = _validate_preflight(config)
     output_dir = Path(config["experiment"]["output_dir"])
     if output_dir.exists() and any(output_dir.iterdir()):
         raise TrainingSetupError(f"EXPERIMENT_OUTPUT_EXISTS:{output_dir}")
@@ -332,7 +475,8 @@ def run_experiment(config_path: Path) -> dict[str, Any]:
     optimizer.zero_grad(set_to_none=True)
     for epoch in range(int(config["training"]["epochs"])):
         total = 0.0
-        for row in train:
+        micro_steps = 0
+        for row_index, row in enumerate(train, 1):
             batch = SETUP._on_model_device(_batch(tokenizer, format_training_example(tokenizer, row), sequence_length, torch), model)
             result = model(**batch)
             loss = result.loss
@@ -340,10 +484,12 @@ def run_experiment(config_path: Path) -> dict[str, Any]:
                 raise TrainingSetupError("TRAINING_LOSS_INVALID")
             total += float(loss.detach().cpu())
             (loss / grad_accum).backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), float(config["training"]["max_grad_norm"]))
-        optimizer.step()
-        optimizer_updates += 1
-        optimizer.zero_grad(set_to_none=True)
+            micro_steps += 1
+            if micro_steps % grad_accum == 0 or row_index == len(train):
+                torch.nn.utils.clip_grad_norm_(model.parameters(), float(config["training"]["max_grad_norm"]))
+                optimizer.step()
+                optimizer_updates += 1
+                optimizer.zero_grad(set_to_none=True)
         training_loss = total / len(train)
         model.eval()
         with torch.no_grad():
@@ -359,13 +505,29 @@ def run_experiment(config_path: Path) -> dict[str, Any]:
     (checkpoint / "training-config.toml").write_text(config_path.read_text(encoding="utf-8"), encoding="utf-8")
     del model
     torch.cuda.empty_cache()
-    base_result, fine_result = _evaluate_base_and_adapter(config, test[0], checkpoint, torch, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, PeftModel)
+    base_result, fine_result = _evaluate_base_and_adapter(config, test, checkpoint, torch, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, PeftModel)
     digest_after = _dataset_digest(Path(config["experiment"]["dataset_dir"]))
+    holdout_digest_after = _sha256_tree(Path(config["holdout"]["directory"]))
+    dataset_test_rows = _load_split(config, "test")
+    dataset_test_holdout_overlap = sorted(
+        {row.get("example_id") for row in dataset_test_rows}
+        & {row.get("example_id") for row in test}
+    )
     result = {
         "base_model": model_config["base_model"],
         "experiment_name": config["experiment"].get("name", "UNNAMED"),
         "dataset_version": manifest["dataset_version"],
         "split_counts": {"train": len(train), "validation": len(validation), "test": len(test)},
+        "dataset_digest_before": digest_before,
+        "dataset_digest_after": digest_after,
+        "holdout_digest_before": holdout_digest_before,
+        "holdout_digest_after": holdout_digest_after,
+        "dataset_test_holdout_overlap": dataset_test_holdout_overlap,
+        "evaluation_set_version": holdout_manifest["evaluation_set_version"],
+        "evaluation_version": holdout_manifest["evaluation_version"],
+        "rubric_version": holdout_manifest["rubric_version"],
+        "prompt_version": config["inference"]["prompt_version"],
+        "inference_configuration": config["inference"],
         "quantization": config["quantization"]["method"],
         "quant_type": config["quantization"]["quant_type"],
         "double_quantization": config["quantization"]["double_quantization"],
@@ -385,11 +547,10 @@ def run_experiment(config_path: Path) -> dict[str, Any]:
         "best_validation_loss": min(validation_losses),
         "checkpoint": str(checkpoint),
         "checkpoint_sha256": _sha256_tree(checkpoint),
-        "dataset_digest_before": digest_before,
-        "dataset_digest_after": digest_after,
         "training_resource_usage": _resource_snapshot(torch),
         "base_model_result": base_result,
         "fine_tuned_model_result": fine_result,
+        "classification": _classify_result(base_result, fine_result),
     }
     (output_dir / "experiment-results.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report_path = ROOT / config["experiment"].get("report_path", "FINE_TUNING_EXPERIMENT.md")

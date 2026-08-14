@@ -224,6 +224,15 @@ RC1 does not certify internet-facing production use. It certifies that the MVP i
 
 ## Local Development
 
+Start the complete local platform from PowerShell:
+
+```powershell
+.\scripts\start-platform.ps1
+```
+
+You can also double-click `start-platform.bat`. Use `-NoBuild` to start
+existing images without rebuilding, or `-NoBrowser` to keep the browser closed.
+
 Start local infrastructure dependencies:
 
 ```powershell

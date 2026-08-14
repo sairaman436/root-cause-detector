@@ -39,6 +39,29 @@ def test_ingestion_rejects_untrusted_documents() -> None:
     assert response.status_code == 403
 
 
+def test_repeated_ingestion_of_same_document_is_idempotent() -> None:
+    client = TestClient(app)
+    document = {
+        "document_id": "idempotent-document",
+        "title": "Idempotent Evidence",
+        "source": "PILOT_IDEMPOTENT_SOURCE",
+        "publisher": "Controlled Evaluation Registry",
+        "language": "en",
+        "domain": "water",
+        "document_type": "pilot-evaluation",
+        "approved_source": True,
+        "text": "The same governed evidence may be submitted again after a request retry.",
+    }
+
+    first = client.post("/v1/documents", json=document)
+    second = client.post("/v1/documents", json=document)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["document_id"] == first.json()["document_id"]
+    assert second.json()["checksum"] == first.json()["checksum"]
+
+
 def test_rag_query_returns_valid_citations_for_trusted_document() -> None:
     client = TestClient(app)
     index_response = client.post(
@@ -129,3 +152,75 @@ def test_search_supports_metadata_filtering() -> None:
     citations = response.json()["citations"]
     assert len(citations) == 1
     assert citations[0]["metadata"]["domain"] == "agriculture"
+
+
+def test_allowed_source_filter_isolates_scenario_evidence() -> None:
+    client = TestClient(app)
+    for document_id, source, text in [
+        ("scenario-a", "PILOT_SCENARIO_A", "Transformer interruption evidence for scenario A."),
+        ("scenario-b", "PILOT_SCENARIO_B", "Transformer interruption evidence for scenario B."),
+    ]:
+        response = client.post(
+            "/v1/documents",
+            json={
+                "document_id": document_id,
+                "title": document_id,
+                "source": source,
+                "publisher": "Controlled Evaluation Registry",
+                "language": "en",
+                "domain": "energy",
+                "document_type": "pilot-evaluation",
+                "approved_source": True,
+                "text": text,
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        "/v1/query",
+        json={
+            "query": "Transformer interruption evidence",
+            "top_k": 5,
+            "filters": {
+                "domain": "energy",
+                "allowed_source_ids": ["PILOT_SCENARIO_A"],
+                "governed_only": True,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["citations"]
+    assert {item["source_id"] for item in response.json()["citations"]} == {"PILOT_SCENARIO_A"}
+
+
+def test_governed_only_rejects_development_synthetic_evidence() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/v1/documents",
+        json={
+            "document_id": "development-fixture",
+            "title": "Development Fixture",
+            "source": "development-evaluation-fixture",
+            "publisher": "Development",
+            "language": "en",
+            "domain": "water",
+            "document_type": "fixture",
+            "approved_source": True,
+            "text": "Synthetic development evidence for pipeline testing only.",
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        "/v1/query",
+        json={
+            "query": "Synthetic development evidence",
+            "top_k": 5,
+            "filters": {"domain": "water", "governed_only": True},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["support_status"] == "INSUFFICIENT_EVIDENCE"
+    assert response.json()["citations"] == []

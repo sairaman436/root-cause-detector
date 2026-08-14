@@ -40,8 +40,23 @@ public final class AiDtos {
     /** RAG query request. */
     public record RagQueryRequest(@NotBlank String query, String collectionName, String modelId, UUID sessionId, Map<String, Object> context, Integer topK) {}
 
-    /** RAG query response. */
-    public record RagQueryResponse(UUID requestId, String answer, List<CitationResponse> citations, Long retrievalLatencyMs, Long inferenceLatencyMs) {}
+    /** RAG query response with authoritative support and citation-validation metadata. */
+    public record RagQueryResponse(
+            UUID requestId,
+            String answer,
+            List<CitationResponse> citations,
+            Long retrievalLatencyMs,
+            Long inferenceLatencyMs,
+            String supportStatus,
+            String citationValidationStatus,
+            String reasoningSummary,
+            String promptVersion,
+            String modelId) {
+        /** Preserves the original five-field constructor used by decision adapters and tests. */
+        public RagQueryResponse(UUID requestId, String answer, List<CitationResponse> citations, Long retrievalLatencyMs, Long inferenceLatencyMs) {
+            this(requestId, answer, citations, retrievalLatencyMs, inferenceLatencyMs, null, null, null, null, null);
+        }
+    }
 
     /** Local LLM root-cause analysis request. */
     public record LlmAnalysisRequest(@NotNull UUID surveyId, UUID submissionId, @NotBlank String problem, String modelId, List<UUID> evidenceIds, List<CitationResponse> citations) {}
@@ -74,8 +89,24 @@ public final class AiDtos {
             Instant createdAt,
             RuralAnalysisOutput output) {}
 
-    /** Citation response. */
-    public record CitationResponse(String sourceType, String sourceId, String excerpt, Double score) {}
+    /** Citation response preserving source metadata returned by the RAG service. */
+    public record CitationResponse(
+            String sourceType,
+            String sourceId,
+            String excerpt,
+            Double score,
+            String citationId,
+            String documentId,
+            String title,
+            String sourceUrl,
+            String publisher,
+            Integer page,
+            String section) {
+        /** Preserves the original four-field constructor used by other bounded contexts. */
+        public CitationResponse(String sourceType, String sourceId, String excerpt, Double score) {
+            this(sourceType, sourceId, excerpt, score, null, null, null, null, null, null, null);
+        }
+    }
 
     /** Usage response. */
     public record UsageResponse(UUID id, String modelId, Integer totalTokens, Double estimatedCost, Instant createdAt) {}

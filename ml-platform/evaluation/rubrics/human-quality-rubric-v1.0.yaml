@@ -1,0 +1,137 @@
+# Purpose: Defines the human quality rubric used to compare model outputs on the same held-out input.
+# Why it exists: Structural validation cannot determine whether a grounded answer is useful, cautious, or operationally sound.
+# Architecture fit: Human scoring complements the existing v0.3 schema/citation gates without replacing them.
+rubric:
+  id: HUMAN-QUALITY-RUBRIC
+  version: 1.0.0
+  evaluation_version: 1.0.0
+  output_contract: dataset-v0.3
+  scale:
+    min: 0
+    max: 4
+    anchors:
+      4: "Strong, complete, evidence-faithful, and practically useful with no material correction required."
+      3: "Acceptable and useful; minor omissions or wording changes do not alter the decision meaning."
+      2: "Mixed; partially useful but requires material clarification, qualification, or correction."
+      1: "Poor; mostly unsupported, incomplete, impractical, or materially misleading."
+      0: "Absent, unsafe, fabricated, or directly contradicted by the supplied evidence."
+  review_unit:
+    unit: "one model output paired with one immutable held-out example"
+    reviewer_inputs:
+      - task
+      - problem_input
+      - retrieved_evidence_and_citation_context
+      - allowed_source_ids
+      - candidate_output
+    hidden_from_reviewer:
+      - model_version
+      - model_name
+      - training_status
+      - comparison_order
+    required_review_record:
+      - evaluation_version
+      - rubric_version
+      - dataset_version
+      - example_id
+      - task
+      - model_version
+      - prompt_version
+      - inference_configuration
+      - output_sha256
+      - reviewer_id
+      - reviewed_at
+      - dimension_scores
+      - evidence_references_used
+      - reviewer_notes
+  dimensions:
+    root_cause_quality:
+      applies_to:
+        - root-cause-analysis
+        - recommendation-generation
+      weight: 0.30
+      criteria:
+        4: "Identifies the most plausible supported causes, distinguishes observations from inferences, and includes relevant alternatives or contradictions."
+        3: "Identifies a plausible supported cause with adequate explanation; alternatives or contradictions may be limited."
+        2: "Partly relevant but conflates symptoms and causes, omits an important supported factor, or needs material qualification."
+        1: "Mostly generic, weakly related to the problem, or materially overstates causality."
+        0: "Invented, contradicted by the evidence, or missing when required."
+    recommendation_quality:
+      applies_to:
+        - recommendation-generation
+      weight: 0.30
+      criteria:
+        4: "Provides multiple distinct, actionable options tied to the validated cause, with feasible steps, risks, mitigations, and measurable follow-up."
+        3: "Provides useful options tied to the cause with reasonable feasibility and risks, but with minor omissions."
+        2: "Provides a plausible direction but options, feasibility, risk treatment, or implementation detail require material correction."
+        1: "Generic, impractical, weakly tied to the cause, or missing meaningful risk treatment."
+        0: "Unsafe, unsupported, impossible in the stated context, or absent when required."
+    rag_evidence_quality:
+      applies_to:
+        - root-cause-analysis
+        - recommendation-generation
+        - rag-grounded-responses
+      weight: 0.25
+      criteria:
+        4: "Uses the relevant supplied evidence, cites only supporting source IDs, makes no material unsupported claim, and clearly separates evidence from inference."
+        3: "Uses and cites the relevant evidence with only minor omissions or imprecise emphasis."
+        2: "Uses some relevant evidence but misses important context, weakens the citation link, or requires qualification."
+        1: "Mostly generic or weakly grounded; includes material unsupported claims or citation misuse."
+        0: "Fabricates evidence/citations, cites unavailable sources, or contradicts the supplied evidence."
+    uncertainty_handling:
+      applies_to:
+        - root-cause-analysis
+        - recommendation-generation
+        - rag-grounded-responses
+      weight: 0.20
+      criteria:
+        4: "Explicitly identifies evidence gaps, distinguishes confidence from fact, states meaningful limitations, and names appropriate verification steps."
+        3: "States the main limitation and uncertainty adequately, with minor omissions."
+        2: "Acknowledges uncertainty but is incomplete, vague, or inconsistently applied to the claims."
+        1: "Uses token uncertainty language while making materially overconfident claims."
+        0: "Omits required uncertainty or presents unsupported conclusions as established fact."
+    practical_usefulness:
+      applies_to:
+        - root-cause-analysis
+        - recommendation-generation
+        - rag-grounded-responses
+      weight: 0.25
+      criteria:
+        4: "Clear, prioritized, context-appropriate, and immediately useful to the stated decision maker without claiming unverified outcomes or eligibility."
+        3: "Useful and understandable for the stated decision maker with minor prioritization or clarity gaps."
+        2: "Potentially useful but requires material editing, contextualization, or operational clarification."
+        1: "Difficult to act on, overly generic, poorly targeted, or operationally unrealistic."
+        0: "Not useful, unsafe to act on, or materially misleading."
+  task_scoring:
+    root-cause-analysis:
+      dimensions:
+        - root_cause_quality
+        - rag_evidence_quality
+        - uncertainty_handling
+        - practical_usefulness
+    recommendation-generation:
+      dimensions:
+        - root_cause_quality
+        - recommendation_quality
+        - rag_evidence_quality
+        - uncertainty_handling
+        - practical_usefulness
+    rag-grounded-responses:
+      dimensions:
+        - rag_evidence_quality
+        - uncertainty_handling
+        - practical_usefulness
+  aggregation:
+    dimension_score: "mean of independent reviewer scores, divided by 4"
+    task_score: "weighted mean of applicable dimension scores after renormalizing applicable weights"
+    overall_score: "macro-average of task scores; do not micro-average token counts"
+    disagreement: "If independent scores differ by more than 1 point on any dimension, a third reviewer adjudicates and records the rationale."
+  quality_gate:
+    structural_prerequisite: "The existing v0.3 JSON, schema, source-ID, evidence-context, PII, provenance, duplicate, sequence, and split gates must pass first."
+    minimum_overall_score: 0.70
+    minimum_applicable_dimension_score: 0.50
+    zero_score_policy: "Any score of 0 for rag_evidence_quality or uncertainty_handling requires adjudication and blocks comparison promotion until resolved."
+    interpretation: "A pass indicates suitability for controlled comparison, not production readiness or real-world causal validity."
+  reviewer_safety:
+    prohibited_ground_truth: "AI-generated scores, model self-critique, or an unreviewed model judge may not serve as ground truth."
+    evidence_rule: "Reviewers score only against the supplied problem, retrieved context, source IDs, and approved task criteria."
+    sensitive_data_rule: "Reviewers must not copy sensitive data into notes; suspected PII is recorded as a gate failure, not scored as quality."

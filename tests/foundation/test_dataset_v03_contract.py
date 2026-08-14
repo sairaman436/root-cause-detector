@@ -10,9 +10,12 @@ sys.path.insert(0, str(PIPELINE_ROOT))
 
 from contracts.dataset_v03_contract import (  # noqa: E402
     DATASET_VERSION,
+    format_inference_example,
+    format_inference_repair_example,
     format_training_example,
     validate_generated_target,
     validate_record,
+    v03_json_schema,
 )
 
 
@@ -128,3 +131,40 @@ def test_training_formatter_includes_context_and_generation_contract():
             return "formatted"
 
     assert format_training_example(Tokenizer(), _record(), include_target=False) == "formatted"
+
+
+def test_inference_formatter_includes_exact_schema_and_allowed_source_ids():
+    class Tokenizer:
+        def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=False):
+            assert add_generation_prompt is True
+            user_prompt = messages[1]["content"]
+            assert '"evidence_source_ids"' in user_prompt
+            assert '"source_id"' in user_prompt
+            assert "pilot.water.circular.001" in user_prompt
+            assert "Return one JSON object only." in user_prompt
+            return "formatted"
+
+    assert format_inference_example(Tokenizer(), _record()) == "formatted"
+
+
+def test_inference_repair_formatter_preserves_strict_errors():
+    class Tokenizer:
+        def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=False):
+            assert add_generation_prompt is True
+            prompt = messages[1]["content"]
+            assert "Validation errors" in prompt
+            assert "output.citations" in prompt
+            assert "Previous response" in prompt
+            return "repair-formatted"
+
+    assert format_inference_repair_example(
+        Tokenizer(), _record(), ["output.citations:required_nonempty_array"], '{"summary":"bad"}'
+    ) == "repair-formatted"
+
+
+def test_v03_json_schema_enforces_dynamic_source_ids():
+    schema = v03_json_schema("rag-grounded-responses", {"pilot.water.circular.001"})
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["citations"]["items"]["properties"]["source_id"]["enum"] == [
+        "pilot.water.circular.001"
+    ]

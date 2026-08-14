@@ -1,0 +1,283 @@
+{
+  "critical_failures": [
+    "missing_task_coverage:recommendation-generation",
+    "pending_authenticated_review:1"
+  ],
+  "dataset_version": "dataset-v0.5",
+  "domain_counts": {
+    "Agriculture & food production": 1,
+    "Education": 3,
+    "Energy/electricity": 2,
+    "Housing/basic infrastructure": 1,
+    "Livelihoods/markets": 1
+  },
+  "domain_task_matrix": {
+    "Agriculture & food production|root-cause-analysis": 1,
+    "Education|rag-grounded-responses": 1,
+    "Education|root-cause-analysis": 2,
+    "Energy/electricity|rag-grounded-responses": 1,
+    "Energy/electricity|root-cause-analysis": 1,
+    "Housing/basic infrastructure|root-cause-analysis": 1,
+    "Livelihoods/markets|root-cause-analysis": 1
+  },
+  "excluded_records": {
+    "contract:output.recommendations[0].feasibility:invalid_feasibility,output.recommendations[1].feasibility:invalid_feasibility": 6,
+    "forbidden_evidence_source:CONTROLLED_PROJECT_PILOT": 14,
+    "forbidden_evidence_source:approved-synthetic-rural-policy,development-evaluation-fixture": 11,
+    "pii_detected": 2,
+    "review_status_not_approved_for_dataset": 1,
+    "target_generation_overflow:646": 1
+  },
+  "file_sha256": {
+    "rag-grounded-responses.jsonl": "92b72a537c68de2a22b4cce4682d1d342dcb21ac75a8caf9dcdc528b0b20cef2",
+    "recommendation-generation.jsonl": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+    "root-cause-analysis.jsonl": "2d32ffaa740dc75ee23e26dc8bf95b11f98d2cc87379c20335084f7db49afcc9"
+  },
+  "heldout_evaluation_set": "ml-platform\\evaluation\\heldout\\evaluation-set-v1.0.0",
+  "heldout_overlap": [],
+  "historical_records_retained": 0,
+  "immutable": true,
+  "model_tokenizer": "Qwen/Qwen2.5-0.5B-Instruct",
+  "ready_for_training": false,
+  "recommendation_coverage_review_decisions": {
+    "APPROVED": 6,
+    "CORRECTED": 0,
+    "PENDING": 1,
+    "REJECTED": 0
+  },
+  "remediation_records_retained": 8,
+  "review_audit": [
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "8c0d4387-c1f5-40fb-83bf-3f640e568888",
+      "review_decision": "APPROVE",
+      "review_id": "1b594bfa-67e4-4b97-9f90-76e8ac75c9e6",
+      "reviewed_at": "2026-08-12T16:29:56.339449",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05-recommendation-coverage-bounded-pilot-v05r-agri-pest-disease-root-cause-analysis-001-004",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "PENDING_APPROVAL",
+      "candidate_id": "6c817517-29d8-4827-a9d9-c168a62fdc74",
+      "review_decision": "PENDING",
+      "review_id": "",
+      "reviewed_at": "",
+      "reviewer_user_id": "",
+      "scenario_id": "pilot-v05-recommendation-coverage-bounded-pilot-v05r-education-teacher-attendance-root-cause-analysis-001-004",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "6fc250bc-e6d5-45bc-a135-8a4a62634467",
+      "review_decision": "APPROVE",
+      "review_id": "5c97c9f1-cfb4-41bf-9bb1-df5978fcbba8",
+      "reviewed_at": "2026-08-12T16:30:19.175913",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05-recommendation-coverage-bounded-pilot-v05r-energy-transformer-root-cause-analysis-001-004",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "7ff99416-358f-40c6-92a7-9eff61c71969",
+      "review_decision": "APPROVE",
+      "review_id": "f4489a8d-ac63-4152-b1a2-d0cdcb5dd94d",
+      "reviewed_at": "2026-08-12T16:30:18.180317",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05-recommendation-coverage-bounded-pilot-v05r-health-staffing-root-cause-analysis-001-004",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "7d1b4e47-181a-4abe-b1e5-becc85b45cc9",
+      "review_decision": "APPROVE",
+      "review_id": "e3ce793e-cb61-4631-ae5b-4bcb4e818362",
+      "reviewed_at": "2026-08-12T16:30:16.408714",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05-recommendation-coverage-bounded-pilot-v05r-housing-roof-leaks-root-cause-analysis-001-004",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "59f735a1-95ac-48f5-9201-29a2a7d16e81",
+      "review_decision": "APPROVE",
+      "review_id": "a89ffe81-a117-4f7a-9cc0-5398aaa0e34b",
+      "reviewed_at": "2026-08-12T16:30:23.997893",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05-recommendation-coverage-bounded-pilot-v05r-livelihood-seasonal-work-root-cause-analysis-001-004",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "02974815-1722-48cd-9ce7-f9b3c9ed83e9",
+      "review_decision": "APPROVE",
+      "review_id": "2516c9b0-8944-483e-9e47-6715aae5143d",
+      "reviewed_at": "2026-08-12T16:30:27.343244",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05-recommendation-coverage-bounded-pilot-v05r-water-school-handwashing-root-cause-analysis-001-004",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "1a25d517-0038-45a6-bee3-535837d9db72",
+      "review_decision": "APPROVE",
+      "review_id": "05baac49-d15c-4aba-b235-d7076eaf4eef",
+      "reviewed_at": "2026-08-12T14:09:17.378277",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-agri-pest-disease-root-cause-analysis-001",
+      "task": "root-cause-analysis"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "3962c95d-9037-4fdc-b470-4b837cecd340",
+      "review_decision": "APPROVE",
+      "review_id": "4d39d1c6-5bb5-46c7-bf87-1074a486668f",
+      "reviewed_at": "2026-08-12T14:09:27.729414",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-education-dropout-rag-grounded-responses-001",
+      "task": "rag-grounded-responses"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "129c6c54-cfae-46b6-9b39-aa5e6d9e1154",
+      "review_decision": "APPROVE",
+      "review_id": "bd9628c3-82d1-4042-b236-89da60ab4e97",
+      "reviewed_at": "2026-08-12T14:09:24.593279",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-education-student-transport-recommendation-generation-001",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "5e77a843-2368-44ce-b5c9-dc487952ac5a",
+      "review_decision": "APPROVE",
+      "review_id": "81d71fc6-8a92-4a06-9097-09fdc4ef2136",
+      "reviewed_at": "2026-08-12T14:09:20.775005",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-education-teacher-attendance-root-cause-analysis-001",
+      "task": "root-cause-analysis"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "f546da75-fd25-407d-b2f1-23f9345656ef",
+      "review_decision": "APPROVE",
+      "review_id": "7d1ce769-2fcc-46a3-937c-db25c50b356c",
+      "reviewed_at": "2026-08-12T14:09:38.141827",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-energy-grid-outages-rag-grounded-responses-001",
+      "task": "rag-grounded-responses"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "00c36462-3ee2-4828-a14b-41b21b24796d",
+      "review_decision": "APPROVE",
+      "review_id": "9d4a9315-2ae3-404a-817b-d09d8f1e4d8c",
+      "reviewed_at": "2026-08-12T14:09:31.037365",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-energy-transformer-root-cause-analysis-001",
+      "task": "root-cause-analysis"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "7bdaf319-c6eb-46ec-bb4c-edb6c4b14cef",
+      "review_decision": "APPROVE",
+      "review_id": "1e434856-c001-4d68-a113-69ea1864c759",
+      "reviewed_at": "2026-08-12T14:09:40.797226",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-health-staffing-root-cause-analysis-001",
+      "task": "root-cause-analysis"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "39bf5eb4-dc8f-4762-a1c7-3251d1ac9fc9",
+      "review_decision": "APPROVE",
+      "review_id": "df484e6d-9d7c-4fc4-82f9-071b0579a4b7",
+      "reviewed_at": "2026-08-12T14:09:35.805445",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-housing-market-shed-recommendation-generation-001",
+      "task": "recommendation-generation"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "61c56f49-542f-4ae2-a908-255c5e60c1cd",
+      "review_decision": "APPROVE",
+      "review_id": "24ac57fe-36e8-49e6-b3fc-04fb3543bf89",
+      "reviewed_at": "2026-08-12T14:09:44.029284",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-housing-roof-leaks-root-cause-analysis-001",
+      "task": "root-cause-analysis"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "ed77421c-10ca-4711-b5ea-a3af6146d480",
+      "review_decision": "APPROVE",
+      "review_id": "c1098146-eda8-44c5-b334-f7385dafbde1",
+      "reviewed_at": "2026-08-12T14:09:46.133437",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-livelihood-seasonal-work-root-cause-analysis-001",
+      "task": "root-cause-analysis"
+    },
+    {
+      "approval_status": "APPROVED_FOR_DATASET",
+      "candidate_id": "7efab948-96cb-4a8e-afe5-2ebf97d1dfd6",
+      "review_decision": "APPROVE",
+      "review_id": "1538f6c6-960c-40a9-928e-05ec5ef74155",
+      "reviewed_at": "2026-08-12T14:09:49.225961",
+      "reviewer_user_id": "9d7d8585-a671-4661-8846-a2209ae76f0c",
+      "scenario_id": "pilot-v05r-water-school-handwashing-root-cause-analysis-001",
+      "task": "root-cause-analysis"
+    }
+  ],
+  "review_decisions": {
+    "APPROVED": 17,
+    "CORRECTED": 0,
+    "PENDING": 1,
+    "REJECTED": 0
+  },
+  "sequence_length": 1024,
+  "sequence_statistics": {
+    "max_formatted_tokens": 462,
+    "max_target_tokens": 203
+  },
+  "source_dataset_version": "dataset-v0.4",
+  "split_counts": {
+    "test": 2,
+    "train": 5,
+    "validation": 1
+  },
+  "split_domain_counts": {
+    "test": {
+      "Education": 1,
+      "Livelihoods/markets": 1
+    },
+    "train": {
+      "Agriculture & food production": 1,
+      "Education": 2,
+      "Energy/electricity": 2
+    },
+    "validation": {
+      "Housing/basic infrastructure": 1
+    }
+  },
+  "split_task_counts": {
+    "test": {
+      "root-cause-analysis": 2
+    },
+    "train": {
+      "rag-grounded-responses": 2,
+      "root-cause-analysis": 3
+    },
+    "validation": {
+      "root-cause-analysis": 1
+    }
+  },
+  "target_generation_budget": 512,
+  "task_counts": {
+    "rag-grounded-responses": 2,
+    "recommendation-generation": 0,
+    "root-cause-analysis": 6
+  },
+  "total_examples": 8,
+  "training_performed": false,
+  "validation": "FAIL"
+}

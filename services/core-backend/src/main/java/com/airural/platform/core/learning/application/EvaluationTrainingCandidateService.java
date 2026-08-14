@@ -130,6 +130,11 @@ public class EvaluationTrainingCandidateService {
         if (output == null) {
             return blocked(reasons, "PIPELINE_OUTPUT_INVALID");
         }
+        if (scenario.getScenarioId() != null && scenario.getScenarioId().startsWith("pilot-v05-recommendation-coverage-")) {
+            if (!output.path("bounded_output").asBoolean(false) || !output.path("sequence_gate").asBoolean(false)) {
+                return blocked(reasons, "SEQUENCE_GATE_REQUIRED");
+            }
+        }
         String task = normalize(text(output, "task", "taskType", "task_type"));
         if (!SUPPORTED_TASKS.contains(task)) {
             return blocked(reasons, "UNSUPPORTED_TASK");
@@ -150,6 +155,18 @@ public class EvaluationTrainingCandidateService {
             return blocked(reasons, "CITATIONS_MISSING_OR_INVALID");
         }
         String citationsJson = write(citations);
+        if (containsDevelopmentSource(citations)) {
+            return blocked(reasons, "DEVELOPMENT_SYNTHETIC_EVIDENCE");
+        }
+        if (scenario.getScenarioId() != null && scenario.getScenarioId().startsWith("pilot-v05r-")) {
+            Set<String> permittedSources = permittedScenarioSources(scenario);
+            boolean outsideAllowlist = citations.findValues("source_id").stream()
+                    .map(JsonNode::asText)
+                    .anyMatch(source -> !permittedSources.contains(source));
+            if (outsideAllowlist) {
+                return blocked(reasons, "EVIDENCE_SOURCE_NOT_PERMITTED");
+            }
+        }
         input = input + "\n\nRetrieved evidence and citation context:\n" + citationsJson;
         if (containsPii(input) || containsPii(aiOutput) || containsPii(citationsJson)) {
             return blocked(reasons, "PII_DETECTED");
@@ -220,6 +237,28 @@ public class EvaluationTrainingCandidateService {
 
     private boolean containsPii(String value) {
         return value != null && PII.matcher(value).find();
+    }
+
+    private boolean containsDevelopmentSource(JsonNode citations) {
+        return citations.findValues("source_id").stream()
+                .map(JsonNode::asText)
+                .map(value -> value.toLowerCase())
+                .anyMatch(value -> value.contains("development") || value.contains("synthetic") || value.contains("fixture"));
+    }
+
+    private Set<String> permittedScenarioSources(PilotScenarioEntity scenario) {
+        Set<String> permitted = new java.util.HashSet<>();
+        JsonNode provenance = parseAny(scenario.getScenarioProvenanceJson());
+        String source = text(provenance, "evidence_source_id");
+        if (!source.isBlank()) permitted.add(source);
+        JsonNode evidence = parseAny(scenario.getEvidenceJson());
+        if (evidence != null && evidence.isArray()) {
+            evidence.forEach(row -> {
+                String rowSource = text(row, "source");
+                if (!rowSource.isBlank()) permitted.add(rowSource);
+            });
+        }
+        return permitted;
     }
 
     private String write(JsonNode node) {

@@ -29,6 +29,7 @@ public class RecommendationIntelligenceService {
     private final ObjectMapper objectMapper;
     private final RootCauseIntelligenceService rootCauseService;
     private final RootCauseRagClient ragClient;
+    private final SemanticGroundingValidator groundingValidator = new SemanticGroundingValidator();
 
     public RecommendationIntelligenceService(JdbcOperations jdbcTemplate, ObjectMapper objectMapper, RootCauseIntelligenceService rootCauseService, RootCauseRagClient ragClient) {
         this.jdbcTemplate = jdbcTemplate;
@@ -46,8 +47,24 @@ public class RecommendationIntelligenceService {
             throw new DecisionException("VALIDATED_ROOT_CAUSE_REQUIRED", "At least one validated root cause is required to generate recommendations", HttpStatus.BAD_REQUEST);
         }
         String domain = value(request.domain(), rootCauses.get(0).domain() == null ? "OTHER" : rootCauses.get(0).domain()).toUpperCase(Locale.ROOT);
-        RagQueryResponse rag = ragClient.rag(new RagQueryRequest(ragQuestion(rootCauses, request), "knowledge", MODEL_ID, null, Map.of("domain", domain), 5), userId);
+        List<String> allowedSourceIds = allowedSourceIds(request.constraints());
+        Map<String, Object> ragContext = new LinkedHashMap<>();
+        ragContext.put("domain", domain);
+        if (!allowedSourceIds.isEmpty()) {
+            ragContext.put("allowed_source_ids", allowedSourceIds);
+            ragContext.put("governed_evaluation", true);
+        }
+        String groundingQuery = ragQuestion(rootCauses, request);
+        String rootCauseGroundingContext = rootCauses.stream().map(RootCauseInput::description).filter(Objects::nonNull).reduce((left, right) -> left + " " + right).orElse(domain);
+        RagQueryResponse retrieved = ragClient.rag(new RagQueryRequest(groundingQuery, "knowledge", MODEL_ID, null, ragContext, 5), userId);
+        RagQueryResponse rag = permittedEvidence(retrieved, allowedSourceIds, rootCauseGroundingContext);
+        if (!allowedSourceIds.isEmpty() && rag.citations().isEmpty()) {
+            throw new DecisionException("RECOMMENDATION_GROUNDING_INSUFFICIENT", "No permitted scenario evidence is semantically relevant to the validated root cause", HttpStatus.BAD_REQUEST);
+        }
         List<RecommendationOptionResponse> options = options(rootCauses, request, rag, domain);
+        if (options.isEmpty()) {
+            throw new DecisionException("RECOMMENDATION_GROUNDING_INSUFFICIENT", "No recommendation option is semantically supported by the validated root cause and retrieved evidence", HttpStatus.BAD_REQUEST);
+        }
         List<OptionComparisonResponse> comparison = compare(options, request);
         List<SchemeMatchResponse> schemes = schemeMatches(options, rag, request);
         UUID setId = UUID.randomUUID();
@@ -67,6 +84,62 @@ public class RecommendationIntelligenceService {
                 Instant.now());
         persist(response, request, userId, Boolean.TRUE.equals(request.requireHumanApproval()));
         return response;
+    }
+
+    private RagQueryResponse permittedEvidence(RagQueryResponse response, List<String> allowedSourceIds, String groundingQuery) {
+        Set<String> allowed = new LinkedHashSet<>(allowedSourceIds);
+        List<CitationResponse> citations = response.citations() == null ? List.of() : response.citations().stream()
+                .filter(Objects::nonNull)
+                .filter(citation -> allowed.isEmpty() || (citation.sourceId() != null && allowed.contains(citation.sourceId())))
+                .toList();
+        citations = groundingValidator.relevantCitations(groundingQuery, citations);
+        return new RagQueryResponse(response.requestId(), response.answer(), citations, response.retrievalLatencyMs(), response.inferenceLatencyMs(), response.supportStatus(), response.citationValidationStatus(), response.reasoningSummary(), response.promptVersion(), response.modelId());
+    }
+
+    private List<RecommendationOptionResponse> options(List<RootCauseInput> rootCauses, RecommendationGenerateRequest request, RagQueryResponse rag, String domain) {
+        List<RecommendationOptionResponse> options = new ArrayList<>();
+        List<String> allowedSourceIds = allowedSourceIds(request.constraints());
+        AtomicInteger counter = new AtomicInteger(1);
+        for (RootCauseInput cause : rootCauses) {
+            List<String> groundedInterventions = interventions(domain, cause.description()).stream()
+                    .filter(intervention -> groundingValidator.supportsRecommendation(intervention, cause.description(), rag.citations()))
+                    .limit(3)
+                    .toList();
+            for (String intervention : groundedInterventions) {
+                String id = "recommendation-" + counter.getAndIncrement();
+                List<String> evidence = new ArrayList<>();
+                if (allowedSourceIds.isEmpty() && cause.evidence() != null) evidence.addAll(cause.evidence());
+                rag.citations().stream().map(CitationResponse::sourceId).filter(Objects::nonNull).filter(value -> !value.isBlank()).limit(3).forEach(evidence::add);
+                evidence = evidence.stream().filter(Objects::nonNull).filter(value -> !value.isBlank()).distinct().toList();
+                boolean resourceMissing = request.availableResources() == null || request.availableResources().isEmpty();
+                ConfidenceBreakdownResponse confidence = confidence(cause, evidence, resourceMissing);
+                RecommendationOptionResponse option = new RecommendationOptionResponse(
+                        id,
+                        title(intervention, domain),
+                        intervention + " to address: " + cause.description(),
+                        cause.description(),
+                        request.targetPopulation(),
+                        domain,
+                        interventionType(domain, intervention),
+                        0,
+                        expectedOutcomes(domain, intervention),
+                        resources(intervention, resourceMissing),
+                        effort(intervention),
+                        timeframe(intervention),
+                        feasibility(confidence, request.constraints(), resourceMissing),
+                        risks(domain, intervention, resourceMissing),
+                        dependencies(resourceMissing),
+                        evidence.isEmpty() ? List.of("INSUFFICIENT_EVIDENCE") : evidence,
+                        confidence,
+                        assumptions(resourceMissing),
+                        limitations(rag, resourceMissing),
+                        plan(intervention, domain),
+                        metrics(domain),
+                        "AI_GENERATED");
+                options.add(option);
+            }
+        }
+        return prioritize(options);
     }
 
     /** Gets one generated recommendation set. */
@@ -174,46 +247,6 @@ public class RecommendationIntelligenceService {
         return request.validatedRootCauses() == null ? List.of() : request.validatedRootCauses();
     }
 
-    private List<RecommendationOptionResponse> options(List<RootCauseInput> rootCauses, RecommendationGenerateRequest request, RagQueryResponse rag, String domain) {
-        List<RecommendationOptionResponse> options = new ArrayList<>();
-        AtomicInteger counter = new AtomicInteger(1);
-        for (RootCauseInput cause : rootCauses) {
-            for (String intervention : interventions(domain, cause.description()).stream().limit(3).toList()) {
-                String id = "recommendation-" + counter.getAndIncrement();
-                List<String> evidence = new ArrayList<>();
-                if (cause.evidence() != null) evidence.addAll(cause.evidence());
-                rag.citations().stream().map(CitationResponse::sourceId).limit(3).forEach(evidence::add);
-                boolean resourceMissing = request.availableResources() == null || request.availableResources().isEmpty();
-                ConfidenceBreakdownResponse confidence = confidence(cause, evidence, resourceMissing);
-                RecommendationOptionResponse option = new RecommendationOptionResponse(
-                        id,
-                        title(intervention, domain),
-                        intervention + " to address: " + cause.description(),
-                        cause.description(),
-                        request.targetPopulation(),
-                        domain,
-                        interventionType(domain, intervention),
-                        0,
-                        expectedOutcomes(domain, intervention),
-                        resources(intervention, resourceMissing),
-                        effort(intervention),
-                        timeframe(intervention),
-                        feasibility(confidence, request.constraints(), resourceMissing),
-                        risks(domain, intervention, resourceMissing),
-                        dependencies(resourceMissing),
-                        evidence.isEmpty() ? List.of("INSUFFICIENT_EVIDENCE") : evidence.stream().distinct().toList(),
-                        confidence,
-                        assumptions(resourceMissing),
-                        limitations(rag, resourceMissing),
-                        plan(intervention, domain),
-                        metrics(domain),
-                        "AI_GENERATED");
-                options.add(option);
-            }
-        }
-        return prioritize(options);
-    }
-
     private List<RecommendationOptionResponse> prioritize(List<RecommendationOptionResponse> options) {
         List<OptionComparisonResponse> comparison = compare(options, null);
         Map<String, Integer> priorities = new HashMap<>();
@@ -263,11 +296,26 @@ public class RecommendationIntelligenceService {
 
     private List<String> interventions(String domain, String cause) {
         String lower = (domain + " " + cause).toLowerCase(Locale.ROOT);
+        if (lower.contains("seed") || lower.contains("storage")) return List.of("Storage-condition verification", "Seed handling and ventilation workflow", "Germination record monitoring");
+        if (lower.contains("waste") || lower.contains("latrine") || lower.contains("sanitation")) return List.of("Collection and containment scheduling", "Sanitation-service accountability", "Inspection and safe-disposal monitoring");
+        if (lower.contains("supply") || lower.contains("market") || lower.contains("artisan")) return List.of("Inventory and logistics coordination", "Buyer or market-information verification", "Order and delivery monitoring");
         if (lower.contains("water")) return List.of("Repair and maintenance accountability workflow", "Water source reliability monitoring", "Government scheme facilitation for water infrastructure", "Community water-use reporting");
+        if (lower.contains("disease") || lower.contains("pest") || lower.contains("leaf") || lower.contains("spot")) return List.of("Crop disease scouting and treatment verification", "Pest-management advisory and monitoring", "Soil and crop advisory support");
         if (lower.contains("agri") || lower.contains("crop") || lower.contains("irrigation")) return List.of("Irrigation access improvement", "Soil and crop advisory support", "Market-access support", "Input-cost planning support");
         if (lower.contains("education") || lower.contains("school")) return List.of("Attendance follow-up outreach", "School access barrier reduction", "Household support referral", "Teacher availability monitoring");
         if (lower.contains("employment")) return List.of("Skill development referral", "Local employer linkage", "Government employment scheme facilitation", "Market-oriented training support");
+        if (lower.contains("staff") || lower.contains("appointment") || lower.contains("health")) return List.of("Roster and appointment-capacity verification", "Facility scheduling coordination", "Service-availability monitoring");
+        if (lower.contains("transformer") || lower.contains("grid") || lower.contains("energy") || lower.contains("solar")) return List.of("Fault-log and inspection workflow", "Repair-response accountability", "Load and service-continuity monitoring");
+        if (lower.contains("flood") || lower.contains("drought") || lower.contains("warning") || lower.contains("climate")) return List.of("Preparedness-plan verification", "Warning and response coordination", "Shelter or continuity-capacity monitoring");
+        if (lower.contains("roof") || lower.contains("facility") || lower.contains("shed") || lower.contains("infrastructure")) return List.of("Condition inspection and repair planning", "Maintenance ownership workflow", "Facility usability monitoring");
         return List.of("Administrative coordination", "Community outreach", "Service access monitoring", "Government scheme facilitation");
+    }
+
+    private List<String> allowedSourceIds(Map<String, Object> constraints) {
+        if (constraints == null) return List.of();
+        Object raw = constraints.get("allowed_source_ids");
+        if (!(raw instanceof Collection<?> values)) return List.of();
+        return values.stream().map(String::valueOf).filter(value -> !value.isBlank()).distinct().toList();
     }
 
     private ConfidenceBreakdownResponse confidence(RootCauseInput cause, List<String> evidence, boolean resourceMissing) {

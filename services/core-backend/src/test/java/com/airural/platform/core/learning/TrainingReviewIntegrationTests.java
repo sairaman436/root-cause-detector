@@ -18,6 +18,13 @@ import com.airural.platform.core.identity.domain.RoleEntity;
 import com.airural.platform.core.identity.infrastructure.OrganizationRepository;
 import com.airural.platform.core.identity.infrastructure.PermissionRepository;
 import com.airural.platform.core.identity.infrastructure.RoleRepository;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+import com.airural.platform.core.learning.domain.LearningRecordEntity;
+import com.airural.platform.core.learning.domain.TrainingCandidateEntity;
+import com.airural.platform.core.learning.infrastructure.LearningRecordRepository;
+import com.airural.platform.core.learning.infrastructure.TrainingCandidateRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +35,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 
 /** API tests for governed training review. */
 @ActiveProfiles("test")
@@ -46,6 +54,8 @@ class TrainingReviewIntegrationTests {
     @Autowired private OrganizationRepository organizationRepository;
     @Autowired private PermissionRepository permissionRepository;
     @Autowired private RoleRepository roleRepository;
+    @Autowired private LearningRecordRepository learningRecordRepository;
+    @Autowired private TrainingCandidateRepository trainingCandidateRepository;
 
     @BeforeEach
     void ensurePlatformOrganization() {
@@ -78,11 +88,77 @@ class TrainingReviewIntegrationTests {
     }
 
     @Test
+    @WithMockUser(authorities = "USER_READ")
+    void unauthorizedUserCannotReviewCandidate() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/learning/candidates/00000000-0000-0000-0000-000000000099/review")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"APPROVE\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void unauthenticatedUserCannotGenerateTrainingCandidates() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/learning/candidates/generate-from-evaluations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(authorities = "LEARNING_REVIEW")
+    void authorizedReviewerReceivesRemediationCandidatesFromQueue() throws Exception {
+        for (int index = 0; index < 11; index++) {
+            UUID recordId = UUID.randomUUID();
+            learningRecordRepository.save(new LearningRecordEntity(
+                    recordId,
+                    Instant.now(),
+                    "EVALUATION_RESULT",
+                    "qwen2.5:0.5b",
+                    "pilot-v05r@1.0.0",
+                    "Scenario-specific governed context",
+                    "Remediation input " + index,
+                    "{\"answer\":\"pending\"}",
+                    null,
+                    null,
+                    BigDecimal.valueOf(0.95),
+                    "[{\"source_id\":\"PILOT_V05R_TEST_" + index + "\"}]",
+                    "Evaluation Pipeline",
+                    null,
+                    false,
+                    "INTERNAL",
+                    "PENDING_HUMAN_REVIEW",
+                    index % 3 == 0 ? "root-cause-analysis" : index % 3 == 1 ? "recommendation-generation" : "rag-grounded-responses",
+                    "pilot-v05r-regression-" + index,
+                    false,
+                    null,
+                    UUID.randomUUID(),
+                    BigDecimal.valueOf(0.95),
+                    "{\"classification\":\"PILOT_EVALUATION\"}"));
+            trainingCandidateRepository.save(new TrainingCandidateEntity(
+                    UUID.randomUUID(),
+                    recordId,
+                    "dataset-v0.5",
+                    "EVALUATION_RESULT",
+                    BigDecimal.valueOf(0.95),
+                    "evaluation-pipeline",
+                    "pilot-v05r-regression-" + index,
+                    "PENDING_DATASET_APPROVAL",
+                    "PENDING_APPROVAL",
+                    Instant.now(),
+                    null,
+                    null,
+                    false));
+        }
+
+        JsonNode response = objectMapper.readTree(mockMvc.perform(get("/api/v1/learning/candidates?size=50"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+
+        JsonNode content = response.at("/data/content");
+        assertThat(content).hasSize(11);
+        for (JsonNode candidate : content) {
+            assertThat(candidate.at("/approvalStatus").asText()).isEqualTo("PENDING_APPROVAL");
+            assertThat(candidate.at("/scenarioGroup").asText()).startsWith("pilot-v05r-regression-");
+        }
     }
 
     @Test
