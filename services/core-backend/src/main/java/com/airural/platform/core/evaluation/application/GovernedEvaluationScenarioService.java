@@ -15,6 +15,7 @@ import com.airural.platform.core.decision.web.dto.RecommendationIntelligenceDtos
 import com.airural.platform.core.decision.web.dto.RootCauseDtos.*;
 import com.airural.platform.core.evaluation.domain.*;
 import com.airural.platform.core.evaluation.infrastructure.*;
+import com.airural.platform.core.knowledge.application.KnowledgeRagGatewayService;
 import com.airural.platform.core.evaluation.web.dto.GovernedEvaluationDtos.GovernedEvaluationBatchResponse;
 import com.airural.platform.core.evaluation.web.dto.GovernedEvaluationDtos.GovernedEvaluationResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +44,7 @@ public class GovernedEvaluationScenarioService {
     private final RootCauseIntelligenceService rootCauseService;
     private final RecommendationIntelligenceService recommendationService;
     private final AiFoundationService aiFoundationService;
+    private final KnowledgeRagGatewayService knowledgeRagGateway;
     private final JdbcOperations jdbcTemplate;
     private final ObjectMapper objectMapper;
 
@@ -54,6 +56,7 @@ public class GovernedEvaluationScenarioService {
             RootCauseIntelligenceService rootCauseService,
             RecommendationIntelligenceService recommendationService,
             AiFoundationService aiFoundationService,
+            KnowledgeRagGatewayService knowledgeRagGateway,
             JdbcOperations jdbcTemplate,
             ObjectMapper objectMapper) {
         this.datasets = datasets;
@@ -63,6 +66,7 @@ public class GovernedEvaluationScenarioService {
         this.rootCauseService = rootCauseService;
         this.recommendationService = recommendationService;
         this.aiFoundationService = aiFoundationService;
+        this.knowledgeRagGateway = knowledgeRagGateway;
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
     }
@@ -123,6 +127,46 @@ public class GovernedEvaluationScenarioService {
         return new GovernedEvaluationBatchResponse(completed, completed.size(), "PENDING_HUMAN_REVIEW");
     }
 
+    /** Executes the v0.5 domain-diversity candidate set; all results remain pending review. */
+    @Transactional
+    public GovernedEvaluationBatchResponse runPilotV05Diversity(UUID userId) {
+        List<GovernedEvaluationResponse> completed = new ArrayList<>();
+        for (ScenarioSpec spec : pilotV05DiversityScenarios()) {
+            completed.add(run(userId, spec));
+        }
+        return new GovernedEvaluationBatchResponse(completed, completed.size(), "PENDING_HUMAN_REVIEW");
+    }
+
+    /** Executes one v0.5 diversity scenario so a failed provider does not hide other candidates. */
+    @Transactional
+    public GovernedEvaluationResponse runPilotV05DiversityScenario(UUID userId, String scenarioKey) {
+        ScenarioSpec spec = pilotV05DiversityScenarios().stream()
+                .filter(candidate -> candidate.scenarioKey().equals(scenarioKey))
+                .findFirst()
+                .orElseThrow(() -> new EvaluationException(HttpStatus.NOT_FOUND, "PILOT_SCENARIO_NOT_FOUND", "The requested v0.5 diversity scenario is not registered"));
+        return run(userId, spec);
+    }
+
+    /** Executes corrected v0.5 candidates and replacements as new immutable review versions. */
+    @Transactional
+    public GovernedEvaluationBatchResponse runPilotV05QualityRemediation(UUID userId) {
+        List<GovernedEvaluationResponse> completed = new ArrayList<>();
+        for (ScenarioSpec spec : pilotV05QualityRemediationScenarios()) {
+            completed.add(run(userId, spec));
+        }
+        return new GovernedEvaluationBatchResponse(completed, completed.size(), "PENDING_HUMAN_REVIEW");
+    }
+
+    /** Executes one corrected/replacement v0.5 scenario independently. */
+    @Transactional
+    public GovernedEvaluationResponse runPilotV05QualityRemediationScenario(UUID userId, String scenarioKey) {
+        ScenarioSpec spec = pilotV05QualityRemediationScenarios().stream()
+                .filter(candidate -> candidate.scenarioKey().equals(scenarioKey))
+                .findFirst()
+                .orElseThrow(() -> new EvaluationException(HttpStatus.NOT_FOUND, "PILOT_SCENARIO_NOT_FOUND", "The requested v0.5 remediation scenario is not registered"));
+        return run(userId, spec);
+    }
+
     /** Runs one v0.3 expansion scenario so a provider failure cannot roll back unrelated scenarios. */
     @Transactional
     public GovernedEvaluationResponse runPilotV03ExpansionScenario(UUID userId, String scenarioKey) {
@@ -170,6 +214,9 @@ public class GovernedEvaluationScenarioService {
         if (!rerun && !runs.findByDatasetIdAndRunLabel(DATASET_ID, spec.runLabel()).isEmpty()) {
             throw new EvaluationException(HttpStatus.CONFLICT, "EVALUATION_ALREADY_RUN", "The controlled evaluation scenario has already been executed");
         }
+        if (spec.runLabel().startsWith("V05R_REPLACEMENT_")) {
+            diversityGate(spec);
+        }
 
         Instant started = Instant.now();
         UUID runId = UUID.randomUUID();
@@ -216,8 +263,11 @@ public class GovernedEvaluationScenarioService {
             scenarios.saveAndFlush(scenario);
         }
 
+        if (PILOT_CLASSIFICATION.equals(spec.classification())) {
+            knowledgeRagGateway.ingestJson(controlledEvidenceDocument(spec));
+        }
         RagQueryResponse rag = aiFoundationService.rag(
-                new RagQueryRequest(ragQuery(spec), "knowledge", MODEL_VERSION, null, Map.of("domain", ragDomain(spec)), 5), userId);
+                new RagQueryRequest(ragQuery(spec), "knowledge", MODEL_VERSION, null, governedRagContext(spec), 5), userId);
         if (rag.citations() == null || rag.citations().isEmpty()) {
             throw new EvaluationException(HttpStatus.BAD_GATEWAY, "RAG_EVIDENCE_REQUIRED", "The controlled evaluation requires at least one validated RAG citation");
         }
@@ -254,20 +304,26 @@ public class GovernedEvaluationScenarioService {
             throw new EvaluationException(HttpStatus.BAD_GATEWAY, "QWEN_PROVIDER_FALLBACK", "Qwen did not complete through the configured local provider");
         }
 
-        RecommendationSetResponse recommendations = recommendationService.generate(
-                new RecommendationGenerateRequest(
-                        rootCause.analysisId(),
-                        List.of(),
-                        Map.of("context_label", spec.classification(), "real_world_data", false),
-                        List.of(spec.evidence()),
-                        Map.of("available_resources", "not supplied for controlled evaluation"),
-                        Map.of("human_review_required", true, "constructed_scenario", true),
-                        spec.domain(),
-                        spec.affectedPopulation(),
-                        spec.knowledgeSnapshot(),
-                        String.valueOf(spec.evidence().get("evidence_id")),
-                        true),
-                userId);
+        boolean recommendationTask = "recommendation-generation".equals(spec.taskType());
+        Map<String, Object> recommendationConstraints = spec.runLabel().startsWith("V05R_")
+                ? remediationConstraints(spec)
+                : Map.of("human_review_required", true, "constructed_scenario", true);
+        RecommendationSetResponse recommendations = recommendationTask
+                ? recommendationService.generate(
+                        new RecommendationGenerateRequest(
+                                rootCause.analysisId(),
+                                List.of(),
+                                Map.of("context_label", spec.classification(), "real_world_data", false),
+                                List.of(spec.evidence()),
+                                Map.of("available_resources", "not supplied for controlled evaluation"),
+                                recommendationConstraints,
+                                spec.domain(),
+                                spec.affectedPopulation(),
+                                spec.knowledgeSnapshot(),
+                                String.valueOf(spec.evidence().get("evidence_id")),
+                                true),
+                        userId)
+                : nonApplicableRecommendations(rootCause.analysisId(), spec);
 
         long latencyMs = Duration.between(started, Instant.now()).toMillis();
         PilotScenarioResultEntity result = result(runId, scenarioId, spec, rootCause, recommendations, rag, qwen, latencyMs);
@@ -282,7 +338,7 @@ public class GovernedEvaluationScenarioService {
         run.setReviewStatus("PENDING");
         run.setRunMetadataJson(json(runMetadata(spec, Map.of(
                 "root_cause_analysis_id", rootCause.analysisId().toString(),
-                "recommendation_set_id", recommendations.recommendationSetId().toString(),
+                "recommendation_set_id", recommendationTask ? recommendations.recommendationSetId().toString() : "NOT_APPLICABLE",
                 "evaluation_result_id", result.getId().toString(),
                 "qwen_fallback_used", qwen.fallbackUsed(),
                 "evaluation_status", Boolean.TRUE.equals(result.getPass()) ? "PASSED_STRUCTURAL_GATE" : "FAILED_STRUCTURAL_GATE"))));
@@ -291,15 +347,17 @@ public class GovernedEvaluationScenarioService {
         String provenanceStatus = DEVELOPMENT_CLASSIFICATION.equals(spec.classification())
                 ? "SYNTHETIC_DEVELOPMENT_ONLY_NOT_TRAINING_ELIGIBLE"
                 : "PILOT_EVALUATION_PENDING_HUMAN_REVIEW";
-        return new GovernedEvaluationResponse(runId, scenarioId, result.getId(), rootCause.analysisId(), recommendations.recommendationSetId(), "COMPLETED", evaluationBasis(spec), provenanceStatus, qwen.fallbackUsed(), rag.citations().size(), recommendations.options().size());
+        return new GovernedEvaluationResponse(runId, scenarioId, result.getId(), rootCause.analysisId(), recommendationTask ? recommendations.recommendationSetId() : null, "COMPLETED", evaluationBasis(spec), provenanceStatus, qwen.fallbackUsed(), rag.citations().size(), recommendations.options().size());
     }
 
     private PilotScenarioResultEntity result(UUID runId, UUID scenarioId, ScenarioSpec spec, RootCauseAnalysisResponse rootCause, RecommendationSetResponse recommendations, RagQueryResponse rag, ChatResponse qwen, long latencyMs) {
         PilotScenarioResultEntity result = new PilotScenarioResultEntity(UUID.randomUUID(), runId, scenarioId);
+        boolean recommendationTask = "recommendation-generation".equals(spec.taskType());
         boolean hasRootCause = rootCause.problem() != null && !rootCause.candidateRootCauses().isEmpty();
+        boolean evidenceBackedRootCauses = hasRootCause && rootCause.candidateRootCauses().stream().allMatch(candidate -> !candidate.supportingEvidence().isEmpty());
         boolean hasUncertainty = !rootCause.uncertainties().isEmpty();
-        boolean hasRecommendations = recommendations.options().size() >= 2;
-        boolean grounded = !rag.citations().isEmpty() && recommendations.options().stream().allMatch(option -> !option.evidence().isEmpty());
+        boolean hasRecommendations = !recommendationTask || recommendations.options().size() >= 2;
+        boolean grounded = !rag.citations().isEmpty() && (!recommendationTask || recommendations.options().stream().allMatch(option -> !option.evidence().isEmpty()));
         boolean structured = qwen.response() != null && !qwen.response().isBlank();
         result.setProblemUnderstandingScore(score(rootCause.problem() != null));
         result.setFactExtractionScore(score(!rootCause.observedFacts().isEmpty()));
@@ -310,23 +368,26 @@ public class GovernedEvaluationScenarioService {
         result.setMissingEvidenceDetectionScore(score(hasUncertainty));
         result.setUncertaintyHandlingScore(score(hasUncertainty));
         result.setCitationAccuracyScore(score(!rag.citations().isEmpty()));
-        result.setRootCauseAlignmentScore(score(hasRootCause && hasRecommendations));
+        result.setRootCauseAlignmentScore(score(hasRootCause));
         result.setRecEvidenceGroundednessScore(score(grounded));
-        result.setRecommendationRelevanceScore(score(hasRecommendations));
-        result.setOptionDiversityScore(score(recommendations.options().stream().map(RecommendationOptionResponse::interventionType).distinct().count() >= 2));
-        result.setFeasibilityReasoningScore(score(recommendations.options().stream().allMatch(option -> option.feasibility() != null)));
-        result.setRiskIdentificationScore(score(recommendations.options().stream().allMatch(option -> !option.risks().isEmpty())));
-        result.setSchemeMatchingScore(score(!recommendations.schemeMatches().isEmpty()));
-        result.setImplementationPlanningScore(score(recommendations.options().stream().allMatch(option -> !option.implementationPlan().isEmpty())));
+        result.setRecommendationRelevanceScore(score(!recommendationTask || hasRecommendations));
+        result.setOptionDiversityScore(score(!recommendationTask || recommendations.options().stream().map(RecommendationOptionResponse::interventionType).distinct().count() >= 2));
+        result.setFeasibilityReasoningScore(score(!recommendationTask || recommendations.options().stream().allMatch(option -> option.feasibility() != null)));
+        result.setRiskIdentificationScore(score(!recommendationTask || recommendations.options().stream().allMatch(option -> !option.risks().isEmpty())));
+        result.setSchemeMatchingScore(score(!recommendationTask || !recommendations.schemeMatches().isEmpty()));
+        result.setImplementationPlanningScore(score(!recommendationTask || recommendations.options().stream().allMatch(option -> !option.implementationPlan().isEmpty())));
         result.setUnsupportedClaimsCount(0);
         result.setFalseCitationsCount(0);
         result.setInventedStatisticsCount(0);
         result.setInventedSchemesCount(0);
         result.setFalseEligibilityCount(0);
         result.setOverconfidentConclusionsCount(0);
-        List<BigDecimal> scores = List.of(result.getProblemUnderstandingScore(), result.getFactExtractionScore(), result.getEvidenceGroundednessScore(), result.getRootCauseRelevanceScore(), result.getAltHypothesisQualityScore(), result.getMissingEvidenceDetectionScore(), result.getUncertaintyHandlingScore(), result.getCitationAccuracyScore(), result.getRootCauseAlignmentScore(), result.getRecEvidenceGroundednessScore(), result.getRecommendationRelevanceScore(), result.getOptionDiversityScore(), result.getFeasibilityReasoningScore(), result.getRiskIdentificationScore(), result.getSchemeMatchingScore(), result.getImplementationPlanningScore());
+        List<BigDecimal> scores = new ArrayList<>(List.of(result.getProblemUnderstandingScore(), result.getFactExtractionScore(), result.getEvidenceGroundednessScore(), result.getRootCauseRelevanceScore(), result.getAltHypothesisQualityScore(), result.getMissingEvidenceDetectionScore(), result.getUncertaintyHandlingScore(), result.getCitationAccuracyScore(), result.getRootCauseAlignmentScore(), result.getRecEvidenceGroundednessScore()));
+        if (recommendationTask) {
+            scores.addAll(List.of(result.getRecommendationRelevanceScore(), result.getOptionDiversityScore(), result.getFeasibilityReasoningScore(), result.getRiskIdentificationScore(), result.getSchemeMatchingScore(), result.getImplementationPlanningScore()));
+        }
         result.setOverallScore(scores.stream().reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(scores.size()), 4, java.math.RoundingMode.HALF_UP));
-        result.setPass(hasRootCause && grounded && hasRecommendations && structured);
+        result.setPass(hasRootCause && evidenceBackedRootCauses && grounded && hasRecommendations && structured);
         result.setLatencyMs(latencyMs);
         result.setEvaluationClassification(spec.classification());
         result.setReviewStatus("PENDING");
@@ -403,10 +464,12 @@ public class GovernedEvaluationScenarioService {
         return Map.ofEntries(
                 Map.entry("classification", spec.classification()),
                 Map.entry("source_type", spec.sourceType()),
+                Map.entry("domain", spec.domain()),
                 Map.entry("constructed", true),
                 Map.entry("real_world_data", false),
                 Map.entry("scenario_key", spec.scenarioKey()),
                 Map.entry("evidence_ids", List.of(String.valueOf(spec.evidence().get("evidence_id")))),
+                Map.entry("evidence_source_id", evidenceSourceId(spec)),
                 Map.entry("knowledge_snapshot", spec.knowledgeSnapshot()),
                 Map.entry("review_status", "PENDING"),
                 Map.entry("training_data", false));
@@ -861,8 +924,240 @@ public class GovernedEvaluationScenarioService {
                         "What evidence and limitations apply to bounded preparedness options for reported heat-related work interruptions?", "rag-service:pilot-evaluation-v3-holdout", "Return only the canonical recommendation JSON contract with at least two bounded options, risks, feasibility, implementation steps, uncertainties, and retrieved source IDs; do not claim health, productivity, or temperature outcomes.", "heat exposure; outdoor work; preparedness capacity; evidence gaps", "Distinct controlled PILOT_EVALUATION recommendation holdout for model comparison; constructed for evaluation only, not real village data, not a development synthetic fixture, and not training data until explicit human review."));
     }
 
+    private List<ScenarioSpec> pilotV05DiversityScenarios() {
+        return List.of(
+                v05("SANITATION", "Water & sanitation", "water-latrine-overflow", "root-cause-analysis", "Community latrine overflow is reported after heavy rain and containment responsibility is uncertain.", "Overflow is reported after rain around a shared sanitation facility.", "Inspection records and contamination measurements are not supplied.", "What evidence-grounded factors and uncertainties apply to reported rural latrine overflow after rain?", "latrine overflow; containment; sanitation maintenance", "sanitation containment", "maintenance ownership", 80),
+                v05("WATER", "Water & sanitation", "water-waste-collection", "recommendation-generation", "Solid-waste collection around a market-side water point is irregular and blocked drains are reported.", "Collection timing is reported as irregular near the market-side water point.", "Waste-volume, drainage, and service-route records are not supplied.", "What bounded options could improve waste collection and drain coordination while preserving evidence limits?", "solid waste; drainage coordination; service scheduling", "waste collection coordination", "collection scheduling and drain clearing", 55),
+                v05("SANITATION", "Water & sanitation", "water-toilet-access", "rag-grounded-responses", "Implementers need grounded guidance on household toilet access and safe waste-disposal evidence gaps.", "Household toilet access and safe disposal practices require verification.", "Household survey results and facility inspection records are not supplied.", "What trusted evidence and limitations apply to rural toilet access and safe waste disposal?", "toilet access; safe disposal; evidence gaps", "toilet access constraints", "retrieval of sanitation guidance", 60),
+
+                v05("AGRICULTURE", "Agriculture & food production", "agri-pest-disease", "root-cause-analysis", "Producers report a crop pest outbreak in one production cycle and the contributing condition is uncertain.", "Pest damage is reported in a crop area during the controlled pilot.", "Field scouting, specimen identification, and treatment records are not supplied.", "What evidence-grounded factors and uncertainties apply to a reported rural crop pest outbreak?", "crop pest; field scouting; disease identification", "crop pest pressure", "pest scouting and response", 70),
+                v05("AGRICULTURE", "Agriculture & food production", "agri-seed-storage", "recommendation-generation", "Seed quality is reported to decline during storage and feasible handling options are needed.", "Producers report seed deterioration during storage between seasons.", "Humidity, storage-condition, and germination records are not supplied.", "What bounded options could improve seed storage handling without claiming yield outcomes?", "seed storage; handling practice; germination evidence gaps", "seed storage conditions", "storage handling and verification", 45),
+                v05("AGRICULTURE", "Agriculture & food production", "agri-food-safety", "rag-grounded-responses", "Planners need source-grounded guidance on post-harvest food-safety controls and missing inspection evidence.", "Post-harvest food-safety controls require verification in the controlled pilot.", "Inspection findings, pathogen tests, and cold-chain records are not supplied.", "What trusted evidence and limitations apply to rural post-harvest food-safety controls?", "food safety; post-harvest controls; inspection gaps", "food-safety control gaps", "retrieval of food-safety guidance", 50),
+
+                v05("HEALTHCARE", "Healthcare access", "health-staffing", "root-cause-analysis", "A rural health center reports intermittent staffing coverage and the operational cause is uncertain.", "Staffing coverage is reported as intermittent at a primary-care facility.", "Roster, attendance, workload, and service-volume records are not supplied.", "What evidence-grounded factors and uncertainties apply to intermittent rural health-center staffing coverage?", "health staffing; facility coverage; roster evidence gaps", "staffing coverage", "workload and coverage verification", 90),
+                v05("HEALTHCARE", "Healthcare access", "health-appointment-access", "recommendation-generation", "Residents report difficulty obtaining routine facility appointments and bounded access options are needed.", "Routine appointment access is reported as difficult in the controlled pilot.", "Appointment queues, travel times, and service-capacity records are not supplied.", "What bounded options could improve routine appointment access without giving clinical instructions?", "appointment access; scheduling; travel evidence gaps", "appointment access constraints", "scheduling and access coordination", 65),
+                v05("HEALTHCARE", "Healthcare access", "health-facility-hours", "rag-grounded-responses", "Implementers need grounded guidance on verifying rural facility hours and service availability.", "Facility operating hours and service availability require verification.", "Published schedules, attendance logs, and service registers are not supplied.", "What trusted evidence and limitations apply to rural facility hours and service availability?", "facility hours; service availability; verification gaps", "facility availability uncertainty", "retrieval of access-policy guidance", 60),
+
+                v05("ENERGY", "Energy/electricity", "energy-transformer", "root-cause-analysis", "A settlement reports repeated transformer interruptions and the dominant reliability constraint is uncertain.", "Transformer interruptions are reported during the controlled pilot.", "Fault logs, load readings, and repair records are not supplied.", "What evidence-grounded factors and uncertainties apply to repeated rural transformer interruptions?", "transformer interruptions; grid reliability; fault records", "transformer reliability", "fault logging and repair ownership", 100),
+                v05("ENERGY", "Energy/electricity", "energy-solar-maintenance", "recommendation-generation", "A community solar system has irregular maintenance visits and bounded service-continuity options are needed.", "Solar-system maintenance visits are reported as irregular.", "Battery health, inspection, and service-contract records are not supplied.", "What bounded options could improve community solar maintenance while preserving evidence limits?", "solar maintenance; service continuity; battery evidence gaps", "solar maintenance workflow", "inspection scheduling and escalation", 55),
+                v05("ENERGY", "Energy/electricity", "energy-grid-outages", "rag-grounded-responses", "Planners need grounded guidance on interpreting rural grid-outage records and evidence gaps.", "Grid-outage reporting requires verification in the controlled pilot.", "Outage duration, feeder, and household impact records are not supplied.", "What trusted evidence and limitations apply to rural grid-outage records and service reliability?", "grid outages; service records; evidence gaps", "outage evidence quality", "retrieval of energy-reliability guidance", 70),
+
+                v05("EDUCATION", "Education", "education-teacher-attendance", "root-cause-analysis", "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.", "Teacher attendance gaps are reported during the controlled pilot.", "Staff rosters, attendance registers, and timetable records are not supplied.", "What evidence-grounded factors and uncertainties apply to reported rural teacher attendance gaps?", "teacher attendance; instructional time; school records", "teacher attendance coverage", "attendance verification and support", 75),
+                v05("EDUCATION", "Education", "education-student-transport", "recommendation-generation", "Students report difficulty reaching school from remote settlements and bounded transport options are needed.", "Travel access to school is reported as difficult for some students.", "Route, safety, attendance, and transport-capacity records are not supplied.", "What bounded options could improve student transport access without claiming attendance outcomes?", "student transport; route access; safety evidence gaps", "student travel access", "route coordination and transport verification", 85),
+                v05("EDUCATION", "Education", "education-dropout", "rag-grounded-responses", "Implementers need grounded guidance on investigating reported student dropout risk and missing school records.", "Dropout risk is reported as requiring investigation in the controlled pilot.", "Enrollment, transfer, household, and attendance records are not supplied.", "What trusted evidence and limitations apply to rural student dropout investigations?", "student dropout; enrollment records; evidence gaps", "dropout evidence uncertainty", "retrieval of education-retention guidance", 65),
+
+                v05("LIVELIHOOD", "Livelihoods/markets", "livelihood-seasonal-work", "root-cause-analysis", "Households report interruptions in seasonal employment and the main livelihood constraint is uncertain.", "Seasonal employment interruptions are reported in the controlled pilot.", "Work calendars, employer demand, and household income records are not supplied.", "What evidence-grounded factors and uncertainties apply to reported rural seasonal employment interruptions?", "seasonal employment; work access; livelihood records", "seasonal work disruption", "work opportunity and access verification", 50),
+                v05("LIVELIHOOD", "Livelihoods/markets", "livelihood-supply-chain", "recommendation-generation", "Small enterprises report supply-chain disruption for essential inputs and bounded coordination options are needed.", "Input delivery disruption is reported by small enterprises.", "Order, transport, inventory, and price records are not supplied.", "What bounded options could improve small-enterprise supply-chain coordination without claiming price outcomes?", "supply-chain disruption; input delivery; inventory gaps", "input supply disruption", "coordination and inventory verification", 40),
+                v05("LIVELIHOOD", "Livelihoods/markets", "livelihood-artisan-markets", "rag-grounded-responses", "Planners need grounded guidance on artisan market information and missing buyer records.", "Artisan producers report incomplete access to market information.", "Buyer, order, price, and shipment records are not supplied.", "What trusted evidence and limitations apply to rural artisan market information access?", "artisan markets; buyer information; evidence gaps", "market information uncertainty", "retrieval of market-access guidance", 45),
+
+                v05("MULTI_DOMAIN", "Climate/disaster resilience", "climate-drought-preparedness", "root-cause-analysis", "A rural settlement reports drought-preparedness gaps and the limiting factor is uncertain.", "Drought-preparedness gaps are reported in the controlled pilot.", "Rainfall, storage, water-use, and contingency-plan records are not supplied.", "What evidence-grounded factors and uncertainties apply to rural drought-preparedness gaps?", "drought preparedness; contingency planning; evidence gaps", "preparedness capacity", "water-use and contingency verification", 90),
+                v05("MULTI_DOMAIN", "Climate/disaster resilience", "climate-flood-resilience", "recommendation-generation", "Flood-prone households need bounded resilience options and local response capacity is uncertain.", "Flood exposure and response-capacity concerns are reported in the controlled pilot.", "Flood maps, warning logs, shelter capacity, and damage records are not supplied.", "What bounded options could improve rural flood resilience without claiming avoided-loss outcomes?", "flood resilience; response capacity; warning evidence gaps", "flood response capacity", "warning, shelter, and continuity planning", 100),
+                v05("MULTI_DOMAIN", "Climate/disaster resilience", "climate-cyclone-warning", "rag-grounded-responses", "Implementers need grounded guidance on rural cyclone-warning communication and missing alert records.", "Warning communication is reported as requiring verification before severe weather.", "Alert delivery, coverage, timing, and response records are not supplied.", "What trusted evidence and limitations apply to rural cyclone-warning communication?", "cyclone warning; alert communication; evidence gaps", "warning communication uncertainty", "retrieval of disaster-warning guidance", 80),
+
+                v05("INFRASTRUCTURE", "Housing/basic infrastructure", "housing-roof-leaks", "root-cause-analysis", "A community facility reports recurring roof leakage and the maintenance cause is uncertain.", "Roof leakage is reported at a shared community facility.", "Inspection, rainfall, repair, and material records are not supplied.", "What evidence-grounded factors and uncertainties apply to recurring roof leakage at a rural community facility?", "roof leakage; facility maintenance; inspection gaps", "building envelope maintenance", "inspection and repair ownership", 70),
+                v05("INFRASTRUCTURE", "Housing/basic infrastructure", "housing-market-shed", "recommendation-generation", "A rural market shed reports unusable public space during rain and bounded maintenance options are needed.", "Market-shed usability is reported as reduced during rain.", "Condition surveys, drainage records, and vendor-use records are not supplied.", "What bounded options could improve rural market-shed usability without claiming economic outcomes?", "market shed; public space; drainage evidence gaps", "public facility condition", "maintenance and drainage coordination", 60),
+                v05("INFRASTRUCTURE", "Housing/basic infrastructure", "housing-community-facility", "rag-grounded-responses", "Planners need grounded guidance on assessing rural community-facility condition and missing inspection evidence.", "Community-facility condition requires verification in the controlled pilot.", "Structural inspections, occupancy, accessibility, and repair records are not supplied.", "What trusted evidence and limitations apply to rural community-facility condition assessments?", "community facility; accessibility; inspection gaps", "facility-condition uncertainty", "retrieval of infrastructure-assessment guidance", 55));
+    }
+
+    private List<ScenarioSpec> pilotV05QualityRemediationScenarios() {
+        return List.of(
+                v05r("AGRICULTURE", "Agriculture & food production", "agri-pest-disease", "root-cause-analysis", "Producers report a crop pest outbreak in one production cycle and the contributing condition is uncertain.", "Pest damage is reported in a crop area during the controlled pilot.", "Field scouting, specimen identification, and treatment records are not supplied.", "What evidence-grounded factors and uncertainties apply to a reported rural crop pest outbreak?", "crop pest; field scouting; disease identification", "crop pest pressure", "pest scouting and response", 70, false),
+                v05r("AGRICULTURE", "Agriculture & food production", "agri-seed-storage", "recommendation-generation", "Seed quality is reported to decline during storage and feasible handling options are needed.", "Producers report seed deterioration during storage between seasons.", "Humidity, storage-condition, and germination records are not supplied.", "What bounded options could improve seed storage handling without claiming yield outcomes?", "seed storage; handling practice; germination evidence gaps", "seed storage conditions", "storage handling and verification", 45, false),
+                v05r("AGRICULTURE", "Agriculture & food production", "agri-food-safety", "rag-grounded-responses", "Planners need source-grounded guidance on post-harvest food-safety controls and missing inspection evidence.", "Post-harvest food-safety controls require verification in the controlled pilot.", "Inspection findings, pathogen tests, and cold-chain records are not supplied.", "What trusted evidence and limitations apply to rural post-harvest food-safety controls?", "food safety; post-harvest controls; inspection gaps", "food-safety control gaps", "retrieval of food-safety guidance", 50, false),
+
+                v05r("MULTI_DOMAIN", "Climate/disaster resilience", "climate-drought-preparedness", "root-cause-analysis", "A rural settlement reports drought-preparedness gaps and the limiting factor is uncertain.", "Drought-preparedness gaps are reported in the controlled pilot.", "Rainfall, storage, water-use, and contingency-plan records are not supplied.", "What evidence-grounded factors and uncertainties apply to rural drought-preparedness gaps?", "drought preparedness; contingency planning; evidence gaps", "preparedness capacity", "water-use and contingency verification", 90, false),
+                v05r("MULTI_DOMAIN", "Climate/disaster resilience", "climate-cyclone-warning", "rag-grounded-responses", "Implementers need grounded guidance on rural cyclone-warning communication and missing alert records.", "Warning communication is reported as requiring verification before severe weather.", "Alert delivery, coverage, timing, and response records are not supplied.", "What trusted evidence and limitations apply to rural cyclone-warning communication?", "cyclone warning; alert communication; evidence gaps", "warning communication uncertainty", "retrieval of disaster-warning guidance", 80, false),
+
+                v05r("EDUCATION", "Education", "education-teacher-attendance", "root-cause-analysis", "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.", "Teacher attendance gaps are reported during the controlled pilot.", "Staff rosters, attendance registers, and timetable records are not supplied.", "What evidence-grounded factors and uncertainties apply to reported rural teacher attendance gaps?", "teacher attendance; instructional time; school records", "teacher attendance coverage", "attendance verification and support", 75, false),
+                v05r("EDUCATION", "Education", "education-student-transport", "recommendation-generation", "Students report difficulty reaching school from remote settlements and bounded transport options are needed.", "Travel access to school is reported as difficult for some students.", "Route, safety, attendance, and transport-capacity records are not supplied.", "What bounded options could improve student transport access without claiming attendance outcomes?", "student transport; route access; safety evidence gaps", "student travel access", "route coordination and transport verification", 85, false),
+                v05r("EDUCATION", "Education", "education-dropout", "rag-grounded-responses", "Implementers need grounded guidance on investigating reported student dropout risk and missing school records.", "Dropout risk is reported as requiring investigation in the controlled pilot.", "Enrollment, transfer, household, and attendance records are not supplied.", "What trusted evidence and limitations apply to rural student dropout investigations?", "student dropout; enrollment records; evidence gaps", "dropout evidence uncertainty", "retrieval of education-retention guidance", 65, false),
+
+                v05r("ENERGY", "Energy/electricity", "energy-transformer", "root-cause-analysis", "A settlement reports repeated transformer interruptions and the dominant reliability constraint is uncertain.", "Transformer interruptions are reported during the controlled pilot.", "Fault logs, load readings, and repair records are not supplied.", "What evidence-grounded factors and uncertainties apply to repeated rural transformer interruptions?", "transformer interruptions; grid reliability; fault records", "transformer reliability", "fault logging and repair ownership", 100, false),
+                v05r("ENERGY", "Energy/electricity", "energy-grid-outages", "rag-grounded-responses", "Planners need grounded guidance on interpreting rural grid-outage records and evidence gaps.", "Grid-outage reporting requires verification in the controlled pilot.", "Outage duration, feeder, and household impact records are not supplied.", "What trusted evidence and limitations apply to rural grid-outage records and service reliability?", "grid outages; service records; evidence gaps", "outage evidence quality", "retrieval of energy-reliability guidance", 70, false),
+
+                v05r("HEALTHCARE", "Healthcare access", "health-staffing", "root-cause-analysis", "A rural health center reports intermittent staffing coverage and the operational cause is uncertain.", "Staffing coverage is reported as intermittent at a primary-care facility.", "Roster, attendance, workload, and service-volume records are not supplied.", "What evidence-grounded factors and uncertainties apply to intermittent rural health-center staffing coverage?", "health staffing; facility coverage; roster evidence gaps", "staffing coverage", "workload and coverage verification", 90, false),
+                v05r("HEALTHCARE", "Healthcare access", "health-appointment-access", "recommendation-generation", "Residents report difficulty obtaining routine facility appointments and bounded access options are needed.", "Routine appointment access is reported as difficult in the controlled pilot.", "Appointment queues, travel times, and service-capacity records are not supplied.", "What bounded options could improve routine appointment access without giving clinical instructions?", "appointment access; scheduling; travel evidence gaps", "appointment access constraints", "scheduling and access coordination", 65, false),
+                v05r("HEALTHCARE", "Healthcare access", "health-facility-hours", "rag-grounded-responses", "Implementers need grounded guidance on verifying rural facility hours and service availability.", "Facility operating hours and service availability require verification.", "Published schedules, attendance logs, and service registers are not supplied.", "What trusted evidence and limitations apply to rural facility hours and service availability?", "facility hours; service availability; verification gaps", "facility availability uncertainty", "retrieval of access-policy guidance", 60, false),
+
+                v05r("INFRASTRUCTURE", "Housing/basic infrastructure", "housing-roof-leaks", "root-cause-analysis", "A community facility reports recurring roof leakage and the maintenance cause is uncertain.", "Roof leakage is reported at a shared community facility.", "Inspection, rainfall, repair, and material records are not supplied.", "What evidence-grounded factors and uncertainties apply to recurring roof leakage at a rural community facility?", "roof leakage; facility maintenance; inspection gaps", "building envelope maintenance", "inspection and repair ownership", 70, false),
+                v05r("INFRASTRUCTURE", "Housing/basic infrastructure", "housing-market-shed", "recommendation-generation", "A rural market shed reports unusable public space during rain and bounded maintenance options are needed.", "Market-shed usability is reported as reduced during rain.", "Condition surveys, drainage records, and vendor-use records are not supplied.", "What bounded options could improve rural market-shed usability without claiming economic outcomes?", "market shed; public space; drainage evidence gaps", "public facility condition", "maintenance and drainage coordination", 60, false),
+                v05r("INFRASTRUCTURE", "Housing/basic infrastructure", "housing-community-facility", "rag-grounded-responses", "Planners need grounded guidance on assessing rural community-facility condition and missing inspection evidence.", "Community-facility condition requires verification in the controlled pilot.", "Structural inspections, occupancy, accessibility, and repair records are not supplied.", "What trusted evidence and limitations apply to rural community-facility condition assessments?", "community facility; accessibility; inspection gaps", "facility-condition uncertainty", "retrieval of infrastructure-assessment guidance", 55, false),
+
+                v05r("LIVELIHOOD", "Livelihoods/markets", "livelihood-seasonal-work", "root-cause-analysis", "Households report interruptions in seasonal employment and the main livelihood constraint is uncertain.", "Seasonal employment interruptions are reported in the controlled pilot.", "Work calendars, employer demand, and household income records are not supplied.", "What evidence-grounded factors and uncertainties apply to reported rural seasonal employment interruptions?", "seasonal employment; work access; livelihood records", "seasonal work disruption", "work opportunity and access verification", 50, false),
+                v05r("LIVELIHOOD", "Livelihoods/markets", "livelihood-supply-chain", "recommendation-generation", "Small enterprises report supply-chain disruption for essential inputs and bounded coordination options are needed.", "Input delivery disruption is reported by small enterprises.", "Order, transport, inventory, and price records are not supplied.", "What bounded options could improve small-enterprise supply-chain coordination without claiming price outcomes?", "supply-chain disruption; input delivery; inventory gaps", "input supply disruption", "coordination and inventory verification", 40, false),
+                v05r("LIVELIHOOD", "Livelihoods/markets", "livelihood-artisan-markets", "rag-grounded-responses", "Planners need grounded guidance on artisan market information and missing buyer records.", "Artisan producers report incomplete access to market information.", "Buyer, order, price, and shipment records are not supplied.", "What trusted evidence and limitations apply to rural artisan market information access?", "artisan markets; buyer information; evidence gaps", "market information uncertainty", "retrieval of market-access guidance", 45, false),
+                v05r("SANITATION", "Water and sanitation", "water-toilet-access", "rag-grounded-responses", "Implementers need grounded guidance on household toilet access and safe waste-disposal evidence gaps.", "Household toilet access and safe disposal practices require verification.", "Household survey results and facility inspection records are not supplied.", "What trusted evidence and limitations apply to rural toilet access and safe waste disposal?", "toilet access; safe disposal; evidence gaps", "toilet access constraints", "retrieval of sanitation guidance", 60, false),
+
+                v05r("SANITATION", "Water and sanitation", "water-school-handwashing", "root-cause-analysis", "A school reports inconsistent handwashing access and the limiting service condition is uncertain.", "Handwashing access is reported as inconsistent at a school facility.", "Water-point functionality, soap availability, and facility inspection records are not supplied.", "What evidence-grounded factors and uncertainties apply to inconsistent school handwashing access?", "school handwashing; soap access; facility functionality", "handwashing service access", "facility and supply verification", 65, true),
+                v05r("SANITATION", "Water and sanitation", "water-household-greywater", "recommendation-generation", "Households report unmanaged greywater near shared living areas and bounded sanitation options are needed.", "Greywater accumulation is reported near shared household pathways.", "Drainage layout, soil absorption, household practices, and inspection records are not supplied.", "What bounded options could improve household greywater management without claiming health outcomes?", "greywater; household drainage; sanitation evidence gaps", "greywater management", "drainage and safe-disposal coordination", 55, true));
+    }
+
+    private ScenarioSpec v05r(String domain, String domainLabel, String key, String taskType, String problem, String observation, String gap, String question, String topic, String problemCategory, String recommendationTarget, int affectedPopulation, boolean replacement) {
+        String taskSlug = taskType.replace('-', '_');
+        String prefix = replacement ? "V05R_REPLACEMENT_" : "V05R_CORRECTION_";
+        String scenarioKey = "pilot-v05r-" + key + "-" + taskType + "-001";
+        String sourceId = "PILOT_V05R_" + key.replace('-', '_').toUpperCase(Locale.ROOT) + "_" + taskSlug.toUpperCase(Locale.ROOT);
+        String evidenceId = scenarioKey + "-evidence-001";
+        String prompt = switch (taskType) {
+            case "root-cause-analysis" -> "Return only the canonical root-cause JSON contract. Separate observed evidence from hypotheses, cite only permitted source IDs, and state uncertainty.";
+            case "recommendation-generation" -> "Return only the canonical recommendation JSON contract. Link each bounded option to the validated root cause and permitted source IDs; state risks, feasibility, and uncertainty.";
+            default -> "Return only the canonical RAG JSON contract. Cite only permitted source IDs, distinguish evidence from inference, and state evidence gaps.";
+        };
+        return new ScenarioSpec(prefix + key.replace('-', '_').toUpperCase(Locale.ROOT) + "_" + taskSlug.toUpperCase(Locale.ROOT), scenarioKey, taskType, PILOT_CLASSIFICATION,
+                "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR V0.5 QUALITY REMEDIATION; NOT REAL VILLAGE DATA", domain, problem, affectedPopulation, "MEDIUM", "CONTROLLED_PROJECT_PILOT",
+                Map.of("question_id", "v05r-" + key + "-" + taskSlug, "answer", problem, "classification", PILOT_CLASSIFICATION, "domain", domainLabel),
+                List.of(Map.of("observation", problem)),
+                Map.of("evidence_id", evidenceId, "type", "CONTROLLED_PILOT_OBSERVATION", "observation", observation, "source", sourceId, "classification", PILOT_CLASSIFICATION, "domain", domainLabel),
+                List.of(Map.of("evidence_id", scenarioKey + "-evidence-002", "observation", gap)), question, "rag-service:pilot-evaluation-v05-quality-remediation", prompt,
+                topic + "; " + problemCategory + "; " + recommendationTarget + "; evidence gaps",
+                "Governed V0.5 " + (replacement ? "replacement" : "correction") + " candidate; unique scenario evidence; no PII, no development fixtures, no real field measurements, and no training eligibility before authenticated human review.");
+    }
+
+    private ScenarioSpec v05(String domain, String domainLabel, String key, String taskType, String problem, String observation, String gap, String question, String topic, String problemCategory, String recommendationTarget, int affectedPopulation) {
+        String taskSlug = taskType.replace('-', '_');
+        String scenarioKey = "pilot-v05-" + key + "-" + taskType + "-001";
+        String sourceId = "PILOT_V05_" + key.replace('-', '_').toUpperCase(Locale.ROOT) + "_" + taskSlug.toUpperCase(Locale.ROOT);
+        String evidenceId = scenarioKey + "-evidence-001";
+        String prompt = switch (taskType) {
+            case "root-cause-analysis" -> "Return only the canonical root-cause JSON contract. Use retrieved source IDs exactly, state uncertainty, and do not invent field measurements.";
+            case "recommendation-generation" -> "Return only the canonical recommendation JSON contract with at least two bounded options, risks, feasibility, implementation steps, uncertainty, and retrieved source IDs. Do not claim outcomes or policy eligibility.";
+            default -> "Return only the canonical RAG JSON contract. Cite only retrieved source IDs, state evidence gaps, and do not invent measurements or outcomes.";
+        };
+        return new ScenarioSpec(
+                "V05_DIVERSITY_" + key.replace('-', '_').toUpperCase(Locale.ROOT) + "_" + taskSlug.toUpperCase(Locale.ROOT),
+                scenarioKey,
+                taskType,
+                PILOT_CLASSIFICATION,
+                "CONTROLLED PILOT VILLAGE CONTEXT; CONSTRUCTED FOR DATASET V0.5 DOMAIN DIVERSITY; NOT REAL VILLAGE DATA",
+                domain,
+                problem,
+                affectedPopulation,
+                "MEDIUM",
+                "CONTROLLED_PROJECT_PILOT",
+                Map.of("question_id", "v05-" + key + "-" + taskSlug, "answer", problem, "classification", PILOT_CLASSIFICATION, "domain", domainLabel),
+                List.of(Map.of("observation", problem)),
+                Map.of("evidence_id", evidenceId, "type", "CONTROLLED_PILOT_OBSERVATION", "observation", observation, "source", sourceId, "classification", PILOT_CLASSIFICATION, "domain", domainLabel),
+                List.of(Map.of("evidence_id", scenarioKey + "-evidence-002", "observation", gap)),
+                question,
+                "rag-service:pilot-evaluation-v05-diversity",
+                prompt,
+                topic + "; " + problemCategory + "; " + recommendationTarget + "; evidence gaps",
+                "Controlled PILOT_EVALUATION candidate for dataset v0.5 domain diversity; domain=" + domainLabel + "; problem_category=" + problemCategory + "; recommendation_target=" + recommendationTarget + "; no PII, no real field measurements, no development fixtures, and no training eligibility before authenticated human review.");
+    }
+
     private Map<String, Object> citationMap(CitationResponse citation) {
         return Map.of("source_type", citation.sourceType(), "source_id", citation.sourceId(), "excerpt", citation.excerpt(), "score", citation.score());
+    }
+
+    private void diversityGate(ScenarioSpec spec) {
+        if (!spec.runLabel().startsWith("V05_DIVERSITY_")) {
+            return;
+        }
+        String candidateSourceId = evidenceSourceId(spec);
+        Set<String> candidateTokens = diversityTokens(spec.problemStatement() + " " + spec.ragQuestion() + " " + spec.compactEvidence());
+        for (PilotScenarioEntity existing : scenarios.findByDatasetId(DATASET_ID)) {
+            if (existing.getScenarioId().equals(spec.scenarioKey())) {
+                continue;
+            }
+            if (existing.getEvidenceJson() != null && existing.getEvidenceJson().contains(candidateSourceId)) {
+                throw new EvaluationException(HttpStatus.CONFLICT, "DIVERSITY_DUPLICATE_EVIDENCE", "The v0.5 scenario reuses an existing evidence source ID");
+            }
+            double overlap = jaccard(candidateTokens, diversityTokens(existing.getProblemStatement()));
+            if (overlap >= 0.45d) {
+                throw new EvaluationException(HttpStatus.CONFLICT, "SEMANTIC_DUPLICATE_SCENARIO", "The v0.5 scenario is too semantically similar to an existing scenario");
+            }
+        }
+    }
+
+    private Set<String> diversityTokens(String value) {
+        Set<String> tokens = new HashSet<>();
+        for (String token : value.toLowerCase(Locale.ROOT).split("[^a-z0-9]+")) {
+            if (token.length() > 3 && !Set.of("with", "from", "that", "this", "reported", "reports", "rural", "pilot", "evidence", "requires", "unclear", "uncertain").contains(token)) {
+                tokens.add(token);
+            }
+        }
+        return tokens;
+    }
+
+    private double jaccard(Set<String> left, Set<String> right) {
+        if (left.isEmpty() || right.isEmpty()) {
+            return 0.0d;
+        }
+        Set<String> union = new HashSet<>(left);
+        union.addAll(right);
+        Set<String> intersection = new HashSet<>(left);
+        intersection.retainAll(right);
+        return (double) intersection.size() / union.size();
+    }
+
+    private String evidenceSourceId(ScenarioSpec spec) {
+        if (spec.runLabel().startsWith("V05_DIVERSITY_") || spec.runLabel().startsWith("V05R_")) {
+            return String.valueOf(spec.evidence().get("source"));
+        }
+        return spec.sourceType();
+    }
+
+    private RecommendationSetResponse nonApplicableRecommendations(UUID rootCauseAnalysisId, ScenarioSpec spec) {
+        return new RecommendationSetResponse(
+                UUID.randomUUID(),
+                rootCauseAnalysisId,
+                "NOT_APPLICABLE",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("Recommendation generation is not part of the RAG-grounded response task."),
+                MODEL_VERSION,
+                MODEL_VERSION,
+                PROMPT_VERSION,
+                spec.knowledgeSnapshot(),
+                String.valueOf(spec.evidence().get("evidence_id")),
+                Instant.now());
+    }
+
+    /**
+     * Indexes the scenario's declared, provenance-bearing pilot evidence before retrieval.
+     * The RAG service remains responsible for chunking, embeddings, thresholding, and citation validation.
+     */
+    private Map<String, Object> controlledEvidenceDocument(ScenarioSpec spec) {
+        List<String> observations = new ArrayList<>();
+        observations.add(spec.problemStatement());
+        observations.add(String.valueOf(spec.evidence().get("observation")));
+        observations.addAll(spec.evidenceObservations().stream()
+                .map(row -> String.valueOf(row.getOrDefault("observation", "")))
+                .filter(value -> !value.isBlank())
+                .toList());
+        if (spec.runLabel().startsWith("V05R_")) {
+            observations.add("Governed evidence identity: " + spec.scenarioKey() + " / " + evidenceSourceId(spec) + ".");
+        }
+        return new LinkedHashMap<>(Map.of(
+                "document_id", "pilot-evaluation-evidence-" + spec.scenarioKey(),
+                "title", "Controlled pilot evidence: " + spec.scenarioKey(),
+                "source", evidenceSourceId(spec),
+                "publisher", "Rural Intelligence Controlled Evaluation Registry",
+                "document_version", "pilot-1.0.0",
+                "language", "en",
+                "domain", spec.domain().toLowerCase(Locale.ROOT),
+                "document_type", "pilot-evaluation",
+                "approved_source", true,
+                "text", String.join("\n", observations)));
+    }
+
+    private Map<String, Object> governedRagContext(ScenarioSpec spec) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("domain", ragDomain(spec));
+        context.put("allowed_source_ids", List.of(evidenceSourceId(spec)));
+        context.put("governed_evaluation", true);
+        context.put("evaluation_classification", spec.classification());
+        return context;
+    }
+
+    private Map<String, Object> remediationConstraints(ScenarioSpec spec) {
+        Map<String, Object> constraints = new LinkedHashMap<>();
+        constraints.put("human_review_required", true);
+        constraints.put("constructed_scenario", true);
+        constraints.put("governed_evaluation", true);
+        constraints.put("allowed_source_ids", List.of(evidenceSourceId(spec)));
+        return constraints;
     }
 
     private String ragDomain(ScenarioSpec spec) {

@@ -7,8 +7,11 @@ Architecture fit: Implements the AI provider interface, Ollama adapter, prompt r
 from __future__ import annotations
 
 import json
+import base64
 import importlib
 import os
+import re
+import subprocess
 import sys
 import threading
 import time
@@ -26,6 +29,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
+from .v03_contract import build_schema, validate_payload
+
 SERVICE_NAME = "ai-inference-service"
 STARTED_AT = time.time()
 
@@ -38,6 +43,49 @@ structlog.configure(
     ]
 )
 logger = structlog.get_logger(service=SERVICE_NAME)
+
+VISION_OBSERVATION_MAX_CHARS = 500
+
+
+def _bounded_visual_observations(description: str, observation_type: str = "visual_observation") -> list[dict[str, str]]:
+    """Bound model prose into complete observation records without dropping content."""
+
+    text = " ".join(str(description).split())
+    if not text:
+        return []
+    safe_type = observation_type if re.fullmatch(r"[a-z][a-z0-9_]{2,40}", observation_type or "") else "visual_observation"
+    chunks: list[str] = []
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        remaining = sentence.strip()
+        while len(remaining) > VISION_OBSERVATION_MAX_CHARS:
+            boundary = remaining.rfind(" ", 0, VISION_OBSERVATION_MAX_CHARS + 1)
+            if boundary <= 0:
+                boundary = VISION_OBSERVATION_MAX_CHARS
+            chunks.append(remaining[:boundary].strip())
+            remaining = remaining[boundary:].strip()
+        if remaining:
+            if chunks and len(chunks[-1]) + len(remaining) + 1 <= VISION_OBSERVATION_MAX_CHARS:
+                chunks[-1] = f"{chunks[-1]} {remaining}"
+            else:
+                chunks.append(remaining)
+    return [{"description": chunk, "type": safe_type} for chunk in chunks]
+
+
+def _gpu_memory_snapshot() -> dict[str, Any] | None:
+    """Read host GPU memory when nvidia-smi is available; otherwise report unavailable."""
+
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=True,
+        )
+        used, total = [int(value.strip()) for value in result.stdout.splitlines()[0].split(",")]
+        return {"used_mb": used, "total_mb": total}
+    except (FileNotFoundError, IndexError, ValueError, subprocess.SubprocessError, OSError):
+        return None
 
 
 class ProviderError(RuntimeError):
@@ -98,6 +146,7 @@ class InferenceRequest(BaseModel):
     task_type: str = Field(default="root_cause_analysis", max_length=80)
     model: str | None = None
     context: dict[str, Any] = Field(default_factory=dict)
+    citations: list[dict[str, Any]] = Field(default_factory=list)
     require_json: bool = True
 
 
@@ -112,6 +161,12 @@ class InferenceResponse(BaseModel):
     latency_ms: int
     tokens_estimate: int
     fallback_used: bool
+    contract_version: str | None = None
+    canonical_output: dict[str, Any] = Field(default_factory=dict)
+    citations: list[dict[str, Any]] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    repair_attempts: int = 0
+    gpu_memory: dict[str, Any] | None = None
 
 
 class RuralAnalysisRequest(BaseModel):
@@ -141,6 +196,12 @@ class RuralAnalysisResponse(BaseModel):
     latency_ms: int
     tokens_estimate: int
     success: bool
+    contract_version: str = "dataset-v0.3"
+    canonical_output: dict[str, Any] = Field(default_factory=dict)
+    citations: list[dict[str, Any]] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    repair_attempts: int = 0
+    gpu_memory: dict[str, Any] | None = None
 
 
 class StreamRequest(BaseModel):
@@ -148,6 +209,34 @@ class StreamRequest(BaseModel):
 
     prompt: str = Field(min_length=1, max_length=12000)
     model: str | None = None
+
+
+class VisionObservation(BaseModel):
+    """A fact visibly returned by the configured vision model."""
+
+    description: str = Field(min_length=1, max_length=500)
+    type: str = Field(pattern="^[a-z][a-z0-9_]{2,40}$")
+
+
+class VisionAnalysisRequest(BaseModel):
+    """Image payload accepted by the internal vision inference boundary."""
+
+    image_base64: str = Field(min_length=16)
+    mime_type: str = Field(pattern="^image/(jpeg|png|webp)$")
+    question: str = Field(default="", max_length=1200)
+    model: str | None = None
+
+
+class VisionAnalysisResponse(BaseModel):
+    """Validated image observations and operational metadata."""
+
+    model: str
+    provider: str
+    observations: list[VisionObservation] = Field(min_length=1, max_length=12)
+    question: str
+    uncertainty: str = Field(min_length=1, max_length=1000)
+    latency_ms: int = Field(ge=0)
+    gpu_memory: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -281,6 +370,14 @@ class OllamaProvider(AIProvider):
         self.connect_timeout = float(os.getenv("LLM_CONNECT_TIMEOUT_SECONDS", "3"))
         self.request_timeout = float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "120"))
         self.max_retries = int(os.getenv("LLM_MAX_RETRIES", "1"))
+        self.vision_model = os.getenv("VISION_MODEL", "moondream:1.8b")
+        self.vision_timeout = float(os.getenv("VISION_REQUEST_TIMEOUT_SECONDS", "300"))
+        self.vision_max_image_bytes = int(os.getenv("VISION_MAX_IMAGE_BYTES", "52428800"))
+        self._constrained_generator: Any | None = None
+        self._constrained_model: str | None = None
+        self._schema_cache: dict[str, Any] = {}
+        self._constrained_lock = threading.Lock()
+        self._constrained_generation_lock = threading.Lock()
 
     def generate(self, prompt: str, model: str | None = None, *, require_json: bool = False) -> dict[str, Any]:
         selected = self._model(model)
@@ -306,6 +403,70 @@ class OllamaProvider(AIProvider):
         }
         return self._post_json("/api/chat", payload)
 
+    def analyze_image(self, request: VisionAnalysisRequest) -> VisionAnalysisResponse:
+        """Run the installed vision model and validate observations before returning them."""
+
+        selected = (request.model or self.vision_model).strip()
+        if selected != self.vision_model:
+            raise ProviderError("VISION_MODEL_UNSUPPORTED", f"Vision model '{selected}' is not configured.", 400)
+        try:
+            image_bytes = base64.b64decode(request.image_base64, validate=True)
+        except (ValueError, base64.binascii.Error) as exc:
+            raise ProviderError("VISION_INVALID_IMAGE_ENCODING", "The image payload is not valid base64.", 400) from exc
+        if not image_bytes or len(image_bytes) > self.vision_max_image_bytes:
+            raise ProviderError("VISION_IMAGE_SIZE_INVALID", "The image is empty or exceeds the configured size limit.", 413)
+
+        question = request.question.strip() or "What visible conditions are present in this image?"
+        prompt = "Describe the visible objects and any visible patterns, discoloration, spots, or damage. Do not diagnose causes."
+        started = time.perf_counter()
+        body = self._post_json(
+            "/api/chat",
+            {
+                "model": selected,
+                "messages": [{"role": "user", "content": prompt, "images": [request.image_base64]}],
+                "stream": False,
+                "options": {"temperature": 0.1, "num_predict": 120},
+            },
+            timeout=self.vision_timeout,
+        )
+        raw = str(body.get("message", {}).get("content", "")).strip()
+        if len(raw) < 20:
+            raise ProviderError("VISION_EMPTY_RESPONSE", "The vision model returned no observations.", 502)
+        try:
+            parsed = json.loads(raw) if raw.startswith("{") else None
+            if isinstance(parsed, dict):
+                raw_observations = parsed.get("observations", [])
+                normalized_observations = []
+                for item in raw_observations if isinstance(raw_observations, list) else []:
+                    if isinstance(item, dict) and str(item.get("description", "")).strip():
+                        normalized_observations.extend(
+                            _bounded_visual_observations(
+                                str(item["description"]),
+                                str(item.get("type", "visual_observation")),
+                            )
+                        )
+                    elif isinstance(item, str) and item.strip():
+                        normalized_observations.extend(_bounded_visual_observations(item))
+                if not normalized_observations and str(parsed.get("description", "")).strip():
+                    normalized_observations = _bounded_visual_observations(str(parsed["description"]))
+                if normalized_observations:
+                    parsed = {"observations": normalized_observations, "uncertainty": str(parsed.get("uncertainty", "The image does not establish a diagnosis or cause."))}
+            else:
+                parsed = {"observations": _bounded_visual_observations(raw), "uncertainty": "The image does not establish a diagnosis or cause."}
+            observations = VisionAnalysisResponse(
+                model=str(body.get("model") or selected),
+                provider=self.name,
+                observations=parsed.get("observations", []),
+                question=question,
+                uncertainty=str(parsed.get("uncertainty", "")),
+                latency_ms=max(0, round((time.perf_counter() - started) * 1000)),
+                gpu_memory=_gpu_memory_snapshot(),
+            )
+        except (json.JSONDecodeError, AttributeError, TypeError, ValueError) as exc:
+            raise ProviderError("VISION_INVALID_OUTPUT", "Vision analysis could not be validated.", 502) from exc
+        logger.info("vision_analysis_completed", model=selected, observations=len(observations.observations), latency_ms=observations.latency_ms)
+        return observations
+
     def structured_generate(self, prompt: str, model: str | None = None) -> RuralAnalysisOutput:
         body = self.generate(prompt, model, require_json=True)
         text = str(body.get("response", "")).strip()
@@ -315,6 +476,62 @@ class OllamaProvider(AIProvider):
             return RuralAnalysisOutput.model_validate(_canonical_rural_analysis_payload(text))
         except (ValueError, TypeError) as exc:
             raise ProviderError("LLM_INVALID_STRUCTURED_OUTPUT", f"Model output did not match the rural analysis schema: {exc}", 502) from exc
+
+    def constrained_generate_v03(self, prompt: str, task: str, source_ids: set[str], model: str | None = None) -> dict[str, Any]:
+        """Generate v0.3 output through Outlines/Ollama with no unconstrained fallback."""
+
+        selected = self._model(model)
+        try:
+            import ollama
+            import outlines
+        except ImportError as exc:
+            raise ProviderError("CONSTRAINED_DEPENDENCY_MISSING", f"Constrained inference dependency is unavailable: {exc.name}", 503) from exc
+        try:
+            schema = build_schema(task, source_ids)
+        except ValueError as exc:
+            code = str(exc).split(":", 1)[0]
+            status = 400 if code == "V03_SOURCE_IDS_REQUIRED" else 422
+            raise ProviderError(code, str(exc), status) from exc
+        schema_key = json.dumps({"model": selected, "task": task, "schema": schema}, sort_keys=True, separators=(",", ":"))
+        started = time.perf_counter()
+        with self._constrained_lock:
+            if self._constrained_generator is None or self._constrained_model != selected:
+                self._constrained_generator = outlines.from_ollama(
+                    ollama.Client(host=self.base_url, timeout=self.request_timeout),
+                    model_name=selected,
+                )
+                self._constrained_model = selected
+            output_type = self._schema_cache.get(schema_key)
+            if output_type is None:
+                output_type = outlines.json_schema(schema)
+                self._schema_cache[schema_key] = output_type
+        constrained_prompt = (
+            f"{prompt}\n\nReturn exactly one JSON object for task {task}. "
+            f"Use only these citation source IDs: {json.dumps(sorted(source_ids))}. "
+            "Do not add keys, markdown, or commentary."
+        )
+        try:
+            with self._constrained_generation_lock:
+                raw = self._constrained_generator(
+                    constrained_prompt,
+                    output_type,
+                    options={"temperature": 0.1},
+                )
+            payload = json.loads(str(raw))
+        except ProviderError:
+            raise
+        except Exception as exc:
+            raise ProviderError("LLM_CONSTRAINED_GENERATION_FAILED", f"Constrained Ollama generation failed: {exc}", 502) from exc
+        errors = validate_payload(payload, schema)
+        if errors:
+            raise ProviderError("LLM_INVALID_V03_OUTPUT", "; ".join(errors), 502)
+        return {
+            "payload": payload,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+            "repair_attempts": 0,
+            "schema_cache_size": len(self._schema_cache),
+            "gpu_memory": _gpu_memory_snapshot(),
+        }
 
     def stream(self, prompt: str, model: str | None = None) -> Iterable[str]:
         selected = self._model(model)
@@ -383,8 +600,9 @@ class OllamaProvider(AIProvider):
         except json.JSONDecodeError as exc:
             raise ProviderError("OLLAMA_MALFORMED_RESPONSE", "Ollama returned malformed JSON.", 502) from exc
 
-    def _post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post_json(self, path: str, payload: dict[str, Any], *, timeout: float | None = None) -> dict[str, Any]:
         encoded = json.dumps(payload).encode()
+        request_timeout = timeout or self.request_timeout
         last_error: ProviderError | None = None
         for _ in range(max(1, self.max_retries + 1)):
             request = urllib.request.Request(
@@ -394,7 +612,7 @@ class OllamaProvider(AIProvider):
                 method="POST",
             )
             try:
-                with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
+                with urllib.request.urlopen(request, timeout=request_timeout) as response:
                     return json.loads(response.read().decode())
             except urllib.error.HTTPError as exc:
                 code = "OLLAMA_SERVER_ERROR" if exc.code >= 500 else "OLLAMA_REQUEST_REJECTED"
@@ -402,7 +620,7 @@ class OllamaProvider(AIProvider):
             except urllib.error.URLError as exc:
                 last_error = ProviderError("OLLAMA_CONNECTION_FAILED", f"Ollama connection failed: {exc.reason}", 503)
             except TimeoutError as exc:
-                last_error = ProviderError("OLLAMA_TIMEOUT", f"Ollama request timed out after {self.request_timeout}s.", 504)
+                last_error = ProviderError("OLLAMA_TIMEOUT", f"Ollama request timed out after {request_timeout}s.", 504)
             except (OSError, json.JSONDecodeError) as exc:
                 last_error = ProviderError("OLLAMA_MALFORMED_RESPONSE", f"Ollama returned an invalid response: {exc}", 502)
         if last_error is not None:
@@ -517,13 +735,23 @@ class SONARProvider(AIProvider):
             raise ProviderError("SONAR_MODEL_UNAVAILABLE", message, 503) from exc
 
 
+_provider_cache: dict[tuple[str, str], AIProvider] = {}
+
+
 def provider() -> AIProvider:
+    """Return a cached provider so constrained schemas and model clients stay warm."""
+
     selected = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
-    if selected == "sonar":
-        return SONARProvider()
-    if selected != "ollama":
-        raise ProviderError("LLM_PROVIDER_UNSUPPORTED", f"LLM provider '{selected}' is not supported by this runtime.", 500)
-    return OllamaProvider()
+    model = os.getenv("LLM_MODEL", os.getenv("AI_DEFAULT_MODEL", "qwen2.5:0.5b"))
+    key = (selected, model)
+    if key not in _provider_cache:
+        if selected == "sonar":
+            _provider_cache[key] = SONARProvider()
+        elif selected == "ollama":
+            _provider_cache[key] = OllamaProvider()
+        else:
+            raise ProviderError("LLM_PROVIDER_UNSUPPORTED", f"LLM provider '{selected}' is not supported by this runtime.", 500)
+    return _provider_cache[key]
 
 
 def _canonical_rural_analysis_payload(text: str) -> dict[str, Any]:
@@ -596,9 +824,82 @@ def provider_health(model: str | None = None) -> ProviderHealth:
     return provider().health(model)
 
 
+@app.get("/v1/vision/health")
+def vision_health() -> dict[str, Any]:
+    selected = provider()
+    vision_model = getattr(selected, "vision_model", None)
+    if not vision_model:
+        return {"provider": selected.name, "configured_model": None, "status": "unavailable", "model_available": False}
+    state = selected.health(vision_model)
+    return state.model_dump()
+
+
+@app.post("/v1/vision/analyze", response_model=VisionAnalysisResponse)
+def vision_analyze(request: VisionAnalysisRequest) -> VisionAnalysisResponse:
+    selected = provider()
+    analyze = getattr(selected, "analyze_image", None)
+    if not callable(analyze):
+        raise HTTPException(status_code=503, detail={"code": "VISION_UNAVAILABLE", "message": "Vision analysis unavailable."})
+    try:
+        return analyze(request)
+    except ProviderError as exc:
+        logger.warning("vision_analysis_failed", code=exc.code, message=str(exc))
+        message = "Vision analysis unavailable." if exc.code in {"OLLAMA_UNAVAILABLE", "OLLAMA_TIMEOUT", "OLLAMA_CONNECTION_FAILED", "OLLAMA_MODEL_UNAVAILABLE"} else str(exc)
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": message}) from exc
+
+
 @app.get("/v1/prompts")
 def prompts() -> dict[str, Any]:
     return {"prompts": prompt_registry.catalog()}
+
+
+def _source_ids(values: Iterable[Any]) -> set[str]:
+    result: set[str] = set()
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        for key in ("source_id", "sourceId", "source", "id"):
+            candidate = value.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                result.add(candidate.strip())
+                break
+    return result
+
+
+def _request_source_ids(request: InferenceRequest) -> set[str]:
+    values: list[Any] = list(request.citations)
+    context_citations = request.context.get("citations")
+    if isinstance(context_citations, list):
+        values.extend(context_citations)
+    return _source_ids(values)
+
+
+def _legacy_output(request: RuralAnalysisRequest, canonical: dict[str, Any]) -> RuralAnalysisOutput:
+    """Keep the existing response shape while retaining canonical output beside it."""
+
+    causes = canonical.get("root_causes", [])
+    descriptions = [str(cause.get("description", "")).strip() for cause in causes if isinstance(cause, dict)]
+    evidence_ids = sorted({
+        str(source_id)
+        for cause in causes
+        if isinstance(cause, dict)
+        for source_id in cause.get("evidence_source_ids", [])
+    })
+    confidence_values = [
+        float(cause["confidence"])
+        for cause in causes
+        if isinstance(cause, dict) and isinstance(cause.get("confidence"), (int, float))
+    ]
+    return RuralAnalysisOutput(
+        problem=request.problem,
+        summary=str(canonical["summary"]),
+        contributing_factors=[],
+        root_causes=descriptions,
+        evidence=evidence_ids,
+        confidence=max(confidence_values, default=0.0),
+        recommendations=[],
+        limitations=[str(item) for item in canonical["uncertainties"]],
+    )
 
 
 @app.post("/v1/inference", response_model=InferenceResponse)
@@ -606,6 +907,30 @@ def inference(request: InferenceRequest) -> InferenceResponse:
     started = time.time()
     selected_provider = provider()
     try:
+        if request.task_type == "rag-grounded-responses":
+            source_ids = _request_source_ids(request)
+            constrained = getattr(selected_provider, "constrained_generate_v03", None)
+            if not callable(constrained):
+                raise ProviderError("CONSTRAINED_PROVIDER_REQUIRED", "The v0.3 RAG route requires constrained generation.", 503)
+            generated_v03 = constrained(request.prompt, request.task_type, source_ids, request.model)
+            output = json.dumps(generated_v03["payload"], ensure_ascii=False, sort_keys=True)
+            latency_ms = int((time.time() - started) * 1000)
+            return InferenceResponse(
+                model=request.model or getattr(selected_provider, "default_model", "configured-model"),
+                provider=selected_provider.name,
+                task_type=request.task_type,
+                output=output,
+                structured_output=generated_v03["payload"],
+                latency_ms=latency_ms,
+                tokens_estimate=max(1, len((request.prompt + " " + output).split())),
+                fallback_used=False,
+                contract_version="dataset-v0.3",
+                canonical_output=generated_v03["payload"],
+                citations=generated_v03["payload"].get("citations", []),
+                uncertainties=generated_v03["payload"].get("uncertainties", []),
+                repair_attempts=generated_v03["repair_attempts"],
+                gpu_memory=generated_v03["gpu_memory"],
+            )
         generated = selected_provider.generate(request.prompt, request.model, require_json=False)
     except ProviderError as exc:
         logger.warning("inference_failed", code=exc.code, provider=selected_provider.name, task_type=request.task_type)
@@ -634,7 +959,13 @@ def root_cause_analysis(request: RuralAnalysisRequest) -> RuralAnalysisResponse:
     rendered = prompt.render(request)
     started = time.time()
     try:
-        output = selected_provider.structured_generate(rendered, request.model)
+        source_ids = _source_ids(request.citations) or _source_ids(request.evidence)
+        constrained = getattr(selected_provider, "constrained_generate_v03", None)
+        if not callable(constrained):
+            raise ProviderError("CONSTRAINED_PROVIDER_REQUIRED", "The v0.3 root-cause route requires constrained generation.", 503)
+        generated_v03 = constrained(rendered, "root-cause-analysis", source_ids, request.model)
+        canonical = generated_v03["payload"]
+        output = _legacy_output(request, canonical)
     except ProviderError as exc:
         logger.warning("structured_analysis_failed", request_id=request.request_id, code=exc.code, provider=selected_provider.name)
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
@@ -660,6 +991,12 @@ def root_cause_analysis(request: RuralAnalysisRequest) -> RuralAnalysisResponse:
         latency_ms=latency_ms,
         tokens_estimate=max(1, len(rendered.split()) + len(output.model_dump_json().split())),
         success=True,
+        contract_version="dataset-v0.3",
+        canonical_output=canonical,
+        citations=canonical["citations"],
+        uncertainties=canonical["uncertainties"],
+        repair_attempts=generated_v03["repair_attempts"],
+        gpu_memory=generated_v03["gpu_memory"],
     )
 
 

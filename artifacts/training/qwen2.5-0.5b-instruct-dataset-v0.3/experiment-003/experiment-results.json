@@ -1,0 +1,262 @@
+{
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "base_model_result": {
+    "aggregate": {
+      "average_latency_ms": 9411.82,
+      "citation_contract_successes": 0,
+      "evidence_grounding_successes": 0,
+      "examples": 3,
+      "max_latency_ms": 10761.39,
+      "min_latency_ms": 8159.35,
+      "quality_metrics": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC_OR_REFERENCE_LABELS",
+      "recommendation_quality": "NOT_APPLICABLE_NO_RECOMMENDATION_TEST_EXAMPLE",
+      "structured_output_success_rate": 0.0,
+      "structured_output_successes": 0
+    },
+    "per_example": [
+      {
+        "citation_correctness": "CONTRACT_FAILED",
+        "contract_errors": [
+          "output.citations:required_nonempty_array",
+          "output.root_causes[0].confidence:must_be_number_between_zero_and_one",
+          "output.root_causes[0].description:required_nonempty_string",
+          "output.root_causes[0].evidence_source_ids:required_nonempty_array",
+          "output.root_causes[0]:missing_confidence",
+          "output.root_causes[0]:missing_description",
+          "output.root_causes[0]:missing_evidence_source_ids",
+          "output.root_causes[0]:unexpected_citations",
+          "output.root_causes[0]:unexpected_uncertainty",
+          "output.root_causes[1].confidence:must_be_number_between_zero_and_one",
+          "output.root_causes[1].description:required_nonempty_string",
+          "output.root_causes[1].evidence_source_ids:required_nonempty_array",
+          "output.root_causes[1]:missing_confidence",
+          "output.root_causes[1]:missing_description",
+          "output.root_causes[1]:missing_evidence_source_ids",
+          "output.root_causes[1]:unexpected_citations",
+          "output.root_causes[1]:unexpected_uncertainty",
+          "output.uncertainties:required_nonempty_string_array",
+          "output:missing_citations"
+        ],
+        "evidence_grounding": "CONTRACT_FAILED",
+        "evidence_grounding_source_mentions": [],
+        "latency_ms": 9314.71,
+        "output": "{\n  \"summary\": \"Uncertainty in small producer access to markets due to uncertain factors.\",\n  \"root_causes\": [\n    {\n      \"name\": \"Inadequate infrastructure\",\n      \"uncertainty\": true,\n      \"citations\": []\n    },\n    {\n      \"name\": \"Human error\",\n      \"uncertainty\": false,\n      \"citations\": []\n    }\n  ],\n  \"uncertainties\": [\n    {\n      \"name\": \"Inadequate communication\",\n      \"uncertainty\": true,\n      \"citations\": []\n    },\n    {\n      \"name\": \"Insufficient resources\",\n      \"uncertainty\": false,\n      \"citations\": []\n    }\n  ]\n}",
+        "output_validity": true,
+        "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+        "resource_usage": {
+          "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+          "peak_gpu_allocated_mb": 1274.91,
+          "peak_gpu_reserved_mb": 1646.0,
+          "process_rss_mb": 2410.46
+        },
+        "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "scenario_group": "pilot-v03-exp3-livelihood-market-access-root-001",
+        "structured_output_success": false,
+        "task": "root-cause-analysis",
+        "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+      },
+      {
+        "citation_correctness": "CONTRACT_FAILED",
+        "contract_errors": [
+          "output.answer:required_nonempty_string",
+          "output.citations:required_nonempty_array",
+          "output.uncertainties:required_nonempty_string_array",
+          "output:missing_citations",
+          "output:missing_uncertainties",
+          "output:unexpected_score",
+          "output:unexpected_score_sources"
+        ],
+        "evidence_grounding": "CONTRACT_FAILED",
+        "evidence_grounding_source_mentions": [
+          "CONTROLLED_PROJECT_PILOT"
+        ],
+        "latency_ms": 10761.39,
+        "output": "{\n  \"answer\": {\n    \"context\": [\n      \"Constructed project evaluation evidence, not real village data.\",\n      \"Controlled observations indicate irrigation interruptions during the crop cycle, delayed pump repairs, inconsistent pump availability, unclear maintenance responsibility, and crop stress reported by pilot participants.\"\n    ],\n    \"uncertainties\": [],\n    \"citations\": []\n  },\n  \"score\": 0.9287,\n  \"score_sources\": [\n    {\n      \"source_id\": \"CONTROLLED_PROJECT_PILOT\",\n      \"citation\": \"PILOT EVALUATION ONLY. Constructed project evaluation evidence, not real village data. Controlled observations indicate irrigation interruptions during the crop cycle, delayed pump repairs, inconsistent pump availability, unclear maintenance responsibility, and crop stress reported by pilot participants. These observations require human verification and must not be treated as causal proof or training data without explicit approval.\"\n    }\n  ]\n}",
+        "output_validity": true,
+        "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+        "resource_usage": {
+          "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+          "peak_gpu_allocated_mb": 1274.86,
+          "peak_gpu_reserved_mb": 1646.0,
+          "process_rss_mb": 2402.18
+        },
+        "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "scenario_group": "pilot-v03-exp3-livelihood-market-rag-001",
+        "structured_output_success": false,
+        "task": "rag-grounded-responses",
+        "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+      },
+      {
+        "citation_correctness": "CONTRACT_FAILED",
+        "contract_errors": [
+          "output:malformed_json"
+        ],
+        "evidence_grounding": "CONTRACT_FAILED",
+        "evidence_grounding_source_mentions": [
+          "CONTROLLED_PROJECT_PILOT"
+        ],
+        "latency_ms": 8159.35,
+        "output": "{\n  \"answer\": {\n    \"context\": [\n      \"PILOT_EVALUATION ONLY. Constructed project evaluation evidence, not real village data. Controlled observations indicate irrigation interruptions during the crop cycle, delayed pump repairs, inconsistent pump availability, unclear maintenance responsibility, and crop stress reported by pilot participants. These observations require human verification and must not be treated as causal proof or training data without explicit approval.\",\n      \"Source ID\": \"CONTROLLED_PROJECT_PILOT\"\n    ],\n    \"uncertainties\": [],\n    \"citations\": []\n  },\n  \"answerable\": true,\n  \"rating\": 1\n}",
+        "output_validity": true,
+        "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+        "resource_usage": {
+          "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+          "peak_gpu_allocated_mb": 1274.86,
+          "peak_gpu_reserved_mb": 1646.0,
+          "process_rss_mb": 2402.29
+        },
+        "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "scenario_group": "pilot-v03-expansion-agriculture-rag-001",
+        "structured_output_success": false,
+        "task": "rag-grounded-responses",
+        "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+      }
+    ]
+  },
+  "batch_size": 1,
+  "best_validation_loss": 2.066234588623047,
+  "checkpoint": "artifacts\\training\\qwen2.5-0.5b-instruct-dataset-v0.3\\experiment-003\\checkpoint-final",
+  "checkpoint_sha256": "d370dcb6009ce93f387d1a05ccae8b66ff0d7a50beb09b982b7947e752ebca35",
+  "classification": "REGRESSED",
+  "compute_dtype": "bfloat16",
+  "dataset_digest_after": "5a046ef1f2a76518a790a8fac4245ea2803094a6a1d8f0859a3776d7f6f3586b",
+  "dataset_digest_before": "5a046ef1f2a76518a790a8fac4245ea2803094a6a1d8f0859a3776d7f6f3586b",
+  "dataset_version": "dataset-v0.3",
+  "double_quantization": true,
+  "epochs": 1,
+  "experiment_name": "qwen2.5-0.5b-instruct-dataset-v0.3-experiment-003",
+  "fine_tuned_model_result": {
+    "aggregate": {
+      "average_latency_ms": 19554.86,
+      "citation_contract_successes": 0,
+      "evidence_grounding_successes": 0,
+      "examples": 3,
+      "max_latency_ms": 24398.96,
+      "min_latency_ms": 16815.0,
+      "quality_metrics": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC_OR_REFERENCE_LABELS",
+      "recommendation_quality": "NOT_APPLICABLE_NO_RECOMMENDATION_TEST_EXAMPLE",
+      "structured_output_success_rate": 0.0,
+      "structured_output_successes": 0
+    },
+    "per_example": [
+      {
+        "citation_correctness": "CONTRACT_FAILED",
+        "contract_errors": [
+          "output.citations[0]:citation_must_only_contain_source_id",
+          "output.root_causes[0]:must_be_object",
+          "output.root_causes[1]:must_be_object",
+          "output.root_causes[2]:must_be_object",
+          "output.root_causes[3]:must_be_object"
+        ],
+        "evidence_grounding": "CONTRACT_FAILED",
+        "evidence_grounding_source_mentions": [],
+        "latency_ms": 16815.0,
+        "output": "{\n  \"summary\": \"root-cause analysis of small producers' difficulties in accessing markets due to uncertainty.\",\n  \"root_causes\": [\n    \"irrigation interruptions\",\n    \"delayed pump repairs\",\n    \"inconsistent pump availability\",\n    \"unclear maintenance responsibility\"\n  ],\n  \"uncertainties\": [\n    \"human verification required for observed causes\",\n    \"training data needed for unverified causes\"\n  ],\n  \"citations\": [\n    {\n      \"citation_source\": \"PILOT EVALUATION ONLY. Constructed project evaluation evidence, not real village data. Controlled observations indicate irrigation interruptions during the crop cycle, delayed pump repairs, inconsistent pump availability, unclear maintenance responsibility, and crop stress reported by pilot participants. These observations require human verification and must not be treated as causal proof or training data without explicit approval.\"\n    }\n  ]\n}",
+        "output_validity": true,
+        "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+        "resource_usage": {
+          "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+          "peak_gpu_allocated_mb": 1347.64,
+          "peak_gpu_reserved_mb": 1664.0,
+          "process_rss_mb": 2401.92
+        },
+        "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "scenario_group": "pilot-v03-exp3-livelihood-market-access-root-001",
+        "structured_output_success": false,
+        "task": "root-cause-analysis",
+        "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+      },
+      {
+        "citation_correctness": "CONTRACT_FAILED",
+        "contract_errors": [
+          "output:malformed_json"
+        ],
+        "evidence_grounding": "CONTRACT_FAILED",
+        "evidence_grounding_source_mentions": [],
+        "latency_ms": 17450.62,
+        "output": "```json\n{\n  \"answer\": [\n    {\n      \"question\": \"What is the primary goal of implementing producers' market access?\",\n      \"answer\": \"To ensure that farmers have reliable access to markets for their products.\"\n    },\n    {\n      \"question\": \"How does this align with the goals of the producer market access program?\",\n      \"answer\": \"It supports the objective of ensuring that farmers receive fair prices for their produce.\"\n    }\n  ],\n  \"uncertainties\": [],\n  \"citations\": []\n}\n```\nThe RAG JSON object provides answers based on the evidence retrieved from the controlled project pilot observation. The answer is structured in a way that can be understood by the user, while the uncertainties and citations are provided to support the answer.",
+        "output_validity": true,
+        "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+        "resource_usage": {
+          "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+          "peak_gpu_allocated_mb": 1347.61,
+          "peak_gpu_reserved_mb": 1664.0,
+          "process_rss_mb": 2401.96
+        },
+        "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "scenario_group": "pilot-v03-exp3-livelihood-market-rag-001",
+        "structured_output_success": false,
+        "task": "rag-grounded-responses",
+        "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+      },
+      {
+        "citation_correctness": "CONTRACT_FAILED",
+        "contract_errors": [
+          "output:malformed_json"
+        ],
+        "evidence_grounding": "CONTRACT_FAILED",
+        "evidence_grounding_source_mentions": [
+          "CONTROLLED_PROJECT_PILOT"
+        ],
+        "latency_ms": 24398.96,
+        "output": "{\n  \"answer\": {\n    \"text\": \"The local planners need source-grounded guidance on irrigation interruptions and missing crop baseline data.\",\n    \"uncertainty\": [\n      {\n        \"source\": \"CONTROLLED_PROJECT_PILOT\",\n        \"value\": \"Constructing project evaluation evidence, not real village data.\"\n      }\n    ],\n    \"citations\": [\n      {\n        \"citation_source\": \"CONTROLLED_PROJECT_PILOT\",\n        \"citation_value\": \"PILOT EVALUATION ONLY. Constructed project evaluation evidence, not real village data. Controlled observations indicate irrigation interruptions during the crop cycle, delayed pump repairs, inconsistent pump availability, unclear maintenance responsibility, and crop stress reported by pilot participants. These observations require human verification and must not be treated as causal proof or training data without explicit approval.\"\n      }\n    ]\n  },\n  \"answer_text\": \"The local planners need source-grounded guidance on irrigation interruptions and missing crop baseline data.\",\n  \"answer_uncertainty\": [\n    {\n      \"source\": \"CONTROLLED_PROJECT_PILOT\",\n      \"value\": \"Constructing project evaluation evidence, not real village data.\"\n    }\n  ],\n  \"answer_citations\": [\n    {\n      \"citation_source\": \"CONTROLLED_PROJECT_PILOT\",\n      \"citation_value\":",
+        "output_validity": true,
+        "recommendation_quality": "NOT_APPLICABLE_TEST_TASK_ROOT_CAUSE_ANALYSIS",
+        "resource_usage": {
+          "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+          "peak_gpu_allocated_mb": 1347.61,
+          "peak_gpu_reserved_mb": 1664.0,
+          "process_rss_mb": 2402.1
+        },
+        "root_cause_quality": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "scenario_group": "pilot-v03-expansion-agriculture-rag-001",
+        "structured_output_success": false,
+        "task": "rag-grounded-responses",
+        "uncertainty_handling": "NOT_SCORED_REQUIRES_HUMAN_RUBRIC",
+        "unsupported_claim_rate": "NOT_SCORED_REQUIRES_HUMAN_OR_REFERENCE_LABELS"
+      }
+    ]
+  },
+  "gradient_accumulation_steps": 8,
+  "hardware": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+  "learning_rate": 0.0002,
+  "lora": {
+    "alpha": 32,
+    "dropout": 0.05,
+    "rank": 16,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj"
+    ]
+  },
+  "optimizer_updates": 3,
+  "quant_type": "nf4",
+  "quantization": "qlora_4bit",
+  "seed": 42,
+  "sequence_length": 1024,
+  "split_counts": {
+    "test": 3,
+    "train": 23,
+    "validation": 2
+  },
+  "training_duration_seconds": 41.93,
+  "training_loss_by_epoch": [
+    2.597741557204205
+  ],
+  "training_resource_usage": {
+    "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+    "peak_gpu_allocated_mb": 1347.61,
+    "peak_gpu_reserved_mb": 1664.0,
+    "process_rss_mb": 2345.5
+  },
+  "validation_loss_by_epoch": [
+    2.066234588623047
+  ]
+}

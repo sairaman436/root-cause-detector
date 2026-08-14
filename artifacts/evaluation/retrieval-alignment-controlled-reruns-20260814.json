@@ -1,0 +1,2261 @@
+﻿[
+    {
+        "domain":  "Agriculture",
+        "image":  "C:\\Users\\saira\\AppData\\Local\\Temp\\csp-agriculture-2.jpg",
+        "question":  "What crop condition is visible in this field?",
+        "oldQuery":  "User question: What crop condition is visible in this field?`nObserved terms: crop yellow plants brown leaves",
+        "oldResult":  "Root cause and recommendation generated; prior grounding was not aligned to the full observation context.",
+        "authorizationAccount":  "pilot.operator.20260810@example.gov",
+        "authorizationPermissions":  [
+                                         "AI_ADMIN",
+                                         "AI_OPERATOR",
+                                         "SERVING_INFER"
+                                     ],
+        "status":  "FAILED",
+        "vision":  {
+                       "model":  "moondream:1.8b",
+                       "provider":  "ollama",
+                       "observations":  [
+                                            {
+                                                "description":  "In this image, there is a large field of yellow plants with brown leaves scattered throughout it. The field appears to be in a state of disarray, as if it has been neglected for some time. There are no visible texts or other objects present in the scene.",
+                                                "type":  "visual_observation"
+                                            }
+                                        ],
+                       "uncertainty":  "The image does not establish a diagnosis or cause.",
+                       "latencyMs":  12335
+                   },
+        "newQuery":  "Evaluation context: Agriculture (user-provided label; image domain not assumed)\nGoverned retrieval domain: agriculture\nUser question: What crop condition is visible in this field?\nObserved concepts: brown leaves, yellow plants, field, yellow, plants, brown, leaves\nObserved summary:\n- In this image, there is a large field of yellow plants with brown leaves scattered throughout it. The field appears to be in a state of disarray, as if it has been neglected for some time. There are no visible texts or other objects present in the scene.\nModel uncertainty: The image does not establish a diagnosis or cause.",
+        "retrievedEvidence":  [
+
+                              ],
+        "rootCause":  null,
+        "recommendation":  null,
+        "failure":  "INSUFFICIENT_GOVERNED_EVIDENCE",
+        "latencyMs":  13031,
+        "reviewStatus":  "UNSCORED",
+        "humanScores":  {
+
+                        },
+        "reviewerComments":  null
+    },
+    {
+        "domain":  "Healthcare",
+        "image":  "C:\\Users\\saira\\AppData\\Local\\Temp\\csp-healthcare.jpg",
+        "question":  "What visible facility characteristics should be noted? Do not identify people.",
+        "oldQuery":  "User question: What visible facility characteristics should be noted? Do not identify people.`nObserved terms: road students",
+        "oldResult":  "Root cause completed; recommendation blocked by grounding.",
+        "authorizationAccount":  "pilot.operator.20260810@example.gov",
+        "authorizationPermissions":  [
+                                         "AI_ADMIN",
+                                         "AI_OPERATOR",
+                                         "SERVING_INFER"
+                                     ],
+        "status":  "FAILED",
+        "vision":  {
+                       "model":  "moondream:1.8b",
+                       "provider":  "ollama",
+                       "observations":  [
+                                            {
+                                                "description":  "In this image, there is a small building with a green roof situated in front of a dirt road. The building appears to be an old schoolhouse, as it has multiple windows on its facade. There are several people walking around the area near the schoolhouse and some sitting outside. A few individuals can also be seen standing by the building\u0027s entrance.",
+                                                "type":  "visual_observation"
+                                            },
+                                            {
+                                                "description":  "In addition to these people, there is a chair placed in front of the building, possibly for someone who wants to sit down and enjoy the surroundings or take a break from their walk. The overall scene depicts an outdoor setting with",
+                                                "type":  "visual_observation"
+                                            }
+                                        ],
+                       "uncertainty":  "The image does not establish a diagnosis or cause.",
+                       "latencyMs":  1655
+                   },
+        "newQuery":  "Evaluation context: Healthcare (user-provided label; image domain not assumed)\nGoverned retrieval domain: healthcare\nUser question: What visible facility characteristics should be noted? Do not identify people.\nObserved concepts: dirt road, old schoolhouse, building, roof, dirt, road, schoolhouse, people\nObserved summary:\n- In this image, there is a small building with a green roof situated in front of a dirt road. The building appears to be an old schoolhouse, as it has multiple windows on its facade. There are several people walking around the area near the schoolhouse and some sitting outside....\n- In addition to these people, there is a chair placed in front of the building, possibly for someone who wants to sit down and enjoy the surroundings or take a break from their walk. The overall scene depicts an outdoor setting with\nModel uncertainty: The image does not establish a diagnosis or cause.",
+        "retrievedEvidence":  [
+
+                              ],
+        "rootCause":  null,
+        "recommendation":  null,
+        "failure":  "INSUFFICIENT_GOVERNED_EVIDENCE",
+        "latencyMs":  1919,
+        "reviewStatus":  "UNSCORED",
+        "humanScores":  {
+
+                        },
+        "reviewerComments":  null
+    },
+    {
+        "domain":  "Energy",
+        "image":  "C:\\Users\\saira\\AppData\\Local\\Temp\\csp-energy.jpg",
+        "question":  "What visible energy infrastructure is present?",
+        "oldQuery":  "User question: What visible energy infrastructure is present?`nObserved terms: energy infrastructure damage",
+        "oldResult":  "No governed evidence; root cause/recommendation not produced.",
+        "authorizationAccount":  "pilot.operator.20260810@example.gov",
+        "authorizationPermissions":  [
+                                         "AI_ADMIN",
+                                         "AI_OPERATOR",
+                                         "SERVING_INFER"
+                                     ],
+        "status":  "FAILED",
+        "vision":  {
+                       "model":  "moondream:1.8b",
+                       "provider":  "ollama",
+                       "observations":  [
+                                            {
+                                                "description":  "In this aerial view of a village, there are several houses with corrugated metal roofs that appear to be in poor condition. The roofs show signs of rusting and discoloration, indicating their age and exposure to the elements. Additionally, some of the houses have missing shingles or tiles on their roofs, further contributing to the worn appearance of these structures.",
+                                                "type":  "visual_observation"
+                                            },
+                                            {
+                                                "description":  "The village seems to lack proper maintenance and care for its buildings, which could be a result of limited resources or neglect from the local community.",
+                                                "type":  "visual_observation"
+                                            }
+                                        ],
+                       "uncertainty":  "The image does not establish a diagnosis or cause.",
+                       "latencyMs":  1501
+                   },
+        "newQuery":  "Evaluation context: Energy (user-provided label; image domain not assumed)\nGoverned retrieval domain: energy\nUser question: What visible energy infrastructure is present?\nObserved concepts: village, houses, corrugated, roofs, discoloration, buildings\nObserved summary:\n- In this aerial view of a village, there are several houses with corrugated metal roofs that appear to be in poor condition. The roofs show signs of rusting and discoloration, indicating their age and exposure to the elements. Additionally, some of the houses have missing shing...\n- The village seems to lack proper maintenance and care for its buildings, which could be a result of limited resources or neglect from the local community.\nModel uncertainty: The image does not establish a diagnosis or cause.",
+        "retrievedEvidence":  [
+                                  {
+                                      "sourceType":  "rag-service",
+                                      "sourceId":  "PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION",
+                                      "excerpt":  "A community solar system has irregular maintenance visits and bounded service-continuity options are needed.\nSolar-system maintenance visits are reported as irregular.\nBattery health, inspection, and service-contract records are not supplied.",
+                                      "score":  0.2111,
+                                      "citationId":  "021efca3-5654-41e0-ba48-97982f706dd3",
+                                      "documentId":  "pilot-evaluation-evidence-pilot-v05-energy-solar-maintenance-recommendation-generation-001",
+                                      "title":  "Controlled pilot evidence: pilot-v05-energy-solar-maintenance-recommendation-generation-001",
+                                      "sourceUrl":  null,
+                                      "publisher":  "Rural Intelligence Controlled Evaluation Registry",
+                                      "page":  null,
+                                      "section":  "Document"
+                                  }
+                              ],
+        "rootCause":  {
+                          "analysisId":  "6d7ec4a6-af9e-4a82-845e-68ef9978ada0",
+                          "versionNumber":  1,
+                          "problem":  {
+                                          "problemId":  "vision-rerun-67761202-b287-4d62-9a1c-e5e96bf7e91b",
+                                          "village":  "Image inspection context",
+                                          "domain":  "ENERGY",
+                                          "description":  "What visible energy infrastructure is present?",
+                                          "affectedPopulation":  null,
+                                          "severity":  "UNKNOWN",
+                                          "evidence":  [
+                                                           "In this aerial view of a village, there are several houses with corrugated metal roofs that appear to be in poor condition. The roofs show signs of rusting and discoloration, indicating their age and exposure to the elements. Additionally, some of the houses have missing shingles or tiles on their roofs, further contributing to the worn appearance of these structures.",
+                                                           "The village seems to lack proper maintenance and care for its buildings, which could be a result of limited resources or neglect from the local community."
+                                                       ],
+                                          "timestamp":  "2026-08-14T05:27:11.723967225Z",
+                                          "source":  "AI_INSPECTION_LAB"
+                                      },
+                          "observedFacts":  [
+                                                {
+                                                    "factId":  "fact-1",
+                                                    "statement":  "What visible energy infrastructure is present?",
+                                                    "source":  "AI_INSPECTION_LAB",
+                                                    "sourceType":  "PROBLEM_STATEMENT",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.78,
+                                                    "timestamp":  "2026-08-14T05:27:11.723967225Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-2",
+                                                    "statement":  "category: visual_observation",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:11.724039720Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-3",
+                                                    "statement":  "statement: In this aerial view of a village, there are several houses with corrugated metal roofs that appear to be in poor condition. The roofs show signs of rusting and discoloration, indicating their age and exposure to the elements. Additionally, some of the house...",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:11.724044118Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-4",
+                                                    "statement":  "sourceType: VISION_OBSERVATION",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:11.724045293Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-5",
+                                                    "statement":  "category: visual_observation",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:11.724046580Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-6",
+                                                    "statement":  "statement: The village seems to lack proper maintenance and care for its buildings, which could be a result of limited resources or neglect from the local community.",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:11.724047380Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-7",
+                                                    "statement":  "sourceType: VISION_OBSERVATION",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:11.724048118Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-8",
+                                                    "statement":  "uncertainty: The image does not establish a diagnosis or cause.",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:11.724056108Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-9",
+                                                    "statement":  "question: What visible energy infrastructure is present?",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:11.724057463Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-10",
+                                                    "statement":  "retrievalRepresentation: {domainContext={label=Energy, retrievalDomain=energy, source=USER_PROVIDED_CONTEXT, imageDomainAssumed=false}, question=What visible energy infrastructure is present?, observedConcepts=[village, houses, corrugated, roofs, discoloration, buildings], observat...",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:11.724086997Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-11",
+                                                    "statement":  "visionModel: moondream:1.8b",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:11.724088346Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-12",
+                                                    "statement":  "excerpt: A community solar system has irregular maintenance visits and bounded service-continuity options are needed.\nSolar-system maintenance visits are reported as irregular.\nBattery health, inspection, and service-contract records are not supplied.",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:11.724091049Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-13",
+                                                    "statement":  "score: 0.2111",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:11.724100933Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-14",
+                                                    "statement":  "source: PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:11.724101917Z"
+                                                },
+                                                {
+                                                    "factId":  "retrieved-1",
+                                                    "statement":  "A community solar system has irregular maintenance visits and bounded service-continuity options are needed.\nSolar-system maintenance visits are reported as irregular.\nBattery health, inspection, and service-contract records are not supplied.",
+                                                    "source":  "PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION",
+                                                    "sourceType":  "null",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.2111,
+                                                    "timestamp":  "2026-08-14T05:27:11.724802763Z"
+                                                }
+                                            ],
+                          "contributingFactors":  [
+                                                      {
+                                                          "factor":  "energy maintenance accountability",
+                                                          "supportingEvidence":  [
+                                                                                     "fact-6",
+                                                                                     "fact-9",
+                                                                                     "fact-10",
+                                                                                     "fact-12",
+                                                                                     "retrieved-1"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.86,
+                                                          "source":  "EVIDENCE_FUSION"
+                                                      }
+                                                  ],
+                          "candidateRootCauses":  [
+                                                      {
+                                                          "rootCauseId":  "root-cause-1",
+                                                          "description":  "energy maintenance accountability may contribute to What visible energy infrastructure is present?",
+                                                          "supportingFacts":  [
+                                                                                  "fact-6",
+                                                                                  "fact-9",
+                                                                                  "fact-10",
+                                                                                  "fact-12",
+                                                                                  "retrieved-1"
+                                                                              ],
+                                                          "supportingEvidence":  [
+                                                                                     "fact-6",
+                                                                                     "fact-9",
+                                                                                     "fact-10",
+                                                                                     "fact-12",
+                                                                                     "retrieved-1",
+                                                                                     "PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.92,
+                                                          "affectedDomain":  "ENERGY",
+                                                          "assumptions":  [
+                                                                              "Survey or evidence statements are treated as direct observations, not causal proof."
+                                                                          ],
+                                                          "uncertainty":  "Causality is not scientifically established; evidence supports a likely contributing association.",
+                                                          "reasoningSummary":  "Identified because observed facts and retrieved evidence align with the candidate factor. This is a decision-support inference, not a scientific causal claim."
+                                                      }
+                                                  ],
+                          "validatedRootCauses":  [
+                                                      {
+                                                          "rootCauseId":  "root-cause-1",
+                                                          "description":  "energy maintenance accountability may contribute to What visible energy infrastructure is present?",
+                                                          "supportingFacts":  [
+                                                                                  "fact-6",
+                                                                                  "fact-9",
+                                                                                  "fact-10",
+                                                                                  "fact-12",
+                                                                                  "retrieved-1"
+                                                                              ],
+                                                          "supportingEvidence":  [
+                                                                                     "fact-6",
+                                                                                     "fact-9",
+                                                                                     "fact-10",
+                                                                                     "fact-12",
+                                                                                     "retrieved-1",
+                                                                                     "PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.92,
+                                                          "affectedDomain":  "ENERGY",
+                                                          "assumptions":  [
+                                                                              "Survey or evidence statements are treated as direct observations, not causal proof."
+                                                                          ],
+                                                          "uncertainty":  "Causality is not scientifically established; evidence supports a likely contributing association.",
+                                                          "reasoningSummary":  "Identified because observed facts and retrieved evidence align with the candidate factor. This is a decision-support inference, not a scientific causal claim."
+                                                      }
+                                                  ],
+                          "alternativeHypotheses":  [
+                                                        {
+                                                            "hypothesisId":  "hypothesis-1",
+                                                            "description":  "transformer or grid fault could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for transformer or grid fault",
+                                                                                    "Time-series evidence linking transformer or grid fault to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        },
+                                                        {
+                                                            "hypothesisId":  "hypothesis-2",
+                                                            "description":  "load or capacity constraint could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for load or capacity constraint",
+                                                                                    "Time-series evidence linking load or capacity constraint to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        },
+                                                        {
+                                                            "hypothesisId":  "hypothesis-3",
+                                                            "description":  "repair response delay could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for repair response delay",
+                                                                                    "Time-series evidence linking repair response delay to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        }
+                                                    ],
+                          "evidence":  [
+                                           {
+                                               "evidenceId":  "evidence-1",
+                                               "statement":  "What visible energy infrastructure is present?",
+                                               "source":  "AI_INSPECTION_LAB",
+                                               "sourceType":  "PROBLEM_STATEMENT",
+                                               "reliability":  0.62,
+                                               "relevance":  1.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.7996,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-2",
+                                               "statement":  "category: visual_observation",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-3",
+                                               "statement":  "statement: In this aerial view of a village, there are several houses with corrugated metal roofs that appear to be in poor condition. The roofs show signs of rusting and discoloration, indicating their age and exposure to the elements. Additionally, some of the house...",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-4",
+                                               "statement":  "sourceType: VISION_OBSERVATION",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-5",
+                                               "statement":  "category: visual_observation",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-6",
+                                               "statement":  "statement: The village seems to lack proper maintenance and care for its buildings, which could be a result of limited resources or neglect from the local community.",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-7",
+                                               "statement":  "sourceType: VISION_OBSERVATION",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-8",
+                                               "statement":  "uncertainty: The image does not establish a diagnosis or cause.",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.5108,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-9",
+                                               "statement":  "question: What visible energy infrastructure is present?",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  1.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.8508,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-10",
+                                               "statement":  "retrievalRepresentation: {domainContext={label=Energy, retrievalDomain=energy, source=USER_PROVIDED_CONTEXT, imageDomainAssumed=false}, question=What visible energy infrastructure is present?, observedConcepts=[village, houses, corrugated, roofs, discoloration, buildings], observat...",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  1.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.8508,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-11",
+                                               "statement":  "visionModel: moondream:1.8b",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.5108,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-12",
+                                               "statement":  "excerpt: A community solar system has irregular maintenance visits and bounded service-continuity options are needed.\nSolar-system maintenance visits are reported as irregular.\nBattery health, inspection, and service-contract records are not supplied.",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-13",
+                                               "statement":  "score: 0.2111",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-14",
+                                               "statement":  "source: PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-15",
+                                               "statement":  "A community solar system has irregular maintenance visits and bounded service-continuity options are needed.\nSolar-system maintenance visits are reported as irregular.\nBattery health, inspection, and service-contract records are not supplied.",
+                                               "source":  "PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION",
+                                               "sourceType":  "null",
+                                               "reliability":  0.62,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4596,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           }
+                                       ],
+                          "uncertainties":  [
+                                                {
+                                                    "uncertaintyId":  "uncertainty-explicit-evidence",
+                                                    "statement":  "Source evidence explicitly reports an unresolved or inconsistent condition that requires human verification.",
+                                                    "missingEvidence":  [
+                                                                            "uncertainty: The image does not establish a diagnosis or cause.",
+                                                                            "excerpt: A community solar system has irregular maintenance visits and bounded service-continuity options are needed.\nSolar-system maintenance visits are reported as irregular.\nBattery health, inspection, and service-contract records are not supplied.",
+                                                                            "A community solar system has irregular maintenance visits and bounded service-continuity options are needed.\nSolar-system maintenance visits are reported as irregular.\nBattery health, inspection, and service-contract records are not supplied."
+                                                                        ],
+                                                    "followUpQuestions":  [
+                                                                              "Which households are most affected?",
+                                                                              "What changed recently?",
+                                                                              "What direct evidence can field staff verify?"
+                                                                          ],
+                                                    "severity":  "MEDIUM"
+                                                }
+                                            ],
+                          "confidence":  {
+                                             "overall":  0.6102,
+                                             "sourceReliability":  0.7707,
+                                             "evidenceRelevance":  0.2,
+                                             "evidenceFreshness":  0.78,
+                                             "evidenceQuantity":  0.9,
+                                             "evidenceConsistency":  0.76,
+                                             "contradictionPenalty":  0.0,
+                                             "interpretation":  "Confidence is a transparent decision-support score, not a calibrated scientific probability."
+                                         },
+                          "limitations":  [
+                                              "The analysis provides decision-support confidence, not calibrated scientific causal probability.",
+                                              "Evidence is insufficient for high-confidence root-cause validation."
+                                          ],
+                          "followUpQuestions":  [
+                                                    "Which households are most affected?",
+                                                    "What changed recently?",
+                                                    "What direct evidence can field staff verify?"
+                                                ],
+                          "causalGraph":  [
+                                              {
+                                                  "from":  "energy maintenance accountability",
+                                                  "to":  "What visible energy infrastructure is present?",
+                                                  "relationshipType":  "FACTOR_ASSOCIATED_WITH_OUTCOME",
+                                                  "confidence":  0.86,
+                                                  "evidence":  [
+                                                                   "fact-6",
+                                                                   "fact-9",
+                                                                   "fact-10",
+                                                                   "fact-12",
+                                                                   "retrieved-1"
+                                                               ],
+                                                  "source":  "EVIDENCE_FUSION"
+                                              },
+                                              {
+                                                  "from":  "energy maintenance accountability may contribute to What visible energy infrastructure is present?",
+                                                  "to":  "What visible energy infrastructure is present?",
+                                                  "relationshipType":  "CANDIDATE_CAUSE_MAY_CONTRIBUTE_TO_OUTCOME",
+                                                  "confidence":  0.92,
+                                                  "evidence":  [
+                                                                   "fact-6",
+                                                                   "fact-9",
+                                                                   "fact-10",
+                                                                   "fact-12",
+                                                                   "retrieved-1",
+                                                                   "PILOT_V05_ENERGY_SOLAR_MAINTENANCE_RECOMMENDATION_GENERATION"
+                                                               ],
+                                                  "source":  "ROOT_CAUSE_ENGINE"
+                                              }
+                                          ],
+                          "model":  "qwen2.5-local",
+                          "modelVersion":  "qwen2.5:0.5b",
+                          "promptVersion":  "ROOT_CAUSE_INTELLIGENCE@1.0.0",
+                          "knowledgeSnapshot":  "rag-service:latest",
+                          "surveyVersion":  "image-inspection-rerun",
+                          "createdAt":  "2026-08-14T05:27:11.732811461Z"
+                      },
+        "recommendation":  null,
+        "failure":  "RECOMMENDATION_BLOCKED_HTTP_400:The remote server returned an error: (400) Bad Request.",
+        "latencyMs":  16061,
+        "reviewStatus":  "UNSCORED",
+        "humanScores":  {
+
+                        },
+        "reviewerComments":  null
+    },
+    {
+        "domain":  "Education",
+        "image":  "C:\\Users\\saira\\AppData\\Local\\Temp\\csp-education.jpg",
+        "question":  "What visible classroom conditions are present?",
+        "oldQuery":  "User question: What visible classroom conditions are present?`nObserved terms: students",
+        "oldResult":  "No governed evidence; root cause/recommendation not produced.",
+        "authorizationAccount":  "pilot.operator.20260810@example.gov",
+        "authorizationPermissions":  [
+                                         "AI_ADMIN",
+                                         "AI_OPERATOR",
+                                         "SERVING_INFER"
+                                     ],
+        "status":  "COMPLETED",
+        "vision":  {
+                       "model":  "moondream:1.8b",
+                       "provider":  "ollama",
+                       "observations":  [
+                                            {
+                                                "description":  "The image shows a classroom full of children sitting at desks in front of a chalkboard. There are many kids present, with some sitting on chairs while others are standing around the room. The chalkboard is located near the center of the scene and serves as the focal point for the students. The overall atmosphere appears to be that of an educational setting where the children are engaged in learning activities or listening to a lesson being taught by their teacher.",
+                                                "type":  "visual_observation"
+                                            },
+                                            {
+                                                "description":  "There are several chairs placed throughout the classroom, with some kids sitting on them while others stand nearby. A backpack can also be seen near one of",
+                                                "type":  "visual_observation"
+                                            }
+                                        ],
+                       "uncertainty":  "The image does not establish a diagnosis or cause.",
+                       "latencyMs":  1705
+                   },
+        "newQuery":  "Evaluation context: Education (user-provided label; image domain not assumed)\nGoverned retrieval domain: education\nUser question: What visible classroom conditions are present?\nObserved concepts: classroom, children, chalkboard, students, teacher\nObserved summary:\n- The image shows a classroom full of children sitting at desks in front of a chalkboard. There are many kids present, with some sitting on chairs while others are standing around the room. The chalkboard is located near the center of the scene and serves as the focal point for...\n- There are several chairs placed throughout the classroom, with some kids sitting on them while others stand nearby. A backpack can also be seen near one of\nModel uncertainty: The image does not establish a diagnosis or cause.",
+        "retrievedEvidence":  [
+                                  {
+                                      "sourceType":  "rag-service",
+                                      "sourceId":  "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                      "excerpt":  "teacher availability gap may contribute to A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nA rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned evidence identity: pilot-v05r-education-teacher-attendance-root-cause-analysis-001 / PILOT_V05R_EDUCATION_TEACHER_ATT",
+                                      "score":  0.2233,
+                                      "citationId":  "4a10b668-1b64-4533-a011-843daf7e9bbb",
+                                      "documentId":  "approved-root-cause-evidence-pilot-v05-recommendation-coverage-pilot-v05r-education-teacher-attendance-root-cause-analysis-001-001",
+                                      "title":  "Approved root-cause evidence: pilot-v05r-education-teacher-attendance-root-cause-analysis-001",
+                                      "sourceUrl":  null,
+                                      "publisher":  "Rural Intelligence Governed Evaluation Registry",
+                                      "page":  null,
+                                      "section":  "Document"
+                                  },
+                                  {
+                                      "sourceType":  "rag-service",
+                                      "sourceId":  "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                      "excerpt":  "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.",
+                                      "score":  0.1837,
+                                      "citationId":  "3df6dfc8-36c2-4bfb-9c8f-3b762a25c255",
+                                      "documentId":  "pilot-evaluation-evidence-pilot-v05-education-teacher-attendance-root-cause-analysis-001",
+                                      "title":  "Controlled pilot evidence: pilot-v05-education-teacher-attendance-root-cause-analysis-001",
+                                      "sourceUrl":  null,
+                                      "publisher":  "Rural Intelligence Controlled Evaluation Registry",
+                                      "page":  null,
+                                      "section":  "Document"
+                                  },
+                                  {
+                                      "sourceType":  "rag-service",
+                                      "sourceId":  "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                      "excerpt":  "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned evidence identity: pilot-v05r-education-teacher-attendance-root-cause-analysis-001 / PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS.",
+                                      "score":  0.1825,
+                                      "citationId":  "2228d961-b763-4581-8198-7b07f8432ddb",
+                                      "documentId":  "pilot-evaluation-evidence-pilot-v05r-education-teacher-attendance-root-cause-analysis-001",
+                                      "title":  "Controlled pilot evidence: pilot-v05r-education-teacher-attendance-root-cause-analysis-001",
+                                      "sourceUrl":  null,
+                                      "publisher":  "Rural Intelligence Controlled Evaluation Registry",
+                                      "page":  null,
+                                      "section":  "Document"
+                                  }
+                              ],
+        "rootCause":  {
+                          "analysisId":  "1097fea8-36d1-4c26-b704-0e82e7a6b789",
+                          "versionNumber":  1,
+                          "problem":  {
+                                          "problemId":  "vision-rerun-b3580591-49b5-410c-9e02-9d966861d6d8",
+                                          "village":  "Image inspection context",
+                                          "domain":  "EDUCATION",
+                                          "description":  "What visible classroom conditions are present?",
+                                          "affectedPopulation":  null,
+                                          "severity":  "UNKNOWN",
+                                          "evidence":  [
+                                                           "The image shows a classroom full of children sitting at desks in front of a chalkboard. There are many kids present, with some sitting on chairs while others are standing around the room. The chalkboard is located near the center of the scene and serves as the focal point for the students. The overall atmosphere appears to be that of an educational setting where the children are engaged in learning activities or listening to a lesson being taught by their teacher.",
+                                                           "There are several chairs placed throughout the classroom, with some kids sitting on them while others stand nearby. A backpack can also be seen near one of"
+                                                       ],
+                                          "timestamp":  "2026-08-14T05:27:18.122208429Z",
+                                          "source":  "AI_INSPECTION_LAB"
+                                      },
+                          "observedFacts":  [
+                                                {
+                                                    "factId":  "fact-1",
+                                                    "statement":  "What visible classroom conditions are present?",
+                                                    "source":  "AI_INSPECTION_LAB",
+                                                    "sourceType":  "PROBLEM_STATEMENT",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.78,
+                                                    "timestamp":  "2026-08-14T05:27:18.122208429Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-2",
+                                                    "statement":  "category: visual_observation",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:18.122237759Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-3",
+                                                    "statement":  "statement: The image shows a classroom full of children sitting at desks in front of a chalkboard. There are many kids present, with some sitting on chairs while others are standing around the room. The chalkboard is located near the center of the scene and serves as ...",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:18.122245625Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-4",
+                                                    "statement":  "sourceType: VISION_OBSERVATION",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:18.122246945Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-5",
+                                                    "statement":  "category: visual_observation",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:18.122248332Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-6",
+                                                    "statement":  "statement: There are several chairs placed throughout the classroom, with some kids sitting on them while others stand nearby. A backpack can also be seen near one of",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:18.122249486Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-7",
+                                                    "statement":  "sourceType: VISION_OBSERVATION",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:18.122250413Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-8",
+                                                    "statement":  "uncertainty: The image does not establish a diagnosis or cause.",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122255013Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-9",
+                                                    "statement":  "question: What visible classroom conditions are present?",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122259239Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-10",
+                                                    "statement":  "retrievalRepresentation: {domainContext={label=Education, retrievalDomain=education, source=USER_PROVIDED_CONTEXT, imageDomainAssumed=false}, question=What visible classroom conditions are present?, observedConcepts=[classroom, children, chalkboard, students, teacher], observationS...",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122286580Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-11",
+                                                    "statement":  "visionModel: moondream:1.8b",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122288310Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-12",
+                                                    "statement":  "excerpt: teacher availability gap may contribute to A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nA rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeache...",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122291474Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-13",
+                                                    "statement":  "score: 0.2233",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122299700Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-14",
+                                                    "statement":  "source: PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122301552Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-15",
+                                                    "statement":  "excerpt: A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122303183Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-16",
+                                                    "statement":  "score: 0.1837",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122305128Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-17",
+                                                    "statement":  "source: PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122306399Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-18",
+                                                    "statement":  "excerpt: A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned e...",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122307920Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-19",
+                                                    "statement":  "score: 0.1825",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122309597Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-20",
+                                                    "statement":  "source: PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:18.122310675Z"
+                                                },
+                                                {
+                                                    "factId":  "retrieved-1",
+                                                    "statement":  "teacher availability gap may contribute to A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nA rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned evidence identity: pilot-v05r-education-teacher-attendance-root-cause-analysis-001 / PILOT_V05R_EDUCATION_TEACHER_ATT",
+                                                    "source":  "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                    "sourceType":  "null",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.2233,
+                                                    "timestamp":  "2026-08-14T05:27:18.123226318Z"
+                                                },
+                                                {
+                                                    "factId":  "retrieved-2",
+                                                    "statement":  "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.",
+                                                    "source":  "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                    "sourceType":  "null",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.1837,
+                                                    "timestamp":  "2026-08-14T05:27:18.123230134Z"
+                                                },
+                                                {
+                                                    "factId":  "retrieved-3",
+                                                    "statement":  "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned evidence identity: pilot-v05r-education-teacher-attendance-root-cause-analysis-001 / PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS.",
+                                                    "source":  "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                    "sourceType":  "null",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.1825,
+                                                    "timestamp":  "2026-08-14T05:27:18.123231372Z"
+                                                }
+                                            ],
+                          "contributingFactors":  [
+                                                      {
+                                                          "factor":  "school access barrier",
+                                                          "supportingEvidence":  [
+                                                                                     "fact-12",
+                                                                                     "fact-15",
+                                                                                     "fact-18",
+                                                                                     "retrieved-1",
+                                                                                     "retrieved-2",
+                                                                                     "retrieved-3"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.86,
+                                                          "source":  "EVIDENCE_FUSION"
+                                                      },
+                                                      {
+                                                          "factor":  "teacher availability gap",
+                                                          "supportingEvidence":  [
+                                                                                     "fact-10",
+                                                                                     "fact-12",
+                                                                                     "fact-15",
+                                                                                     "fact-18",
+                                                                                     "retrieved-1",
+                                                                                     "retrieved-2"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.86,
+                                                          "source":  "EVIDENCE_FUSION"
+                                                      }
+                                                  ],
+                          "candidateRootCauses":  [
+                                                      {
+                                                          "rootCauseId":  "root-cause-1",
+                                                          "description":  "school access barrier may contribute to What visible classroom conditions are present?",
+                                                          "supportingFacts":  [
+                                                                                  "fact-12",
+                                                                                  "fact-15",
+                                                                                  "fact-18",
+                                                                                  "retrieved-1",
+                                                                                  "retrieved-2",
+                                                                                  "retrieved-3"
+                                                                              ],
+                                                          "supportingEvidence":  [
+                                                                                     "fact-12",
+                                                                                     "fact-15",
+                                                                                     "fact-18",
+                                                                                     "retrieved-1",
+                                                                                     "retrieved-2",
+                                                                                     "retrieved-3",
+                                                                                     "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                                     "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                                     "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.92,
+                                                          "affectedDomain":  "EDUCATION",
+                                                          "assumptions":  [
+                                                                              "Survey or evidence statements are treated as direct observations, not causal proof."
+                                                                          ],
+                                                          "uncertainty":  "Causality is not scientifically established; evidence supports a likely contributing association.",
+                                                          "reasoningSummary":  "Identified because observed facts and retrieved evidence align with the candidate factor. This is a decision-support inference, not a scientific causal claim."
+                                                      },
+                                                      {
+                                                          "rootCauseId":  "root-cause-2",
+                                                          "description":  "teacher availability gap may contribute to What visible classroom conditions are present?",
+                                                          "supportingFacts":  [
+                                                                                  "fact-10",
+                                                                                  "fact-12",
+                                                                                  "fact-15",
+                                                                                  "fact-18",
+                                                                                  "retrieved-1",
+                                                                                  "retrieved-2"
+                                                                              ],
+                                                          "supportingEvidence":  [
+                                                                                     "fact-10",
+                                                                                     "fact-12",
+                                                                                     "fact-15",
+                                                                                     "fact-18",
+                                                                                     "retrieved-1",
+                                                                                     "retrieved-2",
+                                                                                     "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                                     "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                                     "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.92,
+                                                          "affectedDomain":  "EDUCATION",
+                                                          "assumptions":  [
+                                                                              "Survey or evidence statements are treated as direct observations, not causal proof."
+                                                                          ],
+                                                          "uncertainty":  "Causality is not scientifically established; evidence supports a likely contributing association.",
+                                                          "reasoningSummary":  "Identified because observed facts and retrieved evidence align with the candidate factor. This is a decision-support inference, not a scientific causal claim."
+                                                      }
+                                                  ],
+                          "validatedRootCauses":  [
+                                                      {
+                                                          "rootCauseId":  "root-cause-2",
+                                                          "description":  "teacher availability gap may contribute to What visible classroom conditions are present?",
+                                                          "supportingFacts":  [
+                                                                                  "fact-10",
+                                                                                  "fact-12",
+                                                                                  "fact-15",
+                                                                                  "fact-18",
+                                                                                  "retrieved-1",
+                                                                                  "retrieved-2"
+                                                                              ],
+                                                          "supportingEvidence":  [
+                                                                                     "fact-10",
+                                                                                     "fact-12",
+                                                                                     "fact-15",
+                                                                                     "fact-18",
+                                                                                     "retrieved-1",
+                                                                                     "retrieved-2",
+                                                                                     "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                                     "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                                     "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.92,
+                                                          "affectedDomain":  "EDUCATION",
+                                                          "assumptions":  [
+                                                                              "Survey or evidence statements are treated as direct observations, not causal proof."
+                                                                          ],
+                                                          "uncertainty":  "Causality is not scientifically established; evidence supports a likely contributing association.",
+                                                          "reasoningSummary":  "Identified because observed facts and retrieved evidence align with the candidate factor. This is a decision-support inference, not a scientific causal claim."
+                                                      }
+                                                  ],
+                          "alternativeHypotheses":  [
+                                                        {
+                                                            "hypothesisId":  "hypothesis-1",
+                                                            "description":  "household economic pressure could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for household economic pressure",
+                                                                                    "Time-series evidence linking household economic pressure to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        },
+                                                        {
+                                                            "hypothesisId":  "hypothesis-2",
+                                                            "description":  "health or nutrition issue could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for health or nutrition issue",
+                                                                                    "Time-series evidence linking health or nutrition issue to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        },
+                                                        {
+                                                            "hypothesisId":  "hypothesis-3",
+                                                            "description":  "seasonal migration could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for seasonal migration",
+                                                                                    "Time-series evidence linking seasonal migration to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        }
+                                                    ],
+                          "evidence":  [
+                                           {
+                                               "evidenceId":  "evidence-1",
+                                               "statement":  "What visible classroom conditions are present?",
+                                               "source":  "AI_INSPECTION_LAB",
+                                               "sourceType":  "PROBLEM_STATEMENT",
+                                               "reliability":  0.62,
+                                               "relevance":  0.8333,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.7429,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-2",
+                                               "statement":  "category: visual_observation",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-3",
+                                               "statement":  "statement: The image shows a classroom full of children sitting at desks in front of a chalkboard. There are many kids present, with some sitting on chairs while others are standing around the room. The chalkboard is located near the center of the scene and serves as ...",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.3333,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.6433,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-4",
+                                               "statement":  "sourceType: VISION_OBSERVATION",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-5",
+                                               "statement":  "category: visual_observation",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-6",
+                                               "statement":  "statement: There are several chairs placed throughout the classroom, with some kids sitting on them while others stand nearby. A backpack can also be seen near one of",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.1667,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.5867,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-7",
+                                               "statement":  "sourceType: VISION_OBSERVATION",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-8",
+                                               "statement":  "uncertainty: The image does not establish a diagnosis or cause.",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.5108,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-9",
+                                               "statement":  "question: What visible classroom conditions are present?",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  0.8333,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.7941,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-10",
+                                               "statement":  "retrievalRepresentation: {domainContext={label=Education, retrievalDomain=education, source=USER_PROVIDED_CONTEXT, imageDomainAssumed=false}, question=What visible classroom conditions are present?, observedConcepts=[classroom, children, chalkboard, students, teacher], observationS...",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  1.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.8508,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-11",
+                                               "statement":  "visionModel: moondream:1.8b",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.5108,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-12",
+                                               "statement":  "excerpt: teacher availability gap may contribute to A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nA rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeache...",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-13",
+                                               "statement":  "score: 0.2233",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-14",
+                                               "statement":  "source: PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-15",
+                                               "statement":  "excerpt: A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-16",
+                                               "statement":  "score: 0.1837",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-17",
+                                               "statement":  "source: PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-18",
+                                               "statement":  "excerpt: A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned e...",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-19",
+                                               "statement":  "score: 0.1825",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-20",
+                                               "statement":  "source: PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-21",
+                                               "statement":  "teacher availability gap may contribute to A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nA rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned evidence identity: pilot-v05r-education-teacher-attendance-root-cause-analysis-001 / PILOT_V05R_EDUCATION_TEACHER_ATT",
+                                               "source":  "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                               "sourceType":  "null",
+                                               "reliability":  0.62,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4596,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-22",
+                                               "statement":  "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.",
+                                               "source":  "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                               "sourceType":  "null",
+                                               "reliability":  0.62,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4596,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-23",
+                                               "statement":  "A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned evidence identity: pilot-v05r-education-teacher-attendance-root-cause-analysis-001 / PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS.",
+                                               "source":  "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                               "sourceType":  "null",
+                                               "reliability":  0.62,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4596,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           }
+                                       ],
+                          "uncertainties":  [
+                                                {
+                                                    "uncertaintyId":  "uncertainty-explicit-evidence",
+                                                    "statement":  "Source evidence explicitly reports an unresolved or inconsistent condition that requires human verification.",
+                                                    "missingEvidence":  [
+                                                                            "uncertainty: The image does not establish a diagnosis or cause.",
+                                                                            "excerpt: teacher availability gap may contribute to A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nA rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeache...",
+                                                                            "excerpt: A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.",
+                                                                            "excerpt: A rural school reports teacher attendance gaps and the cause of missed instructional time is uncertain.\nTeacher attendance gaps are reported during the controlled pilot.\nStaff rosters, attendance registers, and timetable records are not supplied.\nGoverned e..."
+                                                                        ],
+                                                    "followUpQuestions":  [
+                                                                              "Which age groups have declining attendance?",
+                                                                              "What is the distance to school?",
+                                                                              "Are absences seasonal?"
+                                                                          ],
+                                                    "severity":  "MEDIUM"
+                                                }
+                                            ],
+                          "confidence":  {
+                                             "overall":  0.5894,
+                                             "sourceReliability":  0.7443,
+                                             "evidenceRelevance":  0.1377,
+                                             "evidenceFreshness":  0.78,
+                                             "evidenceQuantity":  0.9,
+                                             "evidenceConsistency":  0.76,
+                                             "contradictionPenalty":  0.0,
+                                             "interpretation":  "Confidence is a transparent decision-support score, not a calibrated scientific probability."
+                                         },
+                          "limitations":  [
+                                              "The analysis provides decision-support confidence, not calibrated scientific causal probability.",
+                                              "Evidence is insufficient for high-confidence root-cause validation."
+                                          ],
+                          "followUpQuestions":  [
+                                                    "Which age groups have declining attendance?",
+                                                    "What is the distance to school?",
+                                                    "Are absences seasonal?"
+                                                ],
+                          "causalGraph":  [
+                                              {
+                                                  "from":  "school access barrier",
+                                                  "to":  "What visible classroom conditions are present?",
+                                                  "relationshipType":  "FACTOR_ASSOCIATED_WITH_OUTCOME",
+                                                  "confidence":  0.86,
+                                                  "evidence":  [
+                                                                   "fact-12",
+                                                                   "fact-15",
+                                                                   "fact-18",
+                                                                   "retrieved-1",
+                                                                   "retrieved-2",
+                                                                   "retrieved-3"
+                                                               ],
+                                                  "source":  "EVIDENCE_FUSION"
+                                              },
+                                              {
+                                                  "from":  "teacher availability gap",
+                                                  "to":  "What visible classroom conditions are present?",
+                                                  "relationshipType":  "FACTOR_ASSOCIATED_WITH_OUTCOME",
+                                                  "confidence":  0.86,
+                                                  "evidence":  [
+                                                                   "fact-10",
+                                                                   "fact-12",
+                                                                   "fact-15",
+                                                                   "fact-18",
+                                                                   "retrieved-1",
+                                                                   "retrieved-2"
+                                                               ],
+                                                  "source":  "EVIDENCE_FUSION"
+                                              },
+                                              {
+                                                  "from":  "school access barrier may contribute to What visible classroom conditions are present?",
+                                                  "to":  "What visible classroom conditions are present?",
+                                                  "relationshipType":  "CANDIDATE_CAUSE_MAY_CONTRIBUTE_TO_OUTCOME",
+                                                  "confidence":  0.92,
+                                                  "evidence":  [
+                                                                   "fact-12",
+                                                                   "fact-15",
+                                                                   "fact-18",
+                                                                   "retrieved-1",
+                                                                   "retrieved-2",
+                                                                   "retrieved-3",
+                                                                   "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                   "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                   "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS"
+                                                               ],
+                                                  "source":  "ROOT_CAUSE_ENGINE"
+                                              },
+                                              {
+                                                  "from":  "teacher availability gap may contribute to What visible classroom conditions are present?",
+                                                  "to":  "What visible classroom conditions are present?",
+                                                  "relationshipType":  "CANDIDATE_CAUSE_MAY_CONTRIBUTE_TO_OUTCOME",
+                                                  "confidence":  0.92,
+                                                  "evidence":  [
+                                                                   "fact-10",
+                                                                   "fact-12",
+                                                                   "fact-15",
+                                                                   "fact-18",
+                                                                   "retrieved-1",
+                                                                   "retrieved-2",
+                                                                   "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                   "PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS",
+                                                                   "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS"
+                                                               ],
+                                                  "source":  "ROOT_CAUSE_ENGINE"
+                                              }
+                                          ],
+                          "model":  "qwen2.5-local",
+                          "modelVersion":  "qwen2.5:0.5b",
+                          "promptVersion":  "ROOT_CAUSE_INTELLIGENCE@1.0.0",
+                          "knowledgeSnapshot":  "rag-service:latest",
+                          "surveyVersion":  "image-inspection-rerun",
+                          "createdAt":  "2026-08-14T05:27:18.141882177Z"
+                      },
+        "recommendation":  {
+                               "recommendationSetId":  "e0cc2341-2f52-4749-9681-99b7e8a6fbf5",
+                               "rootCauseAnalysisId":  "1097fea8-36d1-4c26-b704-0e82e7a6b789",
+                               "status":  "AI_GENERATED",
+                               "options":  [
+                                               {
+                                                   "recommendationId":  "recommendation-1",
+                                                   "title":  "Teacher availability monitoring (education)",
+                                                   "description":  "Teacher availability monitoring to address: teacher availability gap may contribute to What visible classroom conditions are present?",
+                                                   "targetRootCause":  "teacher availability gap may contribute to What visible classroom conditions are present?",
+                                                   "targetPopulation":  null,
+                                                   "domain":  "EDUCATION",
+                                                   "interventionType":  "Service Operations",
+                                                   "priority":  1,
+                                                   "expectedOutcomes":  [
+                                                                            "Improved response to validated root cause",
+                                                                            "Reduced uncertainty through monitoring",
+                                                                            "Decision makers receive evidence-grounded intervention option"
+                                                                        ],
+                                                   "requiredResources":  [
+                                                                             "Human reviewer approval",
+                                                                             "Field verification records",
+                                                                             "Monitoring capacity",
+                                                                             "RESOURCE_INFORMATION_MISSING: budget/personnel/infrastructure availability must be verified"
+                                                                         ],
+                                                   "estimatedEffort":  "MEDIUM",
+                                                   "estimatedTimeframe":  "SHORT_TO_MEDIUM_TERM",
+                                                   "feasibility":  {
+                                                                       "rating":  "REQUIRES_RESOURCE_VERIFICATION",
+                                                                       "supportingFactors":  [
+                                                                                                 "Root cause is linked to proposed intervention",
+                                                                                                 "Human approval workflow is required"
+                                                                                             ],
+                                                                       "constraints":  [
+                                                                                           "humanApprovalRequired: true",
+                                                                                           "noAutomaticExecution: true",
+                                                                                           "allowed_source_ids: [PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS, PILOT_V05_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS, PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS]"
+                                                                                       ],
+                                                                       "resourceStatus":  "RESOURCE_INFORMATION_MISSING"
+                                                                   },
+                                                   "risks":  [
+                                                                 {
+                                                                     "riskType":  "Implementation Risk",
+                                                                     "description":  "Intervention may be delayed if responsible roles and inputs are not confirmed.",
+                                                                     "severity":  "MEDIUM",
+                                                                     "likelihood":  "POSSIBLE",
+                                                                     "mitigation":  "Confirm ownership during preparation phase.",
+                                                                     "evidenceOrAssumption":  "Implementation planning assumption"
+                                                                 },
+                                                                 {
+                                                                     "riskType":  "Adoption Risk",
+                                                                     "description":  "Households or local stakeholders may not adopt the intervention without outreach.",
+                                                                     "severity":  "MEDIUM",
+                                                                     "likelihood":  "POSSIBLE",
+                                                                     "mitigation":  "Include community communication and feedback loops.",
+                                                                     "evidenceOrAssumption":  "Common rural rollout risk"
+                                                                 },
+                                                                 {
+                                                                     "riskType":  "Data Risk",
+                                                                     "description":  "Budget, personnel, or infrastructure availability is unknown.",
+                                                                     "severity":  "HIGH",
+                                                                     "likelihood":  "LIKELY",
+                                                                     "mitigation":  "Collect resource inventory before approval.",
+                                                                     "evidenceOrAssumption":  "RESOURCE_INFORMATION_MISSING"
+                                                                 }
+                                                             ],
+                                                   "dependencies":  [
+                                                                        "Human approval",
+                                                                        "Field evidence validation",
+                                                                        "Resource inventory collection"
+                                                                    ],
+                                                   "evidence":  [
+                                                                    "PILOT_V05R_EDUCATION_TEACHER_ATTENDANCE_ROOT_CAUSE_ANALYSIS"
+                                                                ],
+                                                   "confidence":  {
+                                                                      "evidenceStrength":  0.42,
+                                                                      "recommendationConfidence":  0.645,
+                                                                      "implementationFeasibility":  0.38,
+                                                                      "interpretation":  "Evidence strength, recommendation confidence, and implementation feasibility are separate decision-support metrics."
+                                                                  },
+                                                   "assumptions":  [
+                                                                       "Resource availability is unknown and must be verified before approval."
+                                                                   ],
+                                                   "limitations":  [
+                                                                       "Recommendation is decision support and does not execute intervention automatically.",
+                                                                       "Outcomes are expected, not guaranteed.",
+                                                                       "RESOURCE_INFORMATION_MISSING"
+                                                                   ],
+                                                   "implementationPlan":  [
+                                                                              {
+                                                                                  "phase":  "Phase 1 - Preparation",
+                                                                                  "actions":  [
+                                                                                                  "Validate evidence",
+                                                                                                  "Confirm resource availability",
+                                                                                                  "Assign accountable role"
+                                                                                              ],
+                                                                                  "responsibleRole":  "Program coordinator",
+                                                                                  "requiredInputs":  [
+                                                                                                         "Reviewed root-cause analysis",
+                                                                                                         "Resource inventory"
+                                                                                                     ],
+                                                                                  "dependencies":  [
+                                                                                                       "Human approval"
+                                                                                                   ],
+                                                                                  "successIndicators":  [
+                                                                                                            "Evidence reviewed",
+                                                                                                            "Resource gaps documented"
+                                                                                                        ]
+                                                                              },
+                                                                              {
+                                                                                  "phase":  "Phase 2 - Implementation",
+                                                                                  "actions":  [
+                                                                                                  "Execute approved intervention tasks",
+                                                                                                  "Track blockers",
+                                                                                                  "Record field updates"
+                                                                                              ],
+                                                                                  "responsibleRole":  "Field implementation team",
+                                                                                  "requiredInputs":  [
+                                                                                                         "Approved recommendation",
+                                                                                                         "Inputs from preparation"
+                                                                                                     ],
+                                                                                  "dependencies":  [
+                                                                                                       "Confirmed resources"
+                                                                                                   ],
+                                                                                  "successIndicators":  [
+                                                                                                            "Implementation started",
+                                                                                                            "Blockers logged"
+                                                                                                        ]
+                                                                              },
+                                                                              {
+                                                                                  "phase":  "Phase 3 - Monitoring",
+                                                                                  "actions":  [
+                                                                                                  "Measure success indicators",
+                                                                                                  "Collect beneficiary feedback",
+                                                                                                  "Check unintended consequences"
+                                                                                              ],
+                                                                                  "responsibleRole":  "Monitoring officer",
+                                                                                  "requiredInputs":  [
+                                                                                                         "Indicator definitions",
+                                                                                                         "Field reports"
+                                                                                                     ],
+                                                                                  "dependencies":  [
+                                                                                                       "Implementation progress"
+                                                                                                   ],
+                                                                                  "successIndicators":  [
+                                                                                                            "Monitoring records available"
+                                                                                                        ]
+                                                                              },
+                                                                              {
+                                                                                  "phase":  "Phase 4 - Evaluation",
+                                                                                  "actions":  [
+                                                                                                  "Compare outcomes against baseline where available",
+                                                                                                  "Review evidence gaps",
+                                                                                                  "Decide continuation or revision"
+                                                                                              ],
+                                                                                  "responsibleRole":  "Review board",
+                                                                                  "requiredInputs":  [
+                                                                                                         "Monitoring data",
+                                                                                                         "Human review notes"
+                                                                                                     ],
+                                                                                  "dependencies":  [
+                                                                                                       "Completed monitoring"
+                                                                                                   ],
+                                                                                  "successIndicators":  [
+                                                                                                            "Evaluation decision recorded"
+                                                                                                        ]
+                                                                              }
+                                                                          ],
+                                                   "successIndicators":  [
+                                                                             {
+                                                                                 "name":  "Households reached",
+                                                                                 "baseline":  "BASELINE_DATA_REQUIRED",
+                                                                                 "target":  "TARGET_REQUIRES_HUMAN_APPROVAL",
+                                                                                 "measurementMethod":  "Field report",
+                                                                                 "measurementFrequency":  "Monthly",
+                                                                                 "dataGap":  "Baseline not supplied"
+                                                                             }
+                                                                         ],
+                                                   "status":  "AI_GENERATED"
+                                               }
+                                           ],
+                               "comparison":  [
+                                                  {
+                                                      "recommendationId":  "recommendation-1",
+                                                      "priorityScore":  0.5338,
+                                                      "advantages":  [
+                                                                         "Directly linked to validated root cause",
+                                                                         "Has explicit evidence and review requirements"
+                                                                     ],
+                                                      "disadvantages":  [
+                                                                            "Resource availability is not confirmed",
+                                                                            "Requires additional verification before approval"
+                                                                        ],
+                                                      "effortCategory":  "MEDIUM",
+                                                      "complexity":  "REQUIRES_RESOURCE_VERIFICATION",
+                                                      "unintendedConsequences":  [
+                                                                                     "May divert attention from alternative root causes if reviewed in isolation",
+                                                                                     "May underperform if local adoption barriers are missed"
+                                                                                 ],
+                                                      "scoreConfig":  {
+                                                                          "feasibility":  0.18,
+                                                                          "risk":  0.05,
+                                                                          "dependency":  0.03,
+                                                                          "urgency":  0.16,
+                                                                          "evidenceStrength":  0.18,
+                                                                          "impact":  0.22,
+                                                                          "resources":  0.1,
+                                                                          "affectedPopulation":  0.08
+                                                                      }
+                                                  }
+                                              ],
+                               "schemeMatches":  [
+
+                                                 ],
+                               "methodology":  [
+                                                   "Options are generated only from validated root causes.",
+                                                   "Priority score is a weighted decision-support score, not an objective best decision.",
+                                                   "Scheme matches require verified eligibility evidence before use.",
+                                                   "Human approval is required before implementation."
+                                               ],
+                               "model":  "qwen2.5-local",
+                               "modelVersion":  "qwen2.5:0.5b",
+                               "promptVersion":  "RECOMMENDATION_GENERATION@1.0.0",
+                               "knowledgeSnapshot":  "rag-service:latest",
+                               "evidenceSnapshot":  "vision-observations-and-governed-rag-rerun",
+                               "createdAt":  "2026-08-14T05:27:19.726841463Z"
+                           },
+        "failure":  null,
+        "latencyMs":  5805,
+        "reviewStatus":  "UNSCORED",
+        "humanScores":  {
+
+                        },
+        "reviewerComments":  null
+    },
+    {
+        "domain":  "Livelihoods",
+        "image":  "C:\\Users\\saira\\AppData\\Local\\Temp\\csp-livelihood.jpg",
+        "question":  "What visible market or livelihood activity is present?",
+        "oldQuery":  "User question: What visible market or livelihood activity is present?`nObserved terms: market livelihood road",
+        "oldResult":  "No governed evidence; root cause/recommendation generated.",
+        "authorizationAccount":  "pilot.operator.20260810@example.gov",
+        "authorizationPermissions":  [
+                                         "AI_ADMIN",
+                                         "AI_OPERATOR",
+                                         "SERVING_INFER"
+                                     ],
+        "status":  "FAILED",
+        "vision":  {
+                       "model":  "moondream:1.8b",
+                       "provider":  "ollama",
+                       "observations":  [
+                                            {
+                                                "description":  "In this image, there is a large group of people walking in front of a building with a dirt road nearby. The crowd consists of at least thirteen individuals, some carrying handbags as they walk together. The scene appears to be set in an outdoor area where the ground is covered in dirt and grass. There are also two cars parked close by, one on each side of the group.",
+                                                "type":  "visual_observation"
+                                            }
+                                        ],
+                       "uncertainty":  "The image does not establish a diagnosis or cause.",
+                       "latencyMs":  1203
+                   },
+        "newQuery":  "Evaluation context: Livelihoods (user-provided label; image domain not assumed)\nGoverned retrieval domain: livelihood\nUser question: What visible market or livelihood activity is present?\nObserved concepts: dirt road, people, building, dirt, road, cars\nObserved summary:\n- In this image, there is a large group of people walking in front of a building with a dirt road nearby. The crowd consists of at least thirteen individuals, some carrying handbags as they walk together. The scene appears to be set in an outdoor area where the ground is covered...\nModel uncertainty: The image does not establish a diagnosis or cause.",
+        "retrievedEvidence":  [
+                                  {
+                                      "sourceType":  "rag-service",
+                                      "sourceId":  "PILOT_V05_LIVELIHOOD_SUPPLY_CHAIN_RECOMMENDATION_GENERATION",
+                                      "excerpt":  "Small enterprises report supply-chain disruption for essential inputs and bounded coordination options are needed.\nInput delivery disruption is reported by small enterprises.\nOrder, transport, inventory, and price records are not supplied.",
+                                      "score":  0.1893,
+                                      "citationId":  "38f8d443-b424-416f-8461-85126af9d990",
+                                      "documentId":  "pilot-evaluation-evidence-pilot-v05-livelihood-supply-chain-recommendation-generation-001",
+                                      "title":  "Controlled pilot evidence: pilot-v05-livelihood-supply-chain-recommendation-generation-001",
+                                      "sourceUrl":  null,
+                                      "publisher":  "Rural Intelligence Controlled Evaluation Registry",
+                                      "page":  null,
+                                      "section":  "Document"
+                                  }
+                              ],
+        "rootCause":  {
+                          "analysisId":  "2f8beb8d-db13-4bb1-9d06-9af534c4cc2d",
+                          "versionNumber":  1,
+                          "problem":  {
+                                          "problemId":  "vision-rerun-94777870-1660-46ea-9aaf-d830c52e4f0c",
+                                          "village":  "Image inspection context",
+                                          "domain":  "LIVELIHOOD",
+                                          "description":  "What visible market or livelihood activity is present?",
+                                          "affectedPopulation":  null,
+                                          "severity":  "UNKNOWN",
+                                          "evidence":  [
+                                                           "In this image, there is a large group of people walking in front of a building with a dirt road nearby. The crowd consists of at least thirteen individuals, some carrying handbags as they walk together. The scene appears to be set in an outdoor area where the ground is covered in dirt and grass. There are also two cars parked close by, one on each side of the group."
+                                                       ],
+                                          "timestamp":  "2026-08-14T05:27:22.969383944Z",
+                                          "source":  "AI_INSPECTION_LAB"
+                                      },
+                          "observedFacts":  [
+                                                {
+                                                    "factId":  "fact-1",
+                                                    "statement":  "What visible market or livelihood activity is present?",
+                                                    "source":  "AI_INSPECTION_LAB",
+                                                    "sourceType":  "PROBLEM_STATEMENT",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.78,
+                                                    "timestamp":  "2026-08-14T05:27:22.969383944Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-2",
+                                                    "statement":  "category: visual_observation",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:22.969431020Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-3",
+                                                    "statement":  "statement: In this image, there is a large group of people walking in front of a building with a dirt road nearby. The crowd consists of at least thirteen individuals, some carrying handbags as they walk together. The scene appears to be set in an outdoor area where t...",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:22.969436892Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-4",
+                                                    "statement":  "sourceType: VISION_OBSERVATION",
+                                                    "source":  "uploaded-evidence",
+                                                    "sourceType":  "UPLOADED_EVIDENCE",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.82,
+                                                    "timestamp":  "2026-08-14T05:27:22.969439020Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-5",
+                                                    "statement":  "uncertainty: The image does not establish a diagnosis or cause.",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:22.969445713Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-6",
+                                                    "statement":  "question: What visible market or livelihood activity is present?",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:22.969447814Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-7",
+                                                    "statement":  "retrievalRepresentation: {domainContext={label=Livelihoods, retrievalDomain=livelihood, source=USER_PROVIDED_CONTEXT, imageDomainAssumed=false}, question=What visible market or livelihood activity is present?, observedConcepts=[dirt road, people, building, dirt, road, cars], observ...",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:22.969484393Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-8",
+                                                    "statement":  "visionModel: moondream:1.8b",
+                                                    "source":  "structured-data",
+                                                    "sourceType":  "STRUCTURED_DATA",
+                                                    "category":  "OBSERVED_FACT",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:22.969486551Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-9",
+                                                    "statement":  "excerpt: Small enterprises report supply-chain disruption for essential inputs and bounded coordination options are needed.\nInput delivery disruption is reported by small enterprises.\nOrder, transport, inventory, and price records are not supplied.",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:22.969489886Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-10",
+                                                    "statement":  "score: 0.1893",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:22.969501554Z"
+                                                },
+                                                {
+                                                    "factId":  "fact-11",
+                                                    "statement":  "source: PILOT_V05_LIVELIHOOD_SUPPLY_CHAIN_RECOMMENDATION_GENERATION",
+                                                    "source":  "caller-retrieved-document",
+                                                    "sourceType":  "RETRIEVED_DOCUMENT",
+                                                    "category":  "RETRIEVED_EVIDENCE",
+                                                    "confidence":  0.74,
+                                                    "timestamp":  "2026-08-14T05:27:22.969503147Z"
+                                                }
+                                            ],
+                          "contributingFactors":  [
+                                                      {
+                                                          "factor":  "market access constraint",
+                                                          "supportingEvidence":  [
+                                                                                     "fact-6",
+                                                                                     "fact-7"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.57,
+                                                          "source":  "EVIDENCE_FUSION"
+                                                      }
+                                                  ],
+                          "candidateRootCauses":  [
+                                                      {
+                                                          "rootCauseId":  "root-cause-1",
+                                                          "description":  "market access constraint may contribute to What visible market or livelihood activity is present?",
+                                                          "supportingFacts":  [
+                                                                                  "fact-6",
+                                                                                  "fact-7"
+                                                                              ],
+                                                          "supportingEvidence":  [
+                                                                                     "fact-6",
+                                                                                     "fact-7"
+                                                                                 ],
+                                                          "contradictingEvidence":  [
+
+                                                                                    ],
+                                                          "confidence":  0.63,
+                                                          "affectedDomain":  "LIVELIHOOD",
+                                                          "assumptions":  [
+                                                                              "Survey or evidence statements are treated as direct observations, not causal proof."
+                                                                          ],
+                                                          "uncertainty":  "Causality is not scientifically established; evidence supports a likely contributing association.",
+                                                          "reasoningSummary":  "Identified because observed facts and retrieved evidence align with the candidate factor. This is a decision-support inference, not a scientific causal claim."
+                                                      }
+                                                  ],
+                          "validatedRootCauses":  [
+
+                                                  ],
+                          "alternativeHypotheses":  [
+                                                        {
+                                                            "hypothesisId":  "hypothesis-1",
+                                                            "description":  "seasonal demand constraint could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for seasonal demand constraint",
+                                                                                    "Time-series evidence linking seasonal demand constraint to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        },
+                                                        {
+                                                            "hypothesisId":  "hypothesis-2",
+                                                            "description":  "credit or finance access could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for credit or finance access",
+                                                                                    "Time-series evidence linking credit or finance access to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        },
+                                                        {
+                                                            "hypothesisId":  "hypothesis-3",
+                                                            "description":  "local job availability could also explain the observed problem.",
+                                                            "supportingEvidence":  [
+
+                                                                                   ],
+                                                            "missingEvidence":  [
+                                                                                    "Targeted village measurements for local job availability",
+                                                                                    "Time-series evidence linking local job availability to the outcome"
+                                                                                ],
+                                                            "confidence":  0.34
+                                                        }
+                                                    ],
+                          "evidence":  [
+                                           {
+                                               "evidenceId":  "evidence-1",
+                                               "statement":  "What visible market or livelihood activity is present?",
+                                               "source":  "AI_INSPECTION_LAB",
+                                               "sourceType":  "PROBLEM_STATEMENT",
+                                               "reliability":  0.62,
+                                               "relevance":  1.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.7996,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-2",
+                                               "statement":  "category: visual_observation",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-3",
+                                               "statement":  "statement: In this image, there is a large group of people walking in front of a building with a dirt road nearby. The crowd consists of at least thirteen individuals, some carrying handbags as they walk together. The scene appears to be set in an outdoor area where t...",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-4",
+                                               "statement":  "sourceType: VISION_OBSERVATION",
+                                               "source":  "uploaded-evidence",
+                                               "sourceType":  "UPLOADED_EVIDENCE",
+                                               "reliability":  0.84,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.53,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-5",
+                                               "statement":  "uncertainty: The image does not establish a diagnosis or cause.",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.5108,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-6",
+                                               "statement":  "question: What visible market or livelihood activity is present?",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  1.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.8508,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-7",
+                                               "statement":  "retrievalRepresentation: {domainContext={label=Livelihoods, retrievalDomain=livelihood, source=USER_PROVIDED_CONTEXT, imageDomainAssumed=false}, question=What visible market or livelihood activity is present?, observedConcepts=[dirt road, people, building, dirt, road, cars], observ...",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  1.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.8508,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-8",
+                                               "statement":  "visionModel: moondream:1.8b",
+                                               "source":  "structured-data",
+                                               "sourceType":  "STRUCTURED_DATA",
+                                               "reliability":  0.78,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.5108,
+                                               "category":  "OBSERVED_FACT"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-9",
+                                               "statement":  "excerpt: Small enterprises report supply-chain disruption for essential inputs and bounded coordination options are needed.\nInput delivery disruption is reported by small enterprises.\nOrder, transport, inventory, and price records are not supplied.",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-10",
+                                               "statement":  "score: 0.1893",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           },
+                                           {
+                                               "evidenceId":  "evidence-11",
+                                               "statement":  "source: PILOT_V05_LIVELIHOOD_SUPPLY_CHAIN_RECOMMENDATION_GENERATION",
+                                               "source":  "caller-retrieved-document",
+                                               "sourceType":  "RETRIEVED_DOCUMENT",
+                                               "reliability":  0.72,
+                                               "relevance":  0.0,
+                                               "freshness":  0.78,
+                                               "consistency":  0.76,
+                                               "confidence":  0.4916,
+                                               "category":  "RETRIEVED_EVIDENCE"
+                                           }
+                                       ],
+                          "uncertainties":  [
+                                                {
+                                                    "uncertaintyId":  "uncertainty-explicit-evidence",
+                                                    "statement":  "Source evidence explicitly reports an unresolved or inconsistent condition that requires human verification.",
+                                                    "missingEvidence":  [
+                                                                            "uncertainty: The image does not establish a diagnosis or cause."
+                                                                        ],
+                                                    "followUpQuestions":  [
+                                                                              "Which households are most affected?",
+                                                                              "What changed recently?",
+                                                                              "What direct evidence can field staff verify?"
+                                                                          ],
+                                                    "severity":  "MEDIUM"
+                                                },
+                                                {
+                                                    "uncertaintyId":  "uncertainty-causal-strength",
+                                                    "statement":  "Evidence supports association but not strong causal attribution.",
+                                                    "missingEvidence":  [
+                                                                            "No controlled causal evidence",
+                                                                            "Limited longitudinal evidence"
+                                                                        ],
+                                                    "followUpQuestions":  [
+                                                                              "Which households are most affected?",
+                                                                              "What changed recently?",
+                                                                              "What direct evidence can field staff verify?"
+                                                                          ],
+                                                    "severity":  "MEDIUM"
+                                                }
+                                            ],
+                          "confidence":  {
+                                             "overall":  0.4865,
+                                             "sourceReliability":  0.7655,
+                                             "evidenceRelevance":  0.2727,
+                                             "evidenceFreshness":  0.78,
+                                             "evidenceQuantity":  0.9,
+                                             "evidenceConsistency":  0.76,
+                                             "contradictionPenalty":  0.0,
+                                             "interpretation":  "Confidence is a transparent decision-support score, not a calibrated scientific probability."
+                                         },
+                          "limitations":  [
+                                              "The analysis provides decision-support confidence, not calibrated scientific causal probability.",
+                                              "No trusted RAG citations were available for the problem.",
+                                              "Evidence is insufficient for high-confidence root-cause validation."
+                                          ],
+                          "followUpQuestions":  [
+                                                    "Which households are most affected?",
+                                                    "What changed recently?",
+                                                    "What direct evidence can field staff verify?"
+                                                ],
+                          "causalGraph":  [
+                                              {
+                                                  "from":  "market access constraint",
+                                                  "to":  "What visible market or livelihood activity is present?",
+                                                  "relationshipType":  "FACTOR_ASSOCIATED_WITH_OUTCOME",
+                                                  "confidence":  0.57,
+                                                  "evidence":  [
+                                                                   "fact-6",
+                                                                   "fact-7"
+                                                               ],
+                                                  "source":  "EVIDENCE_FUSION"
+                                              },
+                                              {
+                                                  "from":  "market access constraint may contribute to What visible market or livelihood activity is present?",
+                                                  "to":  "What visible market or livelihood activity is present?",
+                                                  "relationshipType":  "CANDIDATE_CAUSE_MAY_CONTRIBUTE_TO_OUTCOME",
+                                                  "confidence":  0.63,
+                                                  "evidence":  [
+                                                                   "fact-6",
+                                                                   "fact-7"
+                                                               ],
+                                                  "source":  "ROOT_CAUSE_ENGINE"
+                                              }
+                                          ],
+                          "model":  "qwen2.5-local",
+                          "modelVersion":  "qwen2.5:0.5b",
+                          "promptVersion":  "ROOT_CAUSE_INTELLIGENCE@1.0.0",
+                          "knowledgeSnapshot":  "rag-service:latest",
+                          "surveyVersion":  "image-inspection-rerun",
+                          "createdAt":  "2026-08-14T05:27:22.974206595Z"
+                      },
+        "recommendation":  null,
+        "failure":  "NO_VALIDATED_ROOT_CAUSE",
+        "latencyMs":  3219,
+        "reviewStatus":  "UNSCORED",
+        "humanScores":  {
+
+                        },
+        "reviewerComments":  null
+    },
+    {
+        "domain":  "Water \u0026 sanitation",
+        "image":  "C:\\Users\\saira\\AppData\\Local\\Temp\\csp-water-sanitation.jpg",
+        "question":  "What visible sanitation or water infrastructure is present?",
+        "oldQuery":  "No query was sent; request stopped at 403 ACCESS_DENIED before vision.",
+        "oldResult":  "ACCESS_DENIED before vision inference.",
+        "authorizationAccount":  "pilot.operator.20260810@example.gov",
+        "authorizationPermissions":  [
+                                         "AI_ADMIN",
+                                         "AI_OPERATOR",
+                                         "SERVING_INFER"
+                                     ],
+        "status":  "FAILED",
+        "vision":  {
+                       "model":  null,
+                       "provider":  null,
+                       "observations":  null,
+                       "uncertainty":  null,
+                       "latencyMs":  null
+                   },
+        "newQuery":  null,
+        "retrievedEvidence":  [
+
+                              ],
+        "rootCause":  null,
+        "recommendation":  null,
+        "failure":  "VISION_UNAVAILABLE",
+        "latencyMs":  96,
+        "visionError":  {
+                            "status":  503,
+                            "errorCode":  "VISION_UNAVAILABLE",
+                            "message":  "Vision analysis unavailable."
+                        },
+        "reviewStatus":  "UNSCORED",
+        "humanScores":  {
+
+                        },
+        "reviewerComments":  null
+    }
+]

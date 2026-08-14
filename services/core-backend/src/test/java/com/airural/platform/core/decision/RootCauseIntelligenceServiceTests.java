@@ -83,6 +83,25 @@ class RootCauseIntelligenceServiceTests {
         assertThat(response.uncertainties()).anyMatch(item -> item.uncertaintyId().equals("uncertainty-explicit-evidence"));
     }
 
+    @Test
+    void doesNotValidateRootCauseWhenRetrievedEvidenceIsSemanticallyUnrelated() {
+        RootCauseIntelligenceService service = serviceWithRag(List.of());
+        RootCauseAnalysisResponse response = service.analyze(new RootCauseAnalysisRequest(
+                new ProblemRequest("p-image", "Inspection context", "Agriculture", "Visible crop leaves have brown spots.", null, "UNKNOWN", List.of(), null, "AI_INSPECTION_LAB"),
+                List.of(),
+                List.of(Map.of("statement", "The crop leaves show brown spots and possible pest damage.")),
+                Map.of(),
+                List.of(Map.of("source_id", "unrelated-source", "excerpt", "Post-harvest market logistics and buyer delivery records.", "score", 0.86)),
+                null,
+                null,
+                "image-inspection-v1",
+                "rag-service:latest",
+                true), UUID.randomUUID());
+
+        assertThat(response.validatedRootCauses()).isEmpty();
+        assertThat(response.limitations()).anyMatch(item -> item.contains("No trusted RAG citations"));
+    }
+
     private RootCauseIntelligenceService serviceWithRag(List<CitationResponse> citations) {
         JdbcOperations jdbcTemplate = mock(JdbcOperations.class);
         RootCauseRagClient ragClient = (request, userId) -> new RagQueryResponse(UUID.randomUUID(), "Grounded RAG answer", citations, 5L, 10L);

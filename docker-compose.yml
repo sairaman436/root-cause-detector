@@ -24,6 +24,7 @@ services:
       POSTGRES_PASSWORD: airural_local_only
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EVENT_PUBLISHING_ENABLED: true
       EVENT_CONSUMERS_ENABLED: true
       QDRANT_URL: http://qdrant:6333
@@ -104,9 +105,12 @@ services:
       PORT: 8101
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       LLM_MODEL: ${LLM_MODEL:-qwen2.5:0.5b}
+      VISION_MODEL: ${VISION_MODEL:-moondream:1.8b}
       OLLAMA_BASE_URL: http://ollama:11434
       LLM_CONNECT_TIMEOUT_SECONDS: 3
       LLM_REQUEST_TIMEOUT_SECONDS: 120
+      VISION_REQUEST_TIMEOUT_SECONDS: ${VISION_REQUEST_TIMEOUT_SECONDS:-300}
+      VISION_MAX_IMAGE_BYTES: ${VISION_MAX_IMAGE_BYTES:-52428800}
       LLM_MAX_RETRIES: 1
     ports:
       - '8101:8101'
@@ -294,7 +298,8 @@ services:
       - platform
 
   ollama:
-    image: ollama/ollama:0.3.4
+    image: ollama/ollama:0.5.7
+    gpus: all
     ports:
       - '11434:11434'
     volumes:

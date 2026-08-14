@@ -11,15 +11,121 @@ import {
   AiAnalysisView,
   EvidenceRagView,
   EmptyState,
+  LiveDecisionTrace,
   MetricCard,
+  MultimodalEvaluationLab,
+  MultimodalInspectionLab,
   RecommendationWorkspace,
   RootCauseView,
+  MULTIMODAL_REVIEW_API_PATH,
+  MULTIMODAL_TRACE_API_PATH,
+  type MultimodalReviewPayload,
+  type MultimodalTraceQueue,
+  type VisionInspectionResult,
 } from './components/decision-support';
+
+export { MULTIMODAL_REVIEW_API_PATH, MULTIMODAL_TRACE_API_PATH } from './components/decision-support';
 
 const API_BASE = process.env.NEXT_PUBLIC_CORE_BACKEND_URL ?? 'http://localhost:8080';
 const LLM_MODEL = process.env.NEXT_PUBLIC_LLM_MODEL ?? 'qwen2.5:0.5b';
 const PLATFORM_ORG_ID = '00000000-0000-0000-0000-000000000001';
 const PLATFORM_ORG_CODE = 'PLATFORM';
+const SESSION_STORAGE_KEY = 'rural-intelligence.web-session';
+const VISION_GROUNDING_TERMS = new Set([
+  'agriculture', 'crop', 'crops', 'leaf', 'leaves', 'plant', 'plants', 'field', 'soil', 'irrigation', 'pest', 'pests', 'disease', 'diseases', 'damage', 'stress', 'spot', 'spots', 'brown', 'yellow', 'discoloration', 'wilting',
+  'building', 'schoolhouse', 'classroom', 'chalkboard', 'children', 'people', 'houses', 'house', 'roof', 'roofs', 'corrugated', 'rust', 'wear', 'village', 'road', 'dirt', 'bags', 'cars',
+  'water', 'sanitation', 'latrine', 'toilet', 'tank', 'drainage', 'flood', 'health', 'clinic', 'medicine', 'staffing', 'referral', 'energy', 'electricity', 'transformer', 'solar', 'panel', 'panels', 'wire', 'wires', 'school', 'teacher', 'student', 'students', 'dropout', 'market', 'livelihood', 'employment', 'housing', 'infrastructure', 'heat', 'drought', 'climate',
+]);
+const VISION_GROUNDING_PHRASES = [
+  'dry soil', 'brown leaves', 'yellow plants', 'dirt road', 'old schoolhouse', 'worn chalkboard',
+  'corrugated roofs', 'solar panels', 'water tank', 'health center', 'health clinic',
+];
+const VISION_DOMAIN_ALIASES: Record<string, string> = {
+  agriculture: 'agriculture',
+  healthcare: 'healthcare',
+  health: 'healthcare',
+  energy: 'energy',
+  education: 'education',
+  livelihoods: 'livelihood',
+  livelihood: 'livelihood',
+  'water & sanitation': 'sanitation',
+  sanitation: 'sanitation',
+  water: 'water',
+};
+
+export type VisionRetrievalRepresentation = {
+  domainContext: {
+    label: string;
+    retrievalDomain: string | null;
+    source: 'USER_PROVIDED_CONTEXT';
+    imageDomainAssumed: false;
+  };
+  question: string;
+  observedConcepts: string[];
+  observationSummary: string[];
+  uncertainty: string;
+};
+
+type VisionObservationInput = { description: string; type: string };
+
+function compactVisionText(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 3).trim()}...` : normalized;
+}
+
+function extractObservedConcepts(observations: VisionObservationInput[]): string[] {
+  const observedText = observations.map((observation) => observation.description).join(' ').toLowerCase();
+  const phrases = VISION_GROUNDING_PHRASES.filter((phrase) => observedText.includes(phrase));
+  const words = observedText.match(/[a-z][a-z-]{2,}/g) ?? [];
+  const terms = words.filter((term) => VISION_GROUNDING_TERMS.has(term.replace(/s$/, '')) || VISION_GROUNDING_TERMS.has(term));
+  return Array.from(new Set([...phrases, ...terms]));
+}
+
+function canonicalVisionDomain(domain: string): string | null {
+  return VISION_DOMAIN_ALIASES[domain.trim().toLowerCase()] ?? null;
+}
+
+/**
+ * Builds retrieval context from user-provided context and actual model observations.
+ * The representation is not evidence and intentionally marks the domain as unconfirmed image context.
+ */
+export function buildVisionRetrievalRepresentation(
+  domain: string,
+  question: string,
+  observations: VisionObservationInput[],
+  uncertainty: string,
+): VisionRetrievalRepresentation {
+  return {
+    domainContext: {
+      label: compactVisionText(domain || 'Unspecified', 120),
+      retrievalDomain: canonicalVisionDomain(domain),
+      source: 'USER_PROVIDED_CONTEXT',
+      imageDomainAssumed: false,
+    },
+    question: compactVisionText(question || 'What visible conditions are present in this image?', 600),
+    observedConcepts: extractObservedConcepts(observations),
+    observationSummary: observations
+      .map((observation) => compactVisionText(observation.description, 280))
+      .filter(Boolean)
+      .slice(0, 4),
+    uncertainty: compactVisionText(uncertainty || 'No additional model uncertainty was returned.', 500),
+  };
+}
+
+/** Builds the bounded text query sent to governed RAG retrieval. */
+export function buildVisionRetrievalQuery(representation: VisionRetrievalRepresentation): string {
+  const observationSummary = representation.observationSummary.length
+    ? representation.observationSummary.map((observation) => `- ${observation}`).join('\n')
+    : '- No validated observation text was returned.';
+  return [
+    `Evaluation context: ${representation.domainContext.label} (user-provided label; image domain not assumed)`,
+    `Governed retrieval domain: ${representation.domainContext.retrievalDomain ?? 'not asserted'}`,
+    `User question: ${representation.question}`,
+    `Observed concepts: ${representation.observedConcepts.join(', ') || 'none extracted from observations'}`,
+    `Observed summary:\n${observationSummary}`,
+    `Model uncertainty: ${representation.uncertainty}`,
+  ].join('\n');
+}
 
 type ApiEnvelope<T> = {
   data: T;
@@ -73,9 +179,26 @@ type EvidenceResponse = {
 };
 
 type RagResponse = {
-  id: string;
+  requestId: string;
   answer: string;
-  citations: Array<{ sourceType: string; sourceId: string; excerpt: string; score: number }>;
+  citations: Array<{
+    sourceType: string;
+    sourceId: string;
+    excerpt: string;
+    score: number;
+    citationId?: string;
+    documentId?: string;
+    title?: string;
+    publisher?: string;
+    page?: number;
+    section?: string;
+  }>;
+  supportStatus?: string;
+  citationValidationStatus?: string;
+  reasoningSummary?: string;
+  promptVersion?: string;
+  modelId?: string;
+  inferenceLatencyMs?: number;
 };
 
 type LlmAnalysisResponse = {
@@ -342,12 +465,38 @@ type WorkflowState = {
   report?: ReportResponse;
   trainingCandidates?: TrainingCandidateResponse[];
   humanEvaluation?: HumanEvaluationQueue;
+  multimodalEvaluation?: MultimodalTraceQueue;
 };
 
 type PageResponse<T> = {
   content: T[];
   totalElements: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
 };
+
+/** Collects every backend page so reviewer queues are not limited to page zero. */
+export async function collectTrainingCandidatePages<T>(
+  fetchPage: (page: number, size: number) => Promise<PageResponse<T>>,
+  pageSize = 50,
+): Promise<T[]> {
+  const all: T[] = [];
+  let page = 0;
+  let totalPages = 1;
+
+  do {
+    const response = await fetchPage(page, pageSize);
+    all.push(...response.content);
+    totalPages = Math.max(
+      totalPages,
+      response.totalPages ?? (response.content.length < pageSize ? page + 1 : page + 2),
+    );
+    page += 1;
+  } while (page < totalPages);
+
+  return all;
+}
 
 type PlatformSnapshot = {
   aiHealth?: {
@@ -375,11 +524,14 @@ type PlatformSnapshot = {
   }>;
 };
 
-const navItems = [
+export const navItems = [
   'Dashboard',
   'Login',
   'Survey',
   'Evidence / RAG',
+  'Live Decision Trace',
+  'AI Inspection Lab',
+  'Multimodal Evaluation Lab',
   'AI Analysis',
   'Root Cause Analysis',
   'Recommendations',
@@ -423,9 +575,14 @@ export default function WebPortalSprintOnePage() {
   );
   const [surveyAnswer, setSurveyAnswer] = useState('well');
   const [problemStatement, setProblemStatement] = useState(
-    'Village households report unreliable water access and delayed repairs.',
+    'Small farmers in our area are experiencing declining crop yields because soil quality has deteriorated over several growing seasons.',
   );
+  const [problemDomain, setProblemDomain] = useState('Agriculture');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [processingStage, setProcessingStage] = useState('idle');
+  const [visionInspection, setVisionInspection] = useState<VisionInspectionResult | undefined>();
+  const [evaluationImage, setEvaluationImage] = useState<{ name: string; type: string; size: number } | undefined>();
+  const [evaluationQuestion, setEvaluationQuestion] = useState('');
 
   async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const request = (accessToken?: string) => {
@@ -469,10 +626,12 @@ export default function WebPortalSprintOnePage() {
         body: JSON.stringify({ refreshToken }),
       });
       if (!response.ok) {
+        window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
         setState((current) => ({ ...current, token: undefined, profile: undefined }));
         return undefined;
       }
       const envelope = (await response.json()) as ApiEnvelope<TokenResponse>;
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(envelope.data));
       setState((current) => ({ ...current, token: envelope.data }));
       return envelope.data;
     })();
@@ -507,6 +666,7 @@ export default function WebPortalSprintOnePage() {
           }),
         });
       }
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(token));
       setState((current) => ({ ...current, token }));
       const profile = await fetchProfile(token.accessToken);
       setState((current) => ({ ...current, token, profile }));
@@ -523,6 +683,34 @@ export default function WebPortalSprintOnePage() {
     return ((await response.json()) as ApiEnvelope<UserProfile>).data;
   }
 
+  useEffect(() => {
+    const stored = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!stored) return;
+
+    let savedToken: TokenResponse;
+    try {
+      savedToken = JSON.parse(stored) as TokenResponse;
+    } catch {
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      return;
+    }
+
+    void (async () => {
+      const token =
+        new Date(savedToken.accessTokenExpiresAt).getTime() > Date.now()
+          ? savedToken
+          : await refreshAccessToken(savedToken.refreshToken);
+      if (!token) return;
+      try {
+        const profile = await fetchProfile(token.accessToken);
+        setState((current) => ({ ...current, token, profile }));
+      } catch {
+        window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        setState((current) => ({ ...current, token: undefined, profile: undefined }));
+      }
+    })();
+  }, []);
+
   async function loadPlatformSnapshot() {
     if (!state.token) return;
     const [aiHealth, deployment, candidates, humanEvaluation, datasets, evaluations] =
@@ -536,9 +724,11 @@ export default function WebPortalSprintOnePage() {
         api<{ status: string; environment: string; region: string }>(
           '/api/v1/platform/deployment-status',
         ).catch(() => undefined),
-        api<PageResponse<TrainingCandidateResponse>>('/api/v1/learning/candidates?size=50').catch(
-          () => undefined,
-        ),
+        collectTrainingCandidatePages((page, size) =>
+          api<PageResponse<TrainingCandidateResponse>>(
+            `/api/v1/learning/candidates?page=${page}&size=${size}`,
+          ),
+        ).catch(() => undefined),
         api<HumanEvaluationQueue>('/api/v1/evaluation/human/examples').catch(() => undefined),
         api<
           PageResponse<{ name: string; type: string; status: string; qualityScore: number | null }>
@@ -556,8 +746,8 @@ export default function WebPortalSprintOnePage() {
     setPlatformSnapshot({
       aiHealth,
       deployment,
-      candidateCount: candidates?.totalElements,
-      pendingCandidateCount: candidates?.content.filter(
+      candidateCount: candidates?.length,
+      pendingCandidateCount: candidates?.filter(
         (candidate) => candidate.approvalStatus === 'PENDING_APPROVAL',
       ).length,
       humanEvaluation: humanEvaluation
@@ -675,16 +865,36 @@ export default function WebPortalSprintOnePage() {
   }
 
   async function runAiWorkflow() {
-    await run('RAG, root-cause analysis, and recommendations generated.', async () => {
+    setProcessingStage('retrieving');
+    const succeeded = await run('RAG, root-cause analysis, and recommendations generated.', async () => {
+      setState((current) => ({
+        ...current,
+        rag: undefined,
+        llmAnalysis: undefined,
+        decision: undefined,
+        rootCauseAnalysis: undefined,
+        recommendations: undefined,
+      }));
       const rag = await api<RagResponse>('/api/v1/ai/rag/query', {
         method: 'POST',
         body: JSON.stringify({
           query: problemStatement,
           collectionName: 'knowledge',
           modelId: 'qwen2.5-local',
+          context: { governed_only: true, domain: problemDomain },
           topK: 5,
         }),
       });
+      if (
+        !rag.citations.length ||
+        rag.citations.some((citation) => !citation.sourceId || !citation.excerpt) ||
+        (rag.supportStatus && rag.supportStatus !== 'SUPPORTED') ||
+        (rag.citationValidationStatus && rag.citationValidationStatus !== 'VALIDATED')
+      ) {
+        throw new Error(`RAG_EVIDENCE_REQUIRED: ${rag.supportStatus ?? 'validated citations'} was not supported. Downstream analysis was stopped.`);
+      }
+      setProcessingStage('validating');
+      setProcessingStage('analyzing');
       const llmAnalysis = await api<LlmAnalysisResponse>('/api/v1/ai/analysis/root-cause', {
         method: 'POST',
         body: JSON.stringify({
@@ -723,7 +933,7 @@ export default function WebPortalSprintOnePage() {
             problem: {
               problemId: state.submission?.id ?? state.survey?.id ?? 'dashboard-problem',
               village: 'Demo Village',
-              domain: 'Water',
+              domain: problemDomain,
               description: problemStatement,
               affectedPopulation: 120,
               severity: 'HIGH',
@@ -768,6 +978,10 @@ export default function WebPortalSprintOnePage() {
           }),
         },
       );
+      if (!rootCauseAnalysis.validatedRootCauses.length) {
+        throw new Error('RECOMMENDATION_BLOCKED: no validated root cause was returned.');
+      }
+      setProcessingStage('recommending');
       const recommendations = await api<RecommendationSetResponse>(
         '/api/v1/recommendations/generate',
         {
@@ -805,6 +1019,7 @@ export default function WebPortalSprintOnePage() {
               humanApprovalRequired: true,
               noAutomaticExecution: true,
               implementationAuthority: 'Human reviewer',
+              allowed_source_ids: rag.citations.map((citation) => citation.sourceId),
             },
             domain: rootCauseAnalysis.problem.domain,
             targetPopulation: 120,
@@ -824,6 +1039,117 @@ export default function WebPortalSprintOnePage() {
       }));
       setRecommendationEditJson(JSON.stringify({ options: recommendations.options }, null, 2));
     });
+    setProcessingStage(succeeded ? 'idle' : 'failed');
+  }
+
+  async function runVisionInspection(file: File, question: string) {
+    if (!state.token) throw new Error('Sign in before analyzing an image.');
+    setVisionInspection(undefined);
+    const started = performance.now();
+    const body = new FormData();
+    body.append('image', file);
+    body.append('question', question);
+    const vision = await api<{
+      model: string;
+      provider: string;
+      observations: Array<{ description: string; type: string }>;
+      question: string;
+      uncertainty: string;
+      latency_ms: number;
+      gpu_memory?: Record<string, unknown> | null;
+    }>('/api/v1/ai/vision/analyze', { method: 'POST', body });
+    if (!vision.observations.length) throw new Error('Vision analysis could not be validated.');
+
+    const retrievalRepresentation = buildVisionRetrievalRepresentation(
+      problemDomain,
+      question,
+      vision.observations,
+      vision.uncertainty,
+    );
+    const retrievalQuery = buildVisionRetrievalQuery(retrievalRepresentation);
+    const rag = await api<RagResponse>('/api/v1/ai/rag/query', {
+      method: 'POST',
+      body: JSON.stringify({
+        query: retrievalQuery,
+        collectionName: 'knowledge',
+        modelId: LLM_MODEL,
+        context: {
+          governed_only: true,
+          ...(retrievalRepresentation.domainContext.retrievalDomain
+            ? { domain: retrievalRepresentation.domainContext.retrievalDomain }
+            : {}),
+          request_origin: 'VISION_OBSERVATIONS',
+          vision_retrieval: retrievalRepresentation,
+        },
+        topK: 5,
+      }),
+    });
+    const governedCitations = rag.citations.filter(
+      (citation) => Boolean(citation.sourceId && citation.excerpt) && (citation.score == null || citation.score >= 0.18),
+    );
+    if (
+      !governedCitations.length ||
+      (rag.supportStatus && rag.supportStatus !== 'SUPPORTED') ||
+      (rag.citationValidationStatus && rag.citationValidationStatus !== 'VALIDATED')
+    ) {
+      setVisionInspection({ vision, retrievalQuery, totalLatencyMs: Math.round(performance.now() - started) });
+      throw new Error('Insufficient governed evidence.');
+    }
+
+    const rootCause = await api<RootCauseAnalysisResponse>('/api/v1/analysis/root-cause', {
+      method: 'POST',
+      body: JSON.stringify({
+        problem: {
+        problemId: `vision-inspection-${Date.now()}`,
+          village: 'Image inspection context',
+          domain: retrievalRepresentation.domainContext.retrievalDomain ?? problemDomain,
+          description: question.trim() || retrievalQuery,
+          affectedPopulation: null,
+          severity: 'UNKNOWN',
+          evidence: vision.observations.map((observation) => observation.description),
+          source: 'AI_INSPECTION_LAB',
+        },
+        surveyResponses: [],
+        evidence: vision.observations.map((observation) => ({ statement: observation.description, sourceType: 'VISION_OBSERVATION', category: observation.type })),
+        structuredData: {
+          visionModel: vision.model,
+          question: vision.question,
+          uncertainty: vision.uncertainty,
+          retrievalRepresentation,
+        },
+        retrievedDocuments: governedCitations.map((citation) => ({ source: citation.sourceId, excerpt: citation.excerpt, score: citation.score })),
+        surveyId: state.survey?.id ?? null,
+        organizationId: state.profile?.organizationId ?? PLATFORM_ORG_ID,
+        surveyVersion: String(state.survey?.currentVersion ?? 'image-inspection'),
+        knowledgeSnapshot: 'rag-service:latest',
+        requireHumanReview: true,
+      }),
+    });
+    if (!rootCause.validatedRootCauses.length) {
+      setVisionInspection({ vision, retrievalQuery, rag, rootCause, totalLatencyMs: Math.round(performance.now() - started) });
+      throw new Error('Recommendation generation stopped because no validated root cause was returned.');
+    }
+    try {
+      const recommendations = await api<RecommendationSetResponse>('/api/v1/recommendations/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          rootCauseAnalysisId: rootCause.analysisId,
+          villageContext: { village: rootCause.problem.village, domain: rootCause.problem.domain, problem: rootCause.problem.description, severity: rootCause.problem.severity },
+          evidence: rootCause.observedFacts.map((fact) => ({ statement: fact.statement, sourceType: fact.sourceType, category: fact.category, confidence: fact.confidence })),
+          availableResources: {},
+          constraints: { humanApprovalRequired: true, noAutomaticExecution: true, allowed_source_ids: governedCitations.map((citation) => citation.sourceId) },
+          domain: rootCause.problem.domain,
+          targetPopulation: null,
+          knowledgeSnapshot: 'rag-service:latest',
+          evidenceSnapshot: 'vision-observations-and-governed-rag',
+          requireHumanApproval: true,
+        }),
+      });
+      setVisionInspection({ vision, retrievalQuery, rag, rootCause, recommendations, totalLatencyMs: Math.round(performance.now() - started) });
+    } catch (cause) {
+      setVisionInspection({ vision, retrievalQuery, rag, rootCause, totalLatencyMs: Math.round(performance.now() - started) });
+      throw cause;
+    }
   }
 
   async function reviewRecommendations(action: 'EDIT' | 'APPROVE' | 'REJECT') {
@@ -869,10 +1195,13 @@ export default function WebPortalSprintOnePage() {
 
   async function loadTrainingCandidates() {
     await run('Training review queue loaded.', async () => {
-      const page = await api<{ content: TrainingCandidateResponse[] }>(
-        '/api/v1/learning/candidates?size=50',
+      const candidates = await collectTrainingCandidatePages(
+        (page, size) =>
+          api<PageResponse<TrainingCandidateResponse>>(
+            `/api/v1/learning/candidates?page=${page}&size=${size}`,
+          ),
       );
-      setState((current) => ({ ...current, trainingCandidates: page.content }));
+      setState((current) => ({ ...current, trainingCandidates: candidates }));
     });
   }
 
@@ -880,6 +1209,23 @@ export default function WebPortalSprintOnePage() {
     await run('Human evaluation queue loaded.', async () => {
       const queue = await api<HumanEvaluationQueue>('/api/v1/evaluation/human/examples');
       setState((current) => ({ ...current, humanEvaluation: queue }));
+    });
+  }
+
+  async function loadMultimodalEvaluations() {
+    await run('Multimodal server trace queue loaded.', async () => {
+      const queue = await api<MultimodalTraceQueue>(MULTIMODAL_TRACE_API_PATH);
+      setState((current) => ({ ...current, multimodalEvaluation: queue }));
+    });
+  }
+
+  async function submitMultimodalReview(payload: MultimodalReviewPayload) {
+    await run('Multimodal human review submitted.', async () => {
+      await api(MULTIMODAL_REVIEW_API_PATH, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      await loadMultimodalEvaluations();
     });
   }
 
@@ -976,16 +1322,18 @@ export default function WebPortalSprintOnePage() {
     });
   }
 
-  async function run(success: string, action: () => Promise<void>) {
+  async function run(success: string, action: () => Promise<void>): Promise<boolean> {
     setError('');
     setMessage('Working...');
     setIsBusy(true);
     try {
       await action();
       setMessage(success);
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected workflow failure');
       setMessage('Workflow stopped.');
+      return false;
     } finally {
       setIsBusy(false);
     }
@@ -1059,7 +1407,12 @@ export default function WebPortalSprintOnePage() {
               aria-current={active === item ? 'page' : undefined}
               className={active === item ? 'active' : ''}
               key={item}
-              onClick={() => setActive(item)}
+              onClick={() => {
+                setActive(item);
+                if (item === 'Training Review' && state.token) {
+                  void loadTrainingCandidates();
+                }
+              }}
               type="button"
             >
               {item}
@@ -1334,6 +1687,58 @@ export default function WebPortalSprintOnePage() {
           </section>
         ) : null}
 
+        {active === 'Live Decision Trace' ? (
+          <LiveDecisionTrace
+            problem={problemStatement}
+            domain={problemDomain}
+            onDomainChange={setProblemDomain}
+            onProblemChange={setProblemStatement}
+            onRun={runAiWorkflow}
+            busy={isBusy}
+            rag={state.rag}
+            llm={state.llmAnalysis ? {
+              model: state.llmAnalysis.model,
+              promptVersion: state.llmAnalysis.promptVersion,
+              latencyMs: state.llmAnalysis.latencyMs,
+              output: state.llmAnalysis.output,
+            } : undefined}
+            rootCause={state.rootCauseAnalysis}
+            recommendations={state.recommendations}
+            error={error}
+            authenticated={Boolean(state.token)}
+            canRun={Boolean(state.survey)}
+            processingStage={processingStage}
+          />
+        ) : null}
+
+        {active === 'AI Inspection Lab' ? (
+          <MultimodalInspectionLab
+            authenticated={Boolean(state.token)}
+            busy={isBusy}
+            result={visionInspection}
+            onAnalyze={runVisionInspection}
+          />
+        ) : null}
+
+        {active === 'Multimodal Evaluation Lab' ? (
+          <MultimodalEvaluationLab
+            authenticated={Boolean(state.token)}
+            busy={isBusy}
+            result={visionInspection}
+            domain={problemDomain}
+            onDomainChange={setProblemDomain}
+            onAnalyze={runVisionInspection}
+            question={evaluationQuestion}
+            onQuestionChange={setEvaluationQuestion}
+            image={evaluationImage}
+            onFileSelected={(file) => setEvaluationImage(file ? { name: file.name, type: file.type, size: file.size } : undefined)}
+            serverQueue={state.multimodalEvaluation}
+            reviewerIdentity={state.profile?.email ?? state.profile?.username}
+            onLoadServerTraces={loadMultimodalEvaluations}
+            onSubmitServerReview={submitMultimodalReview}
+          />
+        ) : null}
+
         {active === 'AI Analysis' ? (
           <section className="panel form wide">
             <div className="sectionHeading">
@@ -1454,6 +1859,19 @@ export default function WebPortalSprintOnePage() {
               Reviewer identity is taken from the authenticated account. Pending, rejected, and
               synthetic candidates cannot enter the production dataset.
             </p>
+            {!state.token ? (
+              <p className="emptyState">
+                Sign in with an authorized review account before loading candidates.
+              </p>
+            ) : state.trainingCandidates ? (
+              <p className="emptyState">
+                {state.trainingCandidates.length} candidate(s) loaded. Review each item below.
+              </p>
+            ) : (
+              <p className="emptyState">
+                Loading the authenticated pending-candidate queue. Use Load Candidates to retry.
+              </p>
+            )}
             {state.trainingCandidates?.length ? (
               <div className="stack">
                 {state.trainingCandidates.map((candidate) => (
@@ -1959,7 +2377,7 @@ export default function WebPortalSprintOnePage() {
   );
 }
 
-function readableApiError(body: string, status: number): string {
+export function readableApiError(body: string, status: number): string {
   try {
     const payload = JSON.parse(body) as { errorCode?: string; message?: string };
     if (payload.errorCode === 'AUTHENTICATION_REQUIRED' || status === 401) {

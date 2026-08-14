@@ -1,0 +1,56 @@
+# Purpose: Pins the single controlled Qwen QLoRA Experiment 003.
+# Why it exists: Experiment 003 must consume only the immutable dataset-v0.3 snapshot and write a unique adapter.
+# Architecture fit: Isolated MLOps worker configuration; it never changes the base model, test split, or live review data.
+
+[experiment]
+name = "qwen2.5-0.5b-instruct-dataset-v0.3-experiment-003"
+seed = 42
+dataset_version = "dataset-v0.3"
+dataset_dir = "ml-platform/training-pipelines/dataset-v0.3"
+output_dir = "artifacts/training/qwen2.5-0.5b-instruct-dataset-v0.3/experiment-003"
+resume_from_checkpoint = ""
+
+[model]
+base_model = "Qwen/Qwen2.5-0.5B-Instruct"
+model_family = "QWEN"
+trust_remote_code = false
+torch_dtype = "bfloat16"
+
+[data]
+sequence_length = 1024
+train_files = ["root-cause-analysis.jsonl", "recommendation-generation.jsonl", "rag-grounded-responses.jsonl"]
+validation_files = ["root-cause-analysis.jsonl", "recommendation-generation.jsonl", "rag-grounded-responses.jsonl"]
+test_files = ["root-cause-analysis.jsonl", "recommendation-generation.jsonl", "rag-grounded-responses.jsonl"]
+
+[training]
+batch_size = 1
+gradient_accumulation_steps = 8
+learning_rate = 0.0002
+epochs = 1
+warmup_ratio = 0.03
+max_grad_norm = 1.0
+gradient_checkpointing = true
+logging_steps = 1
+evaluation_steps = 10
+save_steps = 10
+
+[lora]
+rank = 16
+alpha = 32
+dropout = 0.05
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+[quantization]
+method = "qlora_4bit"
+double_quantization = true
+quant_type = "nf4"
+compute_dtype = "bfloat16"
+
+[reproducibility]
+deterministic_algorithms = true
+
+[checkpoint]
+resume_supported = true
+save_optimizer_state = true
+save_tokenizer = true
+save_metadata = true

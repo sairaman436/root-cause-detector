@@ -2,6 +2,23 @@
 # Why it exists: Gives MLOps repeatable checks for quality, safety, explainability, and groundedness.
 # Architecture fit: Supports Milestone 11 evaluation pipeline and AI governance.
 evaluationFramework:
+  evaluationVersion: "1.0.0"
+  rubricVersion: "human-quality-rubric-1.0.0"
+  outputContractVersion: "dataset-v0.3"
+  methodologyDocument: "MODEL_EVALUATION_METHODOLOGY.md"
+  humanRubric: "rubrics/human-quality-rubric-v1.0.yaml"
+  requiredRunMetadata:
+    - model_version
+    - dataset_version
+    - prompt_version
+    - inference_configuration
+    - evaluation_version
+    - rubric_version
+  humanReview:
+    minimumIndependentReviewers: 2
+    blindModelIdentity: true
+    adjudicationRequiredOnScoreDifference: 1
+    scoreScale: "0-4"
   suites:
     - name: rag_groundedness
       metrics:
